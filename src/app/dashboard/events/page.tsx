@@ -48,10 +48,10 @@ export default async function EventsPage() {
                 {e.event_type && (
                   <Tag text={e.event_type.replace("_", " ")} color="rgba(200,169,110,0.15)" textColor="var(--gold2)" />
                 )}
-                {(e.sectors ?? []).slice(0, 3).map(s => (
+                {(e.sectors ?? []).slice(0, 3).map((s: string) => (
                   <Tag key={s} text={s} color="rgba(255,255,255,0.05)" textColor="rgba(232,226,217,0.4)" />
                 ))}
-                {(e.tickers ?? []).slice(0, 4).map(t => (
+                {(e.tickers ?? []).slice(0, 4).map((t:string) => (
                   <Tag key={t} text={t} color="rgba(78,202,153,0.1)" textColor="var(--signal-bull)" />
                 ))}
                 <span style={{ marginLeft: "auto", fontSize: "0.68rem", color: "rgba(232,226,217,0.25)" }}>
