@@ -20,7 +20,6 @@
     "@anthropic-ai/sdk": "0.39.0",
     "@supabase/supabase-js": "2.49.0",
     "@supabase/ssr": "0.5.2",
-    "stripe": "17.7.0",
     "zod": "3.23.8"
   },
   "devDependencies": {

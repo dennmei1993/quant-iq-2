@@ -14,8 +14,6 @@ CREATE TABLE IF NOT EXISTS profiles (
   full_name              text,
   plan                   text NOT NULL DEFAULT 'free'
                            CHECK (plan IN ('free','pro','advisor')),
-  stripe_customer_id     text UNIQUE,
-  stripe_subscription_id text UNIQUE,
   created_at             timestamptz DEFAULT now(),
   updated_at             timestamptz DEFAULT now()
 );
