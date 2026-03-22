@@ -2,12 +2,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { KpiCard } from '@/components/dashboard/KpiCard'
 import { EventFeedPreview, MacroGauges, SectorHeatmap } from '@/components/dashboard/widgets'
+
+
+
 import styles from './dashboard.module.css'
 
 export const revalidate = 60 // revalidate every 60 seconds
 
 export default async function DashboardPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // Fetch recent events
   const { data: events } = await supabase

@@ -6,7 +6,7 @@ import styles from '../dashboard.module.css'
 export const revalidate = 30
 
 export default async function EventsPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: events } = await supabase
     .from('events')

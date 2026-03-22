@@ -6,7 +6,7 @@ import panelStyles from '@/components/dashboard/ui.module.css'
 export const revalidate = 300
 
 export default async function ThemesPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: themes } = await supabase
     .from('themes')
