@@ -1,11 +1,16 @@
-import {NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// This function can be marked `async` if using `await` inside
-export default function proxy(request: NextRequest) {
-  return NextResponse.redirect(new URL('/home', request.url))
+export function proxy(request: NextRequest) {
+  const isLoggedIn = true // replace with real logic
+
+  if (!isLoggedIn && request.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  return NextResponse.next()
 }
- 
+
 export const config = {
-  matcher: '/about/:path*',
+  matcher: ['/dashboard/:path*'],
 }
