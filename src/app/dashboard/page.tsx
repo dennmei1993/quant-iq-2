@@ -1,9 +1,7 @@
 // src/app/dashboard/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import { KpiCard } from '@/components/dashboard/KpiCard'
-import { EventFeedPreview } from '@/components/dashboard/EventFeedPreview'
-import { MacroGauges } from '@/components/dashboard/MacroGauges'
-import { SectorHeatmap } from '@/components/dashboard/SectorHeatmap'
+import { EventFeedPreview, MacroGauges, SectorHeatmap } from '@/components/dashboard/widgets'
 import styles from './dashboard.module.css'
 
 export const revalidate = 60 // revalidate every 60 seconds
