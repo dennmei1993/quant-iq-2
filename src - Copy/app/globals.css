@@ -1,0 +1,53 @@
+/* src/app/globals.css */
+:root {
+  --navy:    #0f1c2e;
+  --navy2:   #162438;
+  --navy3:   #1e3350;
+  --cream:   #f5f0e8;
+  --light:   #e8e2d9;
+  --gold:    #c8a96e;
+  --gold2:   #dfc08a;
+  --rust:    #b84c2e;
+  --slate:   #2e3f52;
+  --green:   #2a7c5e;
+  --green2:  #3ba07a;
+  --red:     #b83030;
+  --red2:    #d44040;
+  --white:   #ffffff;
+
+  /* Dashboard palette */
+  --dash-bg:        #0d1825;
+  --dash-sidebar:   #0a1320;
+  --dash-border:    rgba(200,169,110,0.12);
+  --dash-text:      rgba(232,226,217,0.85);
+  --dash-muted:     rgba(200,185,165,0.45);
+  --dash-gold:      #c8a96e;
+  --signal-bull:    #4eca99;
+  --signal-bear:    #e87070;
+  --signal-neutral: #e09845;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--navy);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Utility */
+.font-display { font-family: 'Playfair Display', serif; }
+.font-mono    { font-family: 'DM Mono', monospace; }
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: rgba(200,169,110,0.3); border-radius: 3px; }
