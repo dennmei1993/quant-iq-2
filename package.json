@@ -12,8 +12,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.24.3",
     "@supabase/ssr": "0.5.2",
-    "@supabase/supabase-js": "2.45.4",
-    "next": "14.2.3",
+    "@supabase/supabase-js": "^2.99.3",
+    "next": "^16.2.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "recharts": "2.13.3",
@@ -24,7 +24,7 @@
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "eslint": "8.57.1",
-    "eslint-config-next": "14.2.3",
+    "eslint-config-next": "^16.2.1",
     "typescript": "5.7.2"
   }
 }
