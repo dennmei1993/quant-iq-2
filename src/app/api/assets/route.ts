@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ assets, count: assets.length });
   } catch (e) {
+    console.error('[api/assets]', e)
     const { body, status } = errorResponse(e);
     return NextResponse.json(body, { status });
   }

@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ themes: data ?? [] });
   } catch (e) {
+    console.error('[api/themes]', e)
     const { body, status } = errorResponse(e);
     return NextResponse.json(body, { status });
   }

@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ events: data ?? [], count: data?.length ?? 0 });
   } catch (e) {
-    const { body, status } = errorResponse(e);
-    return NextResponse.json(body, { status });
+    console.error('[api/events]', e)
+    const { body, status } = errorResponse(e)
+    return NextResponse.json(body, { status })
   }
 }
