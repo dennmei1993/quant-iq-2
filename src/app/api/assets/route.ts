@@ -2,10 +2,11 @@
 // Query params: type (stock|etf|crypto|commodity), signal (buy|watch|hold|avoid)
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
   try {
-    const { supabase } = await requireUser();
+    const supabase = createServiceClient();
     const p      = req.nextUrl.searchParams;
     const type   = p.get("type");
     const signal = p.get("signal");

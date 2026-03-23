@@ -17,11 +17,11 @@ export const runtime    = "nodejs";
 export const maxDuration = 300; // 5 min — requires Vercel Pro
 
 const QUERIES = [
-  "Federal Reserve interest rates monetary policy",
-  "US economy GDP inflation CPI unemployment",
-  "geopolitical risk sanctions trade war",
-  "stock market earnings S&P 500 corporate results",
-  "oil energy gold commodities prices",
+  "Federal Reserve interest rates inflation CPI",
+  "S&P 500 earnings revenue stock market rally selloff",
+  "GDP unemployment jobs report economic data",
+  "oil gold commodities futures prices OPEC",
+  "semiconductor AI chips technology stocks investment",
 ];
 
 export async function GET(req: NextRequest) {
@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
 
   const db = createServiceClient();
   const stats = { fetched: 0, new: 0, classified: 0, errors: 0 };
+  //const fromDate = "2026-02-28"
   const fromDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().replace("Z", "");
 
   // ── 1. Fetch ──────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
   // ── 4 & 5. Insert + classify ──────────────────────────────────────────────
   for (const article of fresh) {
     try {
-      const { data: row } = await db
+      const { data: row, error: insertError } = await db
         .from("events")
         .insert({
           headline:     article.title,
@@ -85,11 +86,23 @@ export async function GET(req: NextRequest) {
         .select("id")
         .single();
 
+        if (insertError) {
+          console.error("[insert error]", insertError.message, insertError.details);
+          stats.errors++;
+          continue;
+        }
+
       if (!row) continue;
 
       // 1 s spacing to stay well inside Anthropic rate limits
       await new Promise(r => setTimeout(r, 1000));
       const c = await classifyEvent(article.title, article.description);
+
+      // Skip events Claude determined are not market-relevant
+      if (c.impact_level === 'ignore') {
+        await db.from("events").delete().eq("id", row.id);
+        continue;
+      }
 
       await db.from("events").update({
         event_type:      c.event_type,

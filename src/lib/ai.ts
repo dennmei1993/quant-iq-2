@@ -19,7 +19,7 @@ export type EventType =
   | "monetary_policy" | "geopolitical" | "corporate"
   | "economic_data"   | "regulatory"   | "market_structure";
 
-export type ImpactLevel = "low" | "medium" | "high";
+export type ImpactLevel = "low" | "medium" | "high" | "ignore";
 
 export type Momentum =
   | "strong_up" | "moderate_up" | "neutral"
@@ -77,7 +77,9 @@ export async function classifyEvent(
   headline: string,
   description?: string
 ): Promise<ClassifiedEvent> {
-  const text = await ask(`You are a quantitative analyst classifying financial news for US market investors.
+  const text = await ask(`You are a quantitative analyst classifying financial news for US market investors. 
+
+First determine if this event has direct, material relevance to US financial markets and investable assets. If it does not (e.g. pure geopolitical commentary, sports, celebrity news, domestic politics with no market impact), respond with impact_level: 'ignore'.
 
 Headline: ${headline}${description ? `\nDescription: ${description}` : ""}
 
@@ -92,7 +94,7 @@ Respond ONLY with this JSON — no other text:
 }
 
 Sectors: technology, financials, energy, healthcare, defence, consumer, materials, utilities, real_estate, industrials, broad_market
-Impact: high = likely >2% move, medium = 0.5–2%, low = <0.5%
+Impact: high = likely >2% market move, medium = 0.5–2%, low = <0.5%, ignore = not directly relevant to US financial markets or investable assets (pure politics, sports, entertainment, military commentary with no market impact).
 Only include tickers you are highly confident are materially affected.`);
 
   return parseJSON<ClassifiedEvent>(text, {

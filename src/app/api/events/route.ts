@@ -2,10 +2,11 @@
 // Query params: limit (max 50), impact, sector, since (ISO timestamp)
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
   try {
-    const { supabase } = await requireUser();
+    const supabase = createServiceClient();
     const p = req.nextUrl.searchParams;
 
     const limit  = Math.min(Number(p.get("limit") ?? 30), 50);

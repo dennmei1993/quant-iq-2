@@ -6,7 +6,7 @@ export default async function DashboardPage() {
   const [
     { data: events },
     { data: themes },
-    { count: eventCount },
+    { count: eventCount, error },
   ] = await Promise.all([
     supabase
       .from("events")
@@ -24,6 +24,8 @@ export default async function DashboardPage() {
       .select("*", { count: "exact", head: true })
       .gte("published_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
   ]);
+
+  console.log("[dashboard] events:", events?.length, "error:", error?.message);
 
   const avgSentiment = events?.length
     ? (events.reduce((s, e) => s + (e.sentiment_score ?? 0), 0) / events.length).toFixed(2)
