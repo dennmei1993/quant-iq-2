@@ -25,7 +25,10 @@ const QUERIES = [
 ];
 
 export async function GET(req: NextRequest) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  const isVercelCron = req.headers.get("x-vercel-cron") === "1"
+  const isManualRun = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
+
+  if (!isVercelCron && !isManualRun) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

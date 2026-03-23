@@ -19,7 +19,10 @@ const TIMEFRAMES = ["1m", "3m", "6m"] as const;
 const TTL_HOURS  = { "1m": 24, "3m": 72, "6m": 168 } as const;
 
 export async function GET(req: NextRequest) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  const isVercelCron = req.headers.get("x-vercel-cron") === "1"
+  const isManualRun = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
+
+  if (!isVercelCron && !isManualRun) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

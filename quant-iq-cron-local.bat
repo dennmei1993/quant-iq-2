@@ -16,8 +16,8 @@
 :: ============================================================
 
 :: ── Config ────────────────────────────────────────────────────────────────────
-set APP_URL=https://your-app.vercel.app
-set CRON_SECRET=your_cron_secret_here
+set APP_URL=https://quant-iq.vercel.app
+set CRON_SECRET=a3f8c2e1d4b7a9f0e3c6d2b5a8f1e4c7d0b3a6f9e2c5d8b1a4f7e0c3d6b9a2f5
 set LOG_DIR=%~dp0logs
 set LOG_FILE=%LOG_DIR%\cron_%date:~-4,4%%date:~-7,2%%date:~-10,2%.log
 
