@@ -1,6 +1,7 @@
 // src/app/(marketing)/page.tsx
 import { createServiceClient } from '@/lib/supabase/server'
 import LandingPage from '@/components/landing/LandingPage'
+import CodeGate from '@/components/landing/CodeGate'
 
 export default async function Home() {
   const supabase = createServiceClient()
@@ -24,5 +25,9 @@ export default async function Home() {
       .limit(10),
   ])
 
-  return <LandingPage liveEvents={events ?? []} liveThemes={themes ?? []} liveSignals={signals ?? []} />
+  return (
+    <CodeGate>
+      <LandingPage />
+    </CodeGate>
+  )
 }
