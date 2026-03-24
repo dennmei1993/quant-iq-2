@@ -1,131 +1,247 @@
-import { createServerSupabaseClient } from "@/lib/supabase";
+/**
+ * app/dashboard/themes/page.tsx
+ *
+ * Investment themes page. Shows active 1m / 3m / 6m themes with:
+ *  - Conviction bar per theme
+ *  - Expandable ticker list with AI-assigned weight bars + rationale
+ */
 
-const MOMENTUM_LABEL: Record<string, string> = {
-  strong_up:     "Strong ↑",
-  moderate_up:   "Moderate ↑",
-  neutral:       "Neutral →",
-  moderate_down: "Moderate ↓",
-  strong_down:   "Strong ↓",
-};
+'use client'
 
-const MOMENTUM_COLOR: Record<string, string> = {
-  strong_up:     "var(--signal-bull)",
-  moderate_up:   "#8de0bf",
-  neutral:       "var(--signal-neut)",
-  moderate_down: "#e8a070",
-  strong_down:   "var(--signal-bear)",
-};
+import { useEffect, useState, useCallback } from 'react'
+import styles from './themes.module.css'
 
-type Theme = {
-  id: string;
-  name: string;
-  label: string | null;
-  timeframe: string;
-  conviction: number | null;
-  momentum: string | null;
-  brief: string | null;
-  candidate_tickers: string[] | null;
-  expires_at: string | null;
-};
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export default async function ThemesPage() {
-  const supabase = await createServerSupabaseClient();
-
-  const { data: themes } = await supabase
-    .from("themes")
-    .select("*")
-    .eq("is_active", true)
-    .order("timeframe");
-
-  const byTimeframe: Record<string, Theme[]> = {
-    "1m": (themes ?? []).filter(t => t.timeframe === "1m") as Theme[],
-    "3m": (themes ?? []).filter(t => t.timeframe === "3m") as Theme[],
-    "6m": (themes ?? []).filter(t => t.timeframe === "6m") as Theme[],
-  };
-
-  return (
-    <div>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ color: "var(--cream)", fontFamily: "serif", fontSize: "1.8rem", marginBottom: "0.25rem" }}>
-          Investment themes
-        </h1>
-        <p style={{ color: "rgba(232,226,217,0.35)", fontSize: "0.82rem" }}>
-          AI-generated investment theses across 1m, 3m, and 6m horizons
-        </p>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1.5rem" }}>
-        {(["1m", "3m", "6m"] as const).map(tf => (
-          <div key={tf}>
-            <div style={{ fontSize: "0.68rem", fontWeight: 500, color: "rgba(200,169,110,0.5)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: "0.75rem" }}>
-              {tf === "1m" ? "1 Month" : tf === "3m" ? "3 Months" : "6 Months"}
-            </div>
-            {byTimeframe[tf].length ? byTimeframe[tf].map(t => (
-              <ThemeCard key={t.id} theme={t} />
-            )) : (
-              <div style={{ color: "rgba(232,226,217,0.2)", fontSize: "0.78rem", padding: "1rem 0" }}>
-                No active theme — runs after next cron.
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+interface TickerWeight {
+  ticker:    string
+  weight:    number
+  rationale: string | null
 }
 
-function ThemeCard({ theme }: { theme: Theme }) {
-  const momentum   = theme.momentum ?? "neutral";
-  const conviction = theme.conviction ?? 0;
-  const mColor     = MOMENTUM_COLOR[momentum] ?? "var(--signal-neut)";
-  const tickers    = theme.candidate_tickers ?? [];
+interface Theme {
+  id:                 string
+  name:               string
+  timeframe:          '1m' | '3m' | '6m'
+  conviction:         number
+  momentum:           string
+  brief:              string
+  candidate_tickers:  string[]
+  tickers:            TickerWeight[]
+  expires_at:         string | null
+  // Anchor fields
+  is_anchored:        boolean
+  anchor_score:       number
+  anchored_since:     string | null
+  anchor_reason:      string | null
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const TF_LABELS: Record<string, string> = {
+  '1m': '1 month',
+  '3m': '3 months',
+  '6m': '6 months',
+}
+
+const MOMENTUM: Record<string, { label: string; cls: string }> = {
+  strong_up:     { label: '↑↑ Strong',    cls: styles.momSU },
+  moderate_up:   { label: '↑ Moderate',   cls: styles.momMU },
+  neutral:       { label: '→ Neutral',    cls: styles.momN  },
+  moderate_down: { label: '↓ Moderate',   cls: styles.momMD },
+  strong_down:   { label: '↓↓ Strong',    cls: styles.momSD },
+}
+
+// Weight label shown next to the bar
+function weightLabel(w: number): string {
+  if (w >= 0.85) return 'Primary'
+  if (w >= 0.6)  return 'Strong'
+  if (w >= 0.35) return 'Thematic'
+  return 'Peripheral'
+}
+
+// ─── WeightBar ────────────────────────────────────────────────────────────────
+
+function WeightBar({ weight }: { weight: number }) {
+  // Colour: gold → green as weight rises
+  const hue = Math.round(weight * 60)          // 0 = amber, 60 = green
+  const fill = `hsl(${hue + 30}, 60%, 40%)`
 
   return (
-    <div style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 10, padding: "1.2rem 1.3rem", marginBottom: "1rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.6rem" }}>
-        <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--cream)", lineHeight: 1.35 }}>
-          {theme.name}
-        </div>
-        {theme.label && (
-          <span style={{ fontSize: "0.65rem", background: "rgba(200,169,110,0.12)", color: "var(--gold)", padding: "0.15rem 0.45rem", borderRadius: 4, flexShrink: 0, marginLeft: "0.5rem" }}>
-            {theme.label}
-          </span>
-        )}
+    <div className={styles.wbWrap}>
+      <div className={styles.wbBg}>
+        <div className={styles.wbFill} style={{ width: `${weight * 100}%`, background: fill }} />
       </div>
+      <span className={styles.wbPct}>{(weight * 100).toFixed(0)}</span>
+      <span className={styles.wbLabel}>{weightLabel(weight)}</span>
+    </div>
+  )
+}
 
-      <div style={{ marginBottom: "0.6rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
-          <span style={{ fontSize: "0.68rem", color: mColor }}>
-            {MOMENTUM_LABEL[momentum] ?? "Neutral →"}
-          </span>
-          <span style={{ fontSize: "0.68rem", color: mColor }}>{conviction}/100</span>
-        </div>
-        <div style={{ height: 4, background: "rgba(255,255,255,0.07)", borderRadius: 2 }}>
-          <div style={{ width: `${conviction}%`, height: "100%", background: mColor, borderRadius: 2 }} />
-        </div>
-      </div>
+// ─── Anchor badge ─────────────────────────────────────────────────────────────
 
-      {theme.brief && (
-        <p style={{ fontSize: "0.78rem", color: "rgba(232,226,217,0.5)", lineHeight: 1.6, marginBottom: "0.75rem" }}>
-          {theme.brief}
-        </p>
+function AnchorBadge({ theme }: { theme: Theme }) {
+  if (!theme.is_anchored && !theme.anchored_since) return null
+
+  const since = theme.anchored_since
+    ? new Date(theme.anchored_since).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null
+
+  return (
+    <div className={styles.anchorBadge} title={theme.anchor_reason ?? ''}>
+      <span className={styles.anchorIcon}>⚓</span>
+      <span className={styles.anchorText}>
+        Anchored{since ? ` since ${since}` : ''}
+      </span>
+      {theme.anchor_reason && (
+        <span className={styles.anchorReason}>{theme.anchor_reason}</span>
       )}
+    </div>
+  )
+}
 
-      {tickers.length > 0 && (
-        <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-          {tickers.map((t: string) => (
-            <span key={t} style={{ fontSize: "0.68rem", background: "rgba(78,202,153,0.1)", color: "var(--signal-bull)", padding: "0.15rem 0.4rem", borderRadius: 4, fontWeight: 500 }}>
-              {t}
-            </span>
-          ))}
+// ─── ThemeCard ────────────────────────────────────────────────────────────────
+
+function ThemeCard({ theme }: { theme: Theme }) {
+  const [open, setOpen] = useState(false)
+  const mom = MOMENTUM[theme.momentum] ?? { label: theme.momentum, cls: styles.momN }
+
+  return (
+    <div className={styles.card}>
+
+      {/* Header — always visible, click to expand */}
+      <div className={styles.cardHeader} onClick={() => setOpen(o => !o)}>
+        <div className={styles.cardLeft}>
+          <h3 className={styles.cardName}>{theme.name}</h3>
+          <span className={`${styles.momBadge} ${mom.cls}`}>{mom.label}</span>
+          {theme.is_anchored && <AnchorBadge theme={theme} />}
+        </div>
+        <div className={styles.cardRight}>
+          <div className={styles.convRow}>
+            <span className={styles.convLabel}>Conviction</span>
+            <div className={styles.convBg}>
+              <div className={styles.convFill} style={{ width: `${theme.conviction}%` }} />
+            </div>
+            <span className={styles.convNum}>{theme.conviction}</span>
+          </div>
+          <span className={styles.chevron}>{open ? '↑' : '↓'}</span>
+        </div>
+      </div>
+
+      {/* Brief — always visible */}
+      <p className={styles.brief}>{theme.brief}</p>
+
+      {/* Tickers — expanded only */}
+      {open && (
+        <div className={styles.tickerList}>
+          <div className={styles.tickerListHeader}>
+            Tickers — AI relevance weight
+          </div>
+
+          {theme.tickers.length === 0 ? (
+            <p className={styles.noTickers}>
+              No weights yet — run the themes cron to populate.
+            </p>
+          ) : (
+            theme.tickers.map(tw => (
+              <div key={tw.ticker} className={styles.tickerRow}>
+                <span className={styles.tkSymbol}>{tw.ticker}</span>
+                <WeightBar weight={tw.weight} />
+                {tw.rationale && (
+                  <p className={styles.rationale}>{tw.rationale}</p>
+                )}
+              </div>
+            ))
+          )}
         </div>
       )}
 
       {theme.expires_at && (
-        <div style={{ fontSize: "0.65rem", color: "rgba(232,226,217,0.2)", marginTop: "0.75rem" }}>
-          Expires {new Date(theme.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-        </div>
+        <p className={styles.expiry}>
+          Refreshes {new Date(theme.expires_at).toLocaleDateString()}
+        </p>
       )}
     </div>
-  );
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function ThemesPage() {
+  const [themes,  setThemes]  = useState<Theme[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState<string | null>(null)
+  const [tf,      setTf]      = useState<'all' | '1m' | '3m' | '6m'>('all')
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const p = new URLSearchParams({ weights: 'true' })
+      if (tf !== 'all') p.set('timeframe', tf)
+      const res = await fetch(`/api/themes?${p}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setThemes((await res.json()).themes ?? [])
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [tf])
+
+  useEffect(() => { load() }, [load])
+
+  const grouped = (['1m', '3m', '6m'] as const).reduce((acc, t) => {
+    acc[t] = themes.filter(x => x.timeframe === t)
+    return acc
+  }, {} as Record<string, Theme[]>)
+
+  return (
+    <div className={styles.page}>
+
+      <div className={styles.header}>
+        <h1 className={styles.title}>Investment Themes</h1>
+        <p className={styles.sub}>
+          AI-generated macro themes. Tap a theme to see its constituent tickers
+          and relevance weights.
+        </p>
+      </div>
+
+      <div className={styles.filterBar}>
+        {(['all', '1m', '3m', '6m'] as const).map(t => (
+          <button
+            key={t}
+            className={`${styles.fb} ${tf === t ? styles.fbActive : ''}`}
+            onClick={() => setTf(t)}
+          >
+            {t === 'all' ? 'All horizons' : TF_LABELS[t]}
+          </button>
+        ))}
+      </div>
+
+      {loading && <div className={styles.state}>Loading…</div>}
+      {error   && <div className={styles.err}>{error}</div>}
+
+      {!loading && !error && (
+        <>
+          {(['1m', '3m', '6m'] as const).map(t => {
+            if (tf !== 'all' && tf !== t) return null
+            const group = grouped[t]
+            if (!group?.length) return null
+            return (
+              <section key={t} className={styles.section}>
+                <h2 className={styles.sectionLabel}>{TF_LABELS[t]} horizon</h2>
+                {group.map(theme => <ThemeCard key={theme.id} theme={theme} />)}
+              </section>
+            )
+          })}
+
+          {themes.length === 0 && (
+            <div className={styles.state}>
+              No active themes. Run the themes cron to generate them.
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
 }
