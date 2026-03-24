@@ -75,7 +75,16 @@ export async function GET(req: NextRequest) {
   const existingUrls = new Set((existingRows ?? []).map(r => r.source_url))
 
   const newArticles = articles.filter(a => !existingUrls.has(a.url))
-  log.push(`${newArticles.length} new articles after deduplication (${articles.length - newArticles.length} already stored)`)
+  log.push(`${newArticles.length} new articles after URL deduplication (${articles.length - newArticles.length} already stored)`)
+
+  // ── Step 2b: Fuzzy headline deduplication (cross-feed) ───────────────────
+  // Multiple feeds carry the same wire story with near-identical headlines.
+  // Cluster by 85% Levenshtein similarity, keep newest per cluster.
+  const dedupedArticles = fuzzyDeduplicateHeadlines(newArticles, 0.85)
+  const fuzzyRemoved = newArticles.length - dedupedArticles.length
+  if (fuzzyRemoved > 0) {
+    log.push(`Removed ${fuzzyRemoved} cross-feed duplicates (fuzzy match)`)
+  }
 
   // ── Step 3 & 4: Insert + classify ────────────────────────────────────────
   // Cap at 20 new articles per run to stay within timeout budget.
@@ -84,7 +93,7 @@ export async function GET(req: NextRequest) {
   const MAX_PER_RUN = 20
 
   // First process new articles from this fetch
-  const toInsert = newArticles.slice(0, MAX_PER_RUN)
+  const toInsert = dedupedArticles.slice(0, MAX_PER_RUN)
 
   // ── Step 3 & 4: Insert + classify ────────────────────────────────────────
 
@@ -238,4 +247,97 @@ export async function GET(req: NextRequest) {
     errors,
     ts: new Date().toISOString(),
   })
+}
+
+// ─── Fuzzy headline deduplication ────────────────────────────────────────────
+
+/**
+ * Remove near-duplicate headlines across feeds.
+ * Uses normalised Levenshtein similarity — no external dependencies.
+ *
+ * Algorithm:
+ *  1. Normalise each headline (lowercase, strip punctuation, collapse whitespace)
+ *  2. Compare each article against all already-accepted articles
+ *  3. If similarity >= threshold, discard the older one (keep newest)
+ *  4. O(n²) but n is small (~150 articles/run) so negligible cost
+ *
+ * @param articles  Articles already URL-deduplicated
+ * @param threshold 0.0–1.0, recommended 0.85
+ */
+function fuzzyDeduplicateHeadlines<T extends { headline: string; publishedAt: string }>(
+  articles: T[],
+  threshold: number
+): T[] {
+  // Sort newest first so when we drop a duplicate we keep the newer one
+  const sorted = [...articles].sort(
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  )
+
+  const accepted: T[] = []
+  const acceptedNorm: string[] = []
+
+  for (const article of sorted) {
+    const norm = normaliseHeadline(article.headline)
+
+    const isDupe = acceptedNorm.some(
+      existing => levenshteinSimilarity(norm, existing) >= threshold
+    )
+
+    if (!isDupe) {
+      accepted.push(article)
+      acceptedNorm.push(norm)
+    }
+  }
+
+  return accepted
+}
+
+/** Lowercase, strip punctuation, collapse whitespace */
+function normaliseHeadline(h: string): string {
+  return h
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Levenshtein similarity: 1.0 = identical, 0.0 = completely different.
+ * Optimised with early exit when similarity can't reach threshold.
+ */
+function levenshteinSimilarity(a: string, b: string): number {
+  if (a === b) return 1.0
+  if (!a.length || !b.length) return 0.0
+
+  // Early exit: if length difference alone makes similarity impossible
+  const maxLen = Math.max(a.length, b.length)
+  const minLen = Math.min(a.length, b.length)
+  if (minLen / maxLen < 0.6) return 0.0  // fast reject very different lengths
+
+  const dist = levenshteinDistance(a, b)
+  return 1 - dist / maxLen
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length
+  const n = b.length
+
+  // Use two rows instead of full matrix to save memory
+  let prev = Array.from({ length: n + 1 }, (_, i) => i)
+  let curr = new Array(n + 1).fill(0)
+
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      curr[j] = Math.min(
+        curr[j - 1] + 1,       // insertion
+        prev[j] + 1,           // deletion
+        prev[j - 1] + cost     // substitution
+      )
+    }
+    ;[prev, curr] = [curr, prev]
+  }
+
+  return prev[n]
 }
