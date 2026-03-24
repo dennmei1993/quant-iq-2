@@ -24,6 +24,9 @@ import { classifyEvent } from '@/lib/ai'
 import { fetchPricesForTickers, fetchSparklinesForTickers } from '@/lib/polygon'
 import { generateAlertsForAllUsers } from '@/lib/alerts'
 
+export const runtime     = 'nodejs'
+export const maxDuration = 300  // 5 minutes — requires Vercel Pro or cron function
+
 function isAuthorised(req: NextRequest): boolean {
   const auth   = req.headers.get('authorization') ?? ''
   const secret = process.env.CRON_SECRET ?? ''
@@ -75,11 +78,20 @@ export async function GET(req: NextRequest) {
   log.push(`${newArticles.length} new articles after deduplication (${articles.length - newArticles.length} already stored)`)
 
   // ── Step 3 & 4: Insert + classify ────────────────────────────────────────
+  // Cap at 20 new articles per run to stay within timeout budget.
+  // Remaining articles will be picked up on subsequent cron runs.
+  // Also pick up any previously inserted but unclassified articles (backlog).
+  const MAX_PER_RUN = 20
+
+  // First process new articles from this fetch
+  const toInsert = newArticles.slice(0, MAX_PER_RUN)
+
+  // ── Step 3 & 4: Insert + classify ────────────────────────────────────────
 
   let classified = 0
   let insertFailed = 0
 
-  for (const article of newArticles) {
+  for (const article of toInsert) {
     // Insert raw event
     const insertResult = await (supabase
       .from('events') as any)
@@ -127,6 +139,47 @@ export async function GET(req: NextRequest) {
   }
 
   log.push(`Classified: ${classified} events, insert failures: ${insertFailed}`)
+
+  // ── Backlog: classify previously unprocessed events ───────────────────────
+  // Picks up ai_processed=false rows from prior runs that hit timeout.
+  // Runs after new inserts so fresh articles are prioritised.
+  try {
+    const { data: backlog } = await supabase
+      .from('events')
+      .select('id, headline, ai_summary')
+      .eq('ai_processed', false)
+      .order('created_at', { ascending: true })
+      .limit(MAX_PER_RUN) as { data: { id: string; headline: string; ai_summary: string | null }[] | null }
+
+    if (backlog?.length) {
+      log.push(`Processing ${backlog.length} backlog events...`)
+      let backlogClassified = 0
+
+      for (const event of backlog) {
+        await new Promise(r => setTimeout(r, 1000))
+        try {
+          const classification = await classifyEvent(event.headline, event.ai_summary)
+          await (supabase.from('events') as any)
+            .update({
+              event_type:      classification.event_type,
+              sectors:         classification.sectors,
+              sentiment_score: classification.sentiment_score,
+              impact_level:    classification.impact_level,
+              tickers:         classification.tickers,
+              ai_summary:      classification.ai_summary,
+              ai_processed:    true,
+            })
+            .eq('id', event.id)
+          backlogClassified++
+        } catch (err) {
+          errors.push(`Backlog classification failed for ${event.id}: ${String(err)}`)
+        }
+      }
+      log.push(`Backlog: ${backlogClassified} / ${backlog.length} classified`)
+    }
+  } catch (err) {
+    errors.push(`Backlog fetch failed: ${String(err)}`)
+  }
 
   // ── Step 5: Polygon price sync ───────────────────────────────────────────
 
