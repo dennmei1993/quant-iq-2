@@ -264,7 +264,8 @@ export async function generateAssetSignals(
     .join('\n')
 
   const results: AssetSignalOutput[] = []
-  const BATCH = 20
+  const BATCH = 10   // reduced from 20 — keeps response well within token limit
+  const DELAY = 1500 // ms between batches
 
   for (let i = 0; i < assets.length; i += BATCH) {
     const batch = assets.slice(i, i + BATCH)
@@ -301,7 +302,7 @@ Signal rules:
     try {
       const response = await anthropic.messages.create({
         model:      'claude-sonnet-4-20250514',
-        max_tokens: 1024,
+        max_tokens: 2048,  // increased — 10 assets × ~80 tokens each + overhead
         messages:   [{ role: 'user', content: prompt }],
       })
 
@@ -323,7 +324,7 @@ Signal rules:
 
     // Rate limit protection between batches
     if (i + BATCH < assets.length) {
-      await new Promise(r => setTimeout(r, 1000))
+      await new Promise(r => setTimeout(r, DELAY))
     }
   }
 
