@@ -216,3 +216,116 @@ Professional, direct language. No bullet points. Plain prose only.`
     .join('')
     .trim()
 }
+
+// ─── generateAssetSignals ─────────────────────────────────────────────────────
+
+export interface AssetSignalInput {
+  ticker:     string
+  name:       string
+  asset_type: string
+  sector:     string | null
+}
+
+export interface ThemeInput {
+  name:               string
+  timeframe:          string
+  candidate_tickers:  string[]
+  conviction:         number
+  brief:              string
+}
+
+export interface AssetSignalOutput {
+  ticker:    string
+  signal:    'buy' | 'watch' | 'hold' | 'avoid'
+  score:     number   // 0–100
+  rationale: string   // one sentence
+}
+
+/**
+ * Score each asset against the current themes and recent events.
+ * Returns a signal (buy/watch/hold/avoid), score (0-100), and rationale.
+ *
+ * Batches assets in groups of 20 to keep prompt size manageable.
+ */
+export async function generateAssetSignals(
+  assets: AssetSignalInput[],
+  events: { headline: string; ai_summary?: string | null; sentiment_score?: number | null; impact_level?: string | null }[],
+  themes: ThemeInput[]
+): Promise<AssetSignalOutput[]> {
+  if (!assets.length) return []
+
+  const themesSummary = themes
+    .map(t => `${t.timeframe}: "${t.name}" (conviction ${t.conviction}) — tickers: ${t.candidate_tickers.join(', ')}`)
+    .join('\n')
+
+  const eventsSummary = events
+    .slice(0, 15)
+    .map(e => `- ${e.ai_summary ?? e.headline} [${e.impact_level ?? 'unknown'}, sentiment: ${(e.sentiment_score ?? 0).toFixed(2)}]`)
+    .join('\n')
+
+  const results: AssetSignalOutput[] = []
+  const BATCH = 20
+
+  for (let i = 0; i < assets.length; i += BATCH) {
+    const batch = assets.slice(i, i + BATCH)
+    const tickerList = batch.map(a => `${a.ticker} (${a.name}, ${a.asset_type}, sector: ${a.sector ?? 'unknown'})`).join('\n')
+
+    const prompt = `You are a quantitative investment analyst. Given the current investment themes and recent market events, score each asset.
+
+ACTIVE THEMES:
+${themesSummary}
+
+RECENT EVENTS:
+${eventsSummary}
+
+ASSETS TO SCORE:
+${tickerList}
+
+Respond ONLY with a valid JSON array. No markdown, no commentary.
+
+[
+  {
+    "ticker": "TICKER",
+    "signal": "<buy|watch|hold|avoid>",
+    "score": <integer 0-100>,
+    "rationale": "One sentence explaining the signal."
+  }
+]
+
+Signal rules:
+  buy   = 70-100: directly in an active theme or strong positive event exposure
+  watch = 50-69:  thematic tailwind or positive sector exposure
+  hold  = 30-49:  neutral, no strong signal either way
+  avoid = 0-29:   negative event exposure or bearish theme signal`
+
+    try {
+      const response = await anthropic.messages.create({
+        model:      'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages:   [{ role: 'user', content: prompt }],
+      })
+
+      const raw = response.content
+        .filter(b => b.type === 'text')
+        .map(b => (b as any).text)
+        .join('')
+        .trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim()
+
+      const parsed = JSON.parse(raw) as AssetSignalOutput[]
+      results.push(...parsed)
+    } catch (err) {
+      console.error(`[generateAssetSignals] batch ${i / BATCH + 1} failed:`, err)
+    }
+
+    // Rate limit protection between batches
+    if (i + BATCH < assets.length) {
+      await new Promise(r => setTimeout(r, 1000))
+    }
+  }
+
+  return results
+}

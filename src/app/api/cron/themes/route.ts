@@ -1,143 +1,188 @@
-// app/api/cron/themes/route.ts
-// Vercel Cron — runs 09:00 UTC daily  (vercel.json: "0 9 * * *")
-// 1. Fetch last 48 h of high/medium-impact events
-// 2. For each timeframe (1m / 3m / 6m): deactivate old theme → generate new one
-// 3. Update asset signals based on themes + events
-// 4. Refresh Polygon prices for stocks + ETFs
-//
-// Test locally:
-//   curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/themes
+/**
+ * app/api/cron/ingest/route.ts  — RSS edition
+ *
+ * Replaces the NewsAPI fetch with the RSS parser.
+ * Everything downstream (Claude classification, Polygon sync,
+ * alert generation) is unchanged.
+ *
+ * Flow:
+ *  1. Fetch all enabled RSS feeds concurrently
+ *  2. Deduplicate against events already in the DB (by url)
+ *  3. Insert new raw events
+ *  4. Classify each with Claude (1-second delay between calls)
+ *  5. Sync Polygon prices for all assets
+ *  6. Generate alerts for users with holdings
+ *
+ * Auth: CRON_SECRET bearer token
+ */
 
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase";
-import { generateTheme, generateAssetSignals } from "@/lib/ai";
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { fetchAllFeeds } from '@/lib/rss-parser'
+import { activeSources } from '@/lib/rss-sources'
+import { classifyEvent } from '@/lib/ai'
+import { fetchPricesForTickers, fetchSparklinesForTickers } from '@/lib/polygon'
+import { generateAlertsForAllUsers } from '@/lib/alerts'
 
-export const runtime     = "nodejs";
-export const maxDuration = 300;
-
-const TIMEFRAMES = ["1m", "3m", "6m"] as const;
-const TTL_HOURS  = { "1m": 24, "3m": 72, "6m": 168 } as const;
-
-export async function GET(req: NextRequest) {
-  const isVercelCron = req.headers.get("x-vercel-cron") === "1"
-  const isManualRun = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
-
-  if (!isVercelCron && !isManualRun) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const db    = createServiceClient();
-  const stats = { themes: 0, signals: 0, prices: 0, errors: 0 };
-  const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-
-  // ── 1. Fetch qualifying events ────────────────────────────────────────────
-  const { data: events } = await db
-    .from("events")
-    .select("headline, event_type, sectors, sentiment_score, impact_level, ai_summary")
-    .eq("ai_processed", true)
-    .in("impact_level", ["high", "medium"])
-    .gte("published_at", since)
-    .order("published_at", { ascending: false })
-    .limit(30);
-
-  if (!events?.length) {
-    return NextResponse.json({ ok: true, message: "No qualifying events", ...stats });
-  }
-
-  const generatedThemes: Array<{
-    name: string; timeframe: string;
-    candidate_tickers: string[]; conviction: number; brief: string;
-  }> = [];
-
-  // ── 2. Generate themes ────────────────────────────────────────────────────
-  for (const tf of TIMEFRAMES) {
-    try {
-      await db.from("themes")
-        .update({ is_active: false })
-        .eq("timeframe", tf)
-        .eq("is_active", true);
-
-      await new Promise(r => setTimeout(r, 1500));
-      const theme = await generateTheme(events, tf);
-
-      const expires_at = new Date(
-        Date.now() + TTL_HOURS[tf] * 60 * 60 * 1000
-      ).toISOString();
-
-      await db.from("themes").insert({
-        name:              theme.name,
-        label:             theme.label,
-        timeframe:         tf,
-        conviction:        theme.conviction,
-        momentum:          theme.momentum,
-        brief:             theme.brief,
-        candidate_tickers: theme.candidate_tickers,
-        is_active:         true,
-        expires_at,
-      });
-
-      generatedThemes.push({ timeframe: tf, ...theme });
-      stats.themes++;
-    } catch { stats.errors++; }
-  }
-
-  // ── 3. Update asset signals ───────────────────────────────────────────────
-  try {
-    const { data: assets } = await db
-      .from("assets")
-      .select("ticker, name, asset_type, sector");
-
-    if (assets?.length) {
-      await new Promise(r => setTimeout(r, 1500));
-      const signals = await generateAssetSignals(assets, events, generatedThemes);
-
-      for (const s of signals) {
-        await db.from("asset_signals")
-          .update({ signal: s.signal, score: s.score, rationale: s.rationale, updated_at: new Date().toISOString() })
-          .eq("ticker", s.ticker);
-      }
-      stats.signals = signals.length;
-    }
-  } catch { stats.errors++; }
-
-  // ── 4. Refresh Polygon prices ─────────────────────────────────────────────
-  stats.prices = await refreshPolygonPrices(db);
-
-  console.log("[cron/themes]", stats);
-  return NextResponse.json({ ok: true, ...stats });
+function isAuthorised(req: NextRequest): boolean {
+  const auth   = req.headers.get('authorization') ?? ''
+  const secret = process.env.CRON_SECRET ?? ''
+  return secret.length > 0 && auth === `Bearer ${secret}`
 }
 
-async function refreshPolygonPrices(db: ReturnType<typeof createServiceClient>) {
-  const key = process.env.POLYGON_API_KEY;
-  if (!key) return 0;
+function deriveSignal(pct: number): 'buy' | 'watch' | 'hold' | 'avoid' {
+  if (pct >= 2)  return 'buy'
+  if (pct >= 0.5) return 'watch'
+  if (pct >= -1) return 'hold'
+  return 'avoid'
+}
 
-  const { data: assets } = await db
-    .from("assets")
-    .select("ticker")
-    .in("asset_type", ["stock", "etf"]);
+function deriveSignalScore(pct: number): number {
+  return Math.round(Math.min(100, Math.max(0, 50 + pct * 10)))
+}
 
-  if (!assets?.length) return 0;
+export async function GET(req: NextRequest) {
+  if (!isAuthorised(req)) {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  }
+
+  const supabase = createServiceClient()
+  const log: string[] = []
+  const errors: string[] = []
+
+  // ── Step 1: Fetch RSS feeds ───────────────────────────────────────────────
+
+  log.push(`Fetching ${activeSources.length} RSS feeds...`)
+
+  const articles = await fetchAllFeeds(activeSources)
+  log.push(`Fetched ${articles.length} articles across all feeds`)
+
+  // ── Step 2: Deduplicate against DB ───────────────────────────────────────
+  // Batch-check which URLs are already stored to avoid N+1 queries.
+  // We check the most recent 500 event URLs to keep the query fast.
+
+  const incomingUrls = articles.map(a => a.url)
+
+  const { data: existingRows } = await supabase
+    .from('events')
+    .select('source_url')
+    .in('source_url', incomingUrls)
+    .not('source_url', 'is', null) as { data: { source_url: string }[] | null }
+
+  const existingUrls = new Set((existingRows ?? []).map(r => r.source_url))
+
+  const newArticles = articles.filter(a => !existingUrls.has(a.url))
+  log.push(`${newArticles.length} new articles after deduplication (${articles.length - newArticles.length} already stored)`)
+
+  // ── Step 3 & 4: Insert + classify ────────────────────────────────────────
+
+  let classified = 0
+  let insertFailed = 0
+
+  for (const article of newArticles) {
+    // Insert raw event
+    const insertResult = await (supabase
+      .from('events') as any)
+      .insert({
+        headline:     article.headline,
+        source:       'rss',
+        source_name:  article.sourceName,
+        source_url:   article.url,
+        published_at: article.publishedAt,
+        ai_processed: false,
+      })
+      .select('id')
+      .single()
+
+    const inserted  = (insertResult as any).data as { id: string } | null
+    const insertErr = (insertResult as any).error
+
+    if (insertErr || !inserted) {
+      insertFailed++
+      continue
+    }
+
+    // 1-second delay between Claude calls (rate limit protection)
+    await new Promise(r => setTimeout(r, 1000))
+
+    try {
+      const classification = await classifyEvent(article.headline, article.summary)
+
+      await (supabase.from('events') as any)
+        .update({
+          event_type:      classification.event_type,
+          sectors:         classification.sectors,
+          sentiment_score: classification.sentiment_score,
+          impact_level:    classification.impact_level,
+          tickers:         classification.tickers,
+          ai_summary:      classification.ai_summary,
+          ai_processed:    true,
+        })
+        .eq('id', inserted.id)
+
+      classified++
+    } catch (aiErr) {
+      errors.push(`Claude failed for event ${inserted.id}: ${String(aiErr)}`)
+    }
+  }
+
+  log.push(`Classified: ${classified} events, insert failures: ${insertFailed}`)
+
+  // ── Step 5: Polygon price sync ───────────────────────────────────────────
+
+  log.push('Syncing Polygon prices...')
 
   try {
-    const tickers = assets.map(a => a.ticker).join(",");
-    const res = await fetch(
-      `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers}&apiKey=${key}`
-    );
-    if (!res.ok) return 0;
-    const data = await res.json();
-    let updated = 0;
+    const { data: assets } = await supabase
+      .from('assets')
+      .select('ticker') as { data: { ticker: string }[] | null }
 
-    for (const item of data.tickers ?? []) {
-      const close    = item.day?.c ?? item.lastTrade?.p;
-      const prev     = item.prevDay?.c;
-      const changePct = close && prev ? +((close - prev) / prev * 100).toFixed(3) : null;
-      if (!close) continue;
+    const tickers = (assets ?? []).map(a => a.ticker)
 
-      await db.from("asset_signals")
-        .update({ price_usd: close, change_pct: changePct, updated_at: new Date().toISOString() })
-        .eq("ticker", item.ticker);
-      updated++;
+    if (tickers.length > 0) {
+      const prices     = await fetchPricesForTickers(tickers)
+      const sparklines = await fetchSparklinesForTickers([...prices.keys()])
+
+      const rows = [...prices.keys()].map(t => {
+        const p    = prices.get(t)!
+        const bars = sparklines.get(t) ?? []
+        return {
+          ticker:     t,
+          price_usd:  p.price,
+          change_pct: p.change_pct,
+          signal:     deriveSignal(p.change_pct),
+          score:      deriveSignalScore(p.change_pct),
+          // sparkline stored as number[] (close prices only) to match real schema
+          sparkline:  bars.map(b => b.c),
+          updated_at: new Date().toISOString(),
+        }
+      })
+
+      if (rows.length > 0) {
+        await (supabase.from('asset_signals') as any)
+          .upsert(rows, { onConflict: 'ticker' })
+      }
+
+      log.push(`Polygon: ${prices.size} / ${tickers.length} prices synced`)
     }
-    return updated;
-  } catch { return 0; }
+  } catch (err) {
+    errors.push(`Polygon sync failed: ${String(err)}`)
+  }
+
+  // ── Step 6: Alert generation ─────────────────────────────────────────────
+
+  log.push('Generating alerts...')
+  try {
+    const count = await generateAlertsForAllUsers(supabase)
+    log.push(`Created ${count} new alerts`)
+  } catch (err) {
+    errors.push(`Alert generation failed: ${String(err)}`)
+  }
+
+  return NextResponse.json({
+    status: errors.length === 0 ? 'ok' : 'partial',
+    log,
+    errors,
+    ts: new Date().toISOString(),
+  })
 }
