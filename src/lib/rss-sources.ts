@@ -45,12 +45,15 @@ export const FEED_SOURCES: FeedSource[] = [
   // ── Yahoo Finance ─────────────────────────────────────────────────────────
   { id: 'yahoo-finance-top', name: 'Yahoo Finance Top Stories', url: 'https://finance.yahoo.com/news/rssindex', category: 'markets', enabled: true, priority: 1 },
 
-  // ── Reuters — reutersagency.com also returning 404; disabled ────────────
-  // Try reuters.com direct RSS as alternative
-  { id: 'reuters-business',  name: 'Reuters Business',      url: 'https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best',  category: 'markets',     enabled: false, priority: 1 },
-  { id: 'reuters-political', name: 'Reuters Political Risk', url: 'https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best', category: 'geopolitical',enabled: false, priority: 2 },
-  // Reuters via their main site (alternative — test if this works)
-  { id: 'reuters-wire', name: 'Reuters News Wire', url: 'https://feeds.reuters.com/reuters/topNews', category: 'markets', enabled: true, priority: 1 },
+  // ── Reuters — blocks Vercel IPs entirely; all variants disabled ──────────
+  // { id: 'reuters-business',  enabled: false }
+  // { id: 'reuters-political', enabled: false }
+  // { id: 'reuters-wire',      enabled: false }
+
+  // ── AP News (reliable replacement for Reuters) ────────────────────────────
+  { id: 'ap-top-news', name: 'AP Top News',  url: 'https://feeds.apnews.com/apnews/topnews',  category: 'markets',     enabled: true, priority: 1 },
+  { id: 'ap-business', name: 'AP Business',  url: 'https://feeds.apnews.com/apnews/business', category: 'markets',     enabled: true, priority: 1 },
+  { id: 'ap-politics', name: 'AP Politics',  url: 'https://feeds.apnews.com/apnews/politics', category: 'geopolitical',enabled: true, priority: 2 },
 
   // ── Federal Reserve (high value, low volume, no auth needed) ─────────────
   { id: 'fed-press-releases', name: 'Federal Reserve Press Releases', url: 'https://www.federalreserve.gov/feeds/press_all.xml', category: 'central_bank', enabled: true, priority: 1 },
