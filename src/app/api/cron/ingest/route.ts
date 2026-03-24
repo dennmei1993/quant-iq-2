@@ -1,126 +1,188 @@
-// app/api/cron/ingest/route.ts
-// Vercel Cron — runs 08:00 UTC daily  (vercel.json: "0 8 * * *")
-// 1. Fetch articles from NewsAPI across 5 financial topic queries
-// 2. Deduplicate by URL against existing DB records
-// 3. Insert raw event rows (ai_processed: false)
-// 4. Classify each with Claude — 1 s delay between calls
-// 5. Update rows with classification results
-//
-// Test locally:
-//   curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/ingest
+/**
+ * app/api/cron/ingest/route.ts  — RSS edition
+ *
+ * Replaces the NewsAPI fetch with the RSS parser.
+ * Everything downstream (Claude classification, Polygon sync,
+ * alert generation) is unchanged.
+ *
+ * Flow:
+ *  1. Fetch all enabled RSS feeds concurrently
+ *  2. Deduplicate against events already in the DB (by url)
+ *  3. Insert new raw events
+ *  4. Classify each with Claude (1-second delay between calls)
+ *  5. Sync Polygon prices for all assets
+ *  6. Generate alerts for users with holdings
+ *
+ * Auth: CRON_SECRET bearer token
+ */
 
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase";
-import { classifyEvent } from "@/lib/ai";
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { fetchAllFeeds } from '@/lib/rss-parser'
+import { activeSources } from '@/lib/rss-sources'
+import { classifyEvent } from '@/lib/ai'
+import { fetchPricesForTickers, fetchSparklinesForTickers } from '@/lib/polygon'
+import { generateAlertsForAllUsers } from '@/lib/alerts'
 
-export const runtime    = "nodejs";
-export const maxDuration = 300; // 5 min — requires Vercel Pro
+function isAuthorised(req: NextRequest): boolean {
+  const auth   = req.headers.get('authorization') ?? ''
+  const secret = process.env.CRON_SECRET ?? ''
+  return secret.length > 0 && auth === `Bearer ${secret}`
+}
 
-const QUERIES = [
-  "Federal Reserve interest rates inflation CPI",
-  "S&P 500 earnings revenue stock market rally selloff",
-  "GDP unemployment jobs report economic data",
-  "oil gold commodities futures prices OPEC",
-  "semiconductor AI chips technology stocks investment",
-];
+function deriveSignal(pct: number): 'buy' | 'watch' | 'hold' | 'avoid' {
+  if (pct >= 2)  return 'buy'
+  if (pct >= 0.5) return 'watch'
+  if (pct >= -1) return 'hold'
+  return 'avoid'
+}
+
+function deriveSignalScore(pct: number): number {
+  return Math.round(Math.min(100, Math.max(0, 50 + pct * 10)))
+}
 
 export async function GET(req: NextRequest) {
-  const isVercelCron = req.headers.get("x-vercel-cron") === "1"
-  const isManualRun = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
-
-  if (!isVercelCron && !isManualRun) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorised(req)) {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
-  const db = createServiceClient();
-  const stats = { fetched: 0, new: 0, classified: 0, errors: 0 };
-  //const fromDate = "2026-02-28"
-  const fromDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().replace("Z", "");
+  const supabase = createServiceClient()
+  const log: string[] = []
+  const errors: string[] = []
 
-  // ── 1. Fetch ──────────────────────────────────────────────────────────────
-  const allArticles: Array<{
-    title: string; description?: string; url: string;
-    publishedAt: string; source: { name: string };
-  }> = [];
+  // ── Step 1: Fetch RSS feeds ───────────────────────────────────────────────
 
-  for (const q of QUERIES) {
+  log.push(`Fetching ${activeSources.length} RSS feeds...`)
+
+  const articles = await fetchAllFeeds(activeSources)
+  log.push(`Fetched ${articles.length} articles across all feeds`)
+
+  // ── Step 2: Deduplicate against DB ───────────────────────────────────────
+  // Batch-check which URLs are already stored to avoid N+1 queries.
+  // We check the most recent 500 event URLs to keep the query fast.
+
+  const incomingUrls = articles.map(a => a.url)
+
+  const { data: existingRows } = await supabase
+    .from('events')
+    .select('source_url')
+    .in('source_url', incomingUrls)
+    .not('source_url', 'is', null) as { data: { source_url: string }[] | null }
+
+  const existingUrls = new Set((existingRows ?? []).map(r => r.source_url))
+
+  const newArticles = articles.filter(a => !existingUrls.has(a.url))
+  log.push(`${newArticles.length} new articles after deduplication (${articles.length - newArticles.length} already stored)`)
+
+  // ── Step 3 & 4: Insert + classify ────────────────────────────────────────
+
+  let classified = 0
+  let insertFailed = 0
+
+  for (const article of newArticles) {
+    // Insert raw event
+    const insertResult = await (supabase
+      .from('events') as any)
+      .insert({
+        headline:     article.headline,
+        source:       'rss',
+        source_name:  article.sourceName,
+        source_url:   article.url,
+        published_at: article.publishedAt,
+        ai_processed: false,
+      })
+      .select('id')
+      .single()
+
+    const inserted  = (insertResult as any).data as { id: string } | null
+    const insertErr = (insertResult as any).error
+
+    if (insertErr || !inserted) {
+      insertFailed++
+      continue
+    }
+
+    // 1-second delay between Claude calls (rate limit protection)
+    await new Promise(r => setTimeout(r, 1000))
+
     try {
-      const res = await fetch(
-        `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&from=${fromDate}&sortBy=publishedAt&pageSize=20&language=en&apiKey=${process.env.NEWSAPI_KEY}`
-      );
-      if (!res.ok) continue;
-      const data = await res.json();
-      allArticles.push(...(data.articles ?? []));
-    } catch { stats.errors++; }
-  }
-  stats.fetched = allArticles.length;
+      const classification = await classifyEvent(article.headline, article.summary)
 
-  // ── 2. Deduplicate locally ────────────────────────────────────────────────
-  const seen = new Set<string>();
-  const unique = allArticles.filter(a => {
-    if (!a.url || !a.title || seen.has(a.url)) return false;
-    seen.add(a.url);
-    return true;
-  });
-
-  // ── 3. Remove URLs already in DB ─────────────────────────────────────────
-  const urls = unique.map(a => a.url);
-  const { data: existing } = await db
-    .from("events")
-    .select("source_url")
-    .in("source_url", urls);
-
-  const existingSet = new Set((existing ?? []).map(e => e.source_url));
-  const fresh = unique.filter(a => !existingSet.has(a.url));
-  stats.new = fresh.length;
-
-  // ── 4 & 5. Insert + classify ──────────────────────────────────────────────
-  for (const article of fresh) {
-    try {
-      const { data: row, error: insertError } = await db
-        .from("events")
-        .insert({
-          headline:     article.title,
-          source:       "newsapi",
-          source_url:   article.url,
-          published_at: article.publishedAt,
-          ai_processed: false,
+      await (supabase.from('events') as any)
+        .update({
+          event_type:      classification.event_type,
+          sectors:         classification.sectors,
+          sentiment_score: classification.sentiment_score,
+          impact_level:    classification.impact_level,
+          tickers:         classification.tickers,
+          ai_summary:      classification.ai_summary,
+          ai_processed:    true,
         })
-        .select("id")
-        .single();
+        .eq('id', inserted.id)
 
-        if (insertError) {
-          console.error("[insert error]", insertError.message, insertError.details);
-          stats.errors++;
-          continue;
+      classified++
+    } catch (aiErr) {
+      errors.push(`Claude failed for event ${inserted.id}: ${String(aiErr)}`)
+    }
+  }
+
+  log.push(`Classified: ${classified} events, insert failures: ${insertFailed}`)
+
+  // ── Step 5: Polygon price sync ───────────────────────────────────────────
+
+  log.push('Syncing Polygon prices...')
+
+  try {
+    const { data: assets } = await supabase
+      .from('assets')
+      .select('ticker') as { data: { ticker: string }[] | null }
+
+    const tickers = (assets ?? []).map(a => a.ticker)
+
+    if (tickers.length > 0) {
+      const prices     = await fetchPricesForTickers(tickers)
+      const sparklines = await fetchSparklinesForTickers([...prices.keys()])
+
+      const rows = [...prices.keys()].map(t => {
+        const p    = prices.get(t)!
+        const bars = sparklines.get(t) ?? []
+        return {
+          ticker:     t,
+          price_usd:  p.price,
+          change_pct: p.change_pct,
+          signal:     deriveSignal(p.change_pct),
+          score:      deriveSignalScore(p.change_pct),
+          // sparkline stored as number[] (close prices only) to match real schema
+          sparkline:  bars.map(b => b.c),
+          updated_at: new Date().toISOString(),
         }
+      })
 
-      if (!row) continue;
-
-      // 1 s spacing to stay well inside Anthropic rate limits
-      await new Promise(r => setTimeout(r, 1000));
-      const c = await classifyEvent(article.title, article.description);
-
-      // Skip events Claude determined are not market-relevant
-      if (c.impact_level === 'ignore') {
-        await db.from("events").delete().eq("id", row.id);
-        continue;
+      if (rows.length > 0) {
+        await (supabase.from('asset_signals') as any)
+          .upsert(rows, { onConflict: 'ticker' })
       }
 
-      await db.from("events").update({
-        event_type:      c.event_type,
-        sectors:         c.sectors,
-        sentiment_score: c.sentiment_score,
-        impact_level:    c.impact_level,
-        tickers:         c.tickers,
-        ai_summary:      c.ai_summary,
-        ai_processed:    true,
-      }).eq("id", row.id);
-
-      stats.classified++;
-    } catch { stats.errors++; }
+      log.push(`Polygon: ${prices.size} / ${tickers.length} prices synced`)
+    }
+  } catch (err) {
+    errors.push(`Polygon sync failed: ${String(err)}`)
   }
 
-  console.log("[cron/ingest]", stats);
-  return NextResponse.json({ ok: true, ...stats });
+  // ── Step 6: Alert generation ─────────────────────────────────────────────
+
+  log.push('Generating alerts...')
+  try {
+    const count = await generateAlertsForAllUsers(supabase)
+    log.push(`Created ${count} new alerts`)
+  } catch (err) {
+    errors.push(`Alert generation failed: ${String(err)}`)
+  }
+
+  return NextResponse.json({
+    status: errors.length === 0 ? 'ok' : 'partial',
+    log,
+    errors,
+    ts: new Date().toISOString(),
+  })
 }

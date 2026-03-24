@@ -14,20 +14,21 @@
     "cron:themes": "curl -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/themes"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.39.0",
+    "@supabase/ssr": "0.5.2",
+    "@supabase/supabase-js": "^2.99.3",
     "next": "16.2.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "@anthropic-ai/sdk": "0.39.0",
-    "@supabase/supabase-js": "2.49.0",
-    "@supabase/ssr": "0.5.2",
+    "rss-parser": "^3.13.0",
     "zod": "3.23.8"
   },
   "devDependencies": {
     "@types/node": "22.13.10",
-    "@types/react": "19.1.0",
-    "@types/react-dom": "19.1.0",
-    "typescript": "5.8.2",
-    "eslint": "9.22.0",
-    "eslint-config-next": "16.2.1"
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "16.2.1",
+    "typescript": "5.8.2"
   }
 }

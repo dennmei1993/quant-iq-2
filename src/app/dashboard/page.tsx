@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase";
+import RssSubscribe from "@/components/dashboard/RssSubscribe";
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient();
@@ -13,16 +14,15 @@ export default async function DashboardPage() {
       .select("id, headline, sentiment_score, impact_level, event_type, published_at")
       .eq("ai_processed", true)
       .order("published_at", { ascending: false })
-      .limit(8),
+      .limit(8) as unknown as Promise<{ data: { id: string; headline: string; sentiment_score: number | null; impact_level: string | null; event_type: string | null; published_at: string }[] | null }>,
     supabase
       .from("themes")
       .select("id, name, label, timeframe, conviction, momentum, candidate_tickers")
       .eq("is_active", true)
-      .order("timeframe"),
+      .order("timeframe") as unknown as Promise<{ data: { id: string; name: string; label: string | null; timeframe: string; conviction: number | null; momentum: string | null; candidate_tickers: string[] | null }[] | null }>,
     supabase
       .from("events")
-      .select("*", { count: "exact", head: true })
-      .gte("published_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+      .select("*", { count: "exact", head: true }) as unknown as Promise<{ count: number | null; error: { message: string } | null }>,
   ]);
 
   console.log("[dashboard] events:", events?.length, "error:", error?.message);
@@ -71,6 +71,11 @@ export default async function DashboardPage() {
             {!themes?.length && <Empty text="No themes yet. Run the themes cron." />}
           </div>
         </div>
+      </div>
+
+      {/* RSS subscriptions */}
+      <div style={{ marginTop: "2rem" }}>
+        <RssSubscribe />
       </div>
     </div>
   );

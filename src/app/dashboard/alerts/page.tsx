@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import styles from './alerts.module.css'
 import panelStyles from '@/components/dashboard/ui.module.css'
+import RssSubscribe from '@/components/dashboard/RssSubscribe'
 
 interface Alert {
   id: string
@@ -95,6 +96,10 @@ export default function AlertsPage() {
             </div>
           )
         })}
+      </div>
+
+      <div style={{ marginTop: '1.5rem' }}>
+        <RssSubscribe />
       </div>
     </div>
   )

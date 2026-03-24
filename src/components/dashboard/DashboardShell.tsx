@@ -13,12 +13,13 @@ interface Props {
 }
 
 const NAV = [
-  { href: '/dashboard',           label: 'Overview',       icon: '⬡', section: 'Overview' },
+  { href: '/dashboard',           label: 'Overview',       icon: '⬡',  section: 'Overview' },
   { href: '/dashboard/events',    label: 'Event Feed',     icon: '📡', section: null },
   { href: '/dashboard/themes',    label: 'Themes',         icon: '🎯', section: 'Advisory' },
   { href: '/dashboard/assets',    label: 'Asset Screener', icon: '📊', section: null },
   { href: '/dashboard/portfolio', label: 'My Portfolio',   icon: '🗂️', section: 'Portfolio' },
   { href: '/dashboard/alerts',    label: 'Alerts',         icon: '🔔', section: null },
+  { href: '/dashboard/settings',  label: 'Settings',       icon: '⚙',  section: 'Account' },
 ]
 
 export default function DashboardShell({ user, children }: Props) {

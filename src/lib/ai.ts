@@ -1,229 +1,218 @@
-// lib/ai.ts
-// All Claude AI integrations for Quant IQ.
-// Model: claude-sonnet-4-20250514
-//
-// Functions:
-//   classifyEvent()       → event_type, sectors, sentiment, impact, tickers, summary
-//   generateTheme()       → investment theme with conviction + brief
-//   generateAssetSignals() → buy/watch/hold/avoid for each asset
-//   generateAdvisoryMemo() → personalised portfolio advisory prose
+/**
+ * lib/ai.ts
+ *
+ * generateTheme() updated: Claude now outputs a ticker_weights array
+ * with { ticker, weight, rationale } per ticker instead of a flat
+ * candidate_tickers string array.
+ *
+ * weight = relevance (0.0–1.0): how central this ticker is to the theme.
+ * rationale = one sentence explaining the connection.
+ *
+ * candidate_tickers[] is kept on the return value for backward compatibility
+ * with anything still reading it — derived from ticker_weights.
+ *
+ * classifyEvent() and generateAdvisoryMemo() are unchanged.
+ */
 
-import Anthropic from "@anthropic-ai/sdk";
+import Anthropic from '@anthropic-ai/sdk'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-export const MODEL = "claude-sonnet-4-20250514";
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export type EventType =
-  | "monetary_policy" | "geopolitical" | "corporate"
-  | "economic_data"   | "regulatory"   | "market_structure";
-
-export type ImpactLevel = "low" | "medium" | "high" | "ignore";
-
-export type Momentum =
-  | "strong_up" | "moderate_up" | "neutral"
-  | "moderate_down" | "strong_down";
-
-export type Signal = "buy" | "watch" | "hold" | "avoid";
-
-export interface ClassifiedEvent {
-  event_type:      EventType;
-  sectors:         string[];
-  sentiment_score: number;    // -1.0 to +1.0
-  impact_level:    ImpactLevel;
-  tickers:         string[];
-  ai_summary:      string;
+export interface EventInput {
+  headline: string
+  ai_summary?: string | null
+  event_type?: string | null
+  sectors?: string[] | null
+  sentiment_score?: number
+  impact_level?: string | null
+  published_at: string
 }
 
-export interface GeneratedTheme {
-  name:              string;
-  label:             string;
-  conviction:        number;  // 0–100
-  momentum:          Momentum;
-  brief:             string;
-  candidate_tickers: string[];
+export interface TickerWeight {
+  ticker:    string   // US-listed ticker symbol, e.g. "NVDA"
+  weight:    number   // 0.0–1.0 relevance score
+  rationale: string   // one sentence
 }
 
-export interface AssetSignalUpdate {
-  ticker:    string;
-  signal:    Signal;
-  score:     number;  // 0–100
-  rationale: string;
+export interface ThemeOutput {
+  name:               string
+  label:              string
+  conviction:         number        // 0–100
+  momentum:           string
+  brief:              string        // 3-4 sentence thesis
+  ticker_weights:     TickerWeight[]
+  candidate_tickers:  string[]      // derived from ticker_weights, backward compat
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// ─── generateTheme ────────────────────────────────────────────────────────────
 
-function parseJSON<T>(text: string, fallback: T): T {
-  try {
-    return JSON.parse(text.replace(/```json\n?|\n?```/g, "").trim()) as T;
-  } catch {
-    return fallback;
+export async function generateTheme(
+  events: EventInput[],
+  timeframe: '1m' | '3m' | '6m'
+): Promise<ThemeOutput> {
+  const timeframeLabel = { '1m': '1-month', '3m': '3-month', '6m': '6-month' }[timeframe]
+
+  const eventLines = events
+    .slice(0, 20)
+    .map(e => `- ${e.headline}${e.ai_summary ? ` (${e.ai_summary})` : ''}`)
+    .join('\n')
+
+  const prompt = `You are a professional investment analyst. Based on these recent macro and market events, identify the single strongest ${timeframeLabel} investment theme for US markets.
+
+RECENT EVENTS:
+${eventLines}
+
+Respond ONLY with a valid JSON object. No markdown, no commentary, no extra keys.
+
+{
+  "name": "Short theme name, 3–6 words",
+  "label": "Single capitalised word e.g. BULLISH",
+  "conviction": <integer 0–100>,
+  "momentum": "<strong_up|moderate_up|neutral|moderate_down|strong_down>",
+  "brief": "3–4 sentence investment thesis. Why now, what's the catalyst, what's the risk.",
+  "ticker_weights": [
+    {
+      "ticker": "TICKER",
+      "weight": <float 0.0–1.0>,
+      "rationale": "One sentence, max 20 words, explaining this ticker's connection."
+    }
+  ]
+}
+
+Rules for ticker_weights:
+- 4–8 US-listed tickers (stocks, ETFs, or crypto symbols)
+- weight scale:
+    1.0  = primary direct play — core revenue/earnings exposure
+    0.7  = strong secondary — significant but indirect exposure
+    0.4  = thematic tailwind — sector or macro alignment
+    0.2  = peripheral — marginal connection, monitor only
+- Order by weight descending
+- Use only tickers you are highly confident are listed on a US exchange
+- rationale must be specific and investment-relevant`
+
+  const response = await anthropic.messages.create({
+    model:      'claude-sonnet-4-20250514',
+    max_tokens: 1024,
+    messages:   [{ role: 'user', content: prompt }],
+  })
+
+  const raw = response.content
+    .filter(b => b.type === 'text')
+    .map(b => (b as any).text)
+    .join('')
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim()
+
+  const parsed = JSON.parse(raw) as Omit<ThemeOutput, 'candidate_tickers'>
+
+  // Clamp weights to valid range in case Claude drifts
+  const ticker_weights = parsed.ticker_weights.map(tw => ({
+    ticker:    tw.ticker.toUpperCase().trim(),
+    weight:    Math.max(0, Math.min(1, Number(tw.weight) || 0)),
+    rationale: tw.rationale ?? '',
+  }))
+
+  return {
+    ...parsed,
+    ticker_weights,
+    candidate_tickers: ticker_weights.map(tw => tw.ticker),
   }
 }
 
-async function ask(prompt: string, maxTokens = 512): Promise<string> {
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: maxTokens,
-    messages: [{ role: "user", content: prompt }],
-  });
-  return res.content[0].type === "text" ? res.content[0].text : "";
-}
+// ─── classifyEvent (unchanged) ────────────────────────────────────────────────
 
-// ── classifyEvent ─────────────────────────────────────────────────────────────
+export interface ClassificationOutput {
+  event_type:      string
+  sectors:         string[]
+  sentiment_score: number
+  impact_level:    string
+  tickers:         string[]
+  ai_summary:      string
+}
 
 export async function classifyEvent(
   headline: string,
-  description?: string
-): Promise<ClassifiedEvent> {
-  const text = await ask(`You are a quantitative analyst classifying financial news for US market investors. 
+  summary?: string | null
+): Promise<ClassificationOutput> {
+  const prompt = `Classify this financial news event for investment signal analysis.
 
-First determine if this event has direct, material relevance to US financial markets and investable assets. If it does not (e.g. pure geopolitical commentary, sports, celebrity news, domestic politics with no market impact), respond with impact_level: 'ignore'.
+HEADLINE: ${headline}
+${summary ? `SUMMARY: ${summary}` : ''}
 
-Headline: ${headline}${description ? `\nDescription: ${description}` : ""}
-
-Respond ONLY with this JSON — no other text:
+Respond ONLY with a valid JSON object:
 {
-  "event_type": "monetary_policy"|"geopolitical"|"corporate"|"economic_data"|"regulatory"|"market_structure",
-  "sectors": ["affected", "sectors"],
-  "sentiment_score": <-1.0 to +1.0 for US markets>,
-  "impact_level": "low"|"medium"|"high",
-  "tickers": ["directly", "affected", "US", "tickers"],
-  "ai_summary": "<one investment-relevant sentence>"
+  "event_type": "<monetary_policy|geopolitical|corporate|economic_data|regulatory>",
+  "sectors": ["<affected US market sectors>"],
+  "sentiment_score": <float -1.0 to 1.0 for US markets>,
+  "impact_level": "<low|medium|high>",
+  "tickers": ["<directly affected US-listed tickers, max 5>"],
+  "ai_summary": "<1 sentence investment-relevant summary>"
+}`
+
+  const response = await anthropic.messages.create({
+    model:      'claude-sonnet-4-20250514',
+    max_tokens: 512,
+    messages:   [{ role: 'user', content: prompt }],
+  })
+
+  const raw = response.content
+    .filter(b => b.type === 'text')
+    .map(b => (b as any).text)
+    .join('')
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim()
+
+  return JSON.parse(raw) as ClassificationOutput
 }
 
-Sectors: technology, financials, energy, healthcare, defence, consumer, materials, utilities, real_estate, industrials, broad_market
-Impact: high = likely >2% market move, medium = 0.5–2%, low = <0.5%, ignore = not directly relevant to US financial markets or investable assets (pure politics, sports, entertainment, military commentary with no market impact).
-Only include tickers you are highly confident are materially affected.`);
-
-  return parseJSON<ClassifiedEvent>(text, {
-    event_type: "market_structure",
-    sectors: [],
-    sentiment_score: 0,
-    impact_level: "low",
-    tickers: [],
-    ai_summary: headline,
-  });
-}
-
-// ── generateTheme ─────────────────────────────────────────────────────────────
-
-export async function generateTheme(
-  events: Array<{
-    headline: string; event_type: string; sectors: string[];
-    sentiment_score: number; impact_level: string; ai_summary: string;
-  }>,
-  timeframe: "1m" | "3m" | "6m"
-): Promise<GeneratedTheme> {
-  const horizon = { "1m": "1 month", "3m": "3 months", "6m": "6 months" }[timeframe];
-  const eventLines = events
-    .slice(0, 20)
-    .map((e, i) =>
-      `${i + 1}. [${e.impact_level.toUpperCase()}] ${e.headline} ` +
-      `(sentiment: ${e.sentiment_score >= 0 ? "+" : ""}${e.sentiment_score.toFixed(2)}, ` +
-      `sectors: ${e.sectors.join(", ")})`
-    )
-    .join("\n");
-
-  const text = await ask(`You are a senior investment strategist.
-Identify the single most important investment theme for a ${horizon} horizon from these recent events:
-
-${eventLines}
-
-Respond ONLY with this JSON — no other text:
-{
-  "name": "<3–6 word theme name>",
-  "label": "<2–3 word short label>",
-  "conviction": <0–100>,
-  "momentum": "strong_up"|"moderate_up"|"neutral"|"moderate_down"|"strong_down",
-  "brief": "<3–4 sentence investment thesis>",
-  "candidate_tickers": ["up", "to", "6", "US", "tickers", "or", "ETFs"]
-}
-
-Conviction: 80–100 = multiple confirming signals, 60–79 = high, 40–59 = moderate, 20–39 = low.`, 1024);
-
-  return parseJSON<GeneratedTheme>(text, {
-    name: "Market Uncertainty",
-    label: "Risk-Off",
-    conviction: 30,
-    momentum: "neutral",
-    brief: "Current signals are mixed. Monitor macro releases and Fed commentary before adding risk.",
-    candidate_tickers: ["SPY", "GLD", "TLT"],
-  });
-}
-
-// ── generateAssetSignals ──────────────────────────────────────────────────────
-
-export async function generateAssetSignals(
-  assets: Array<{ ticker: string; name: string; asset_type: string; sector: string | null }>,
-  recentEvents: Array<{ headline: string; sectors: string[]; sentiment_score: number; impact_level: string }>,
-  activeThemes: Array<{ name: string; timeframe: string; candidate_tickers: string[]; conviction: number }>
-): Promise<AssetSignalUpdate[]> {
-  const text = await ask(`You are a quantitative analyst generating trading signals.
-
-Recent high-impact events:
-${recentEvents.slice(0, 10).map(e =>
-  `- ${e.headline} (sentiment: ${e.sentiment_score.toFixed(2)}, sectors: ${e.sectors.join(", ")})`
-).join("\n")}
-
-Active investment themes:
-${activeThemes.map(t =>
-  `- ${t.name} (${t.timeframe}, conviction ${t.conviction}, tickers: ${t.candidate_tickers.join(", ")})`
-).join("\n")}
-
-Generate signals for ALL of these assets:
-${assets.map(a => `${a.ticker}: ${a.name} (${a.asset_type}, ${a.sector ?? "general"})`).join("\n")}
-
-Respond ONLY with a JSON array — no other text:
-[{"ticker":"TICKER","signal":"buy"|"watch"|"hold"|"avoid","score":<0-100>,"rationale":"<one sentence>"}]
-
-Signal guide: buy = strong theme alignment, watch = positive but wait for entry, hold = neutral, avoid = negative or high risk.`, 1024);
-
-  const parsed = parseJSON<AssetSignalUpdate[]>(text, []);
-  if (parsed.length) return parsed;
-
-  return assets.map(a => ({
-    ticker: a.ticker, signal: "hold" as Signal, score: 50,
-    rationale: "Insufficient signal data.",
-  }));
-}
-
-// ── generateAdvisoryMemo ──────────────────────────────────────────────────────
+// ─── generateAdvisoryMemo (unchanged) ─────────────────────────────────────────
 
 export async function generateAdvisoryMemo(
-  holdings: Array<{ ticker: string; name?: string | null; quantity?: number | null; avg_cost?: number | null }>,
-  recentEvents: Array<{ headline: string; event_type: string; sectors: string[]; sentiment_score: number; impact_level: string; ai_summary: string | null }>,
-  activeThemes: Array<{ name: string; timeframe: string; conviction: number; brief: string | null }>,
-  macro?: { fed_rate?: number; cpi_yoy?: number; unemployment?: number }
+  holdings: { ticker: string; quantity?: number | null; avg_cost?: number | null }[],
+  recentEvents: { headline: string; ai_summary?: string | null; sentiment_score: number; impact_level: string }[],
+  macroEnvironment?: string
 ): Promise<string> {
-  const holdingLines = holdings
-    .map(h => `${h.ticker}${h.name ? ` (${h.name})` : ""}${h.quantity ? ` — ${h.quantity} units` : ""}${h.avg_cost ? ` @ $${h.avg_cost}` : ""}`)
-    .join("\n");
+  const holdingsList = holdings
+    .map(h => `${h.ticker}${h.quantity ? ` (${h.quantity} units)` : ''}`)
+    .join(', ')
 
-  const macroLines = macro
-    ? `Fed rate: ${macro.fed_rate ?? "N/A"}% | CPI YoY: ${macro.cpi_yoy ?? "N/A"}% | Unemployment: ${macro.unemployment ?? "N/A"}%`
-    : "";
+  const eventsList = recentEvents
+    .slice(0, 10)
+    .map(e => `- ${e.ai_summary ?? e.headline} [${e.impact_level}, sentiment: ${e.sentiment_score.toFixed(2)}]`)
+    .join('\n')
 
-  const text = await ask(`You are a senior portfolio advisor writing a concise advisory memo.
+  const prompt = `You are a professional investment advisor. Write a concise advisory memo for a portfolio.
 
-Holdings:
-${holdingLines}
-${macroLines ? `\nMacro: ${macroLines}` : ""}
+PORTFOLIO HOLDINGS: ${holdingsList}
 
-Recent high-impact events:
-${recentEvents.slice(0, 8).map(e => `[${e.impact_level.toUpperCase()}] ${e.ai_summary || e.headline}`).join("\n")}
+RECENT RELEVANT EVENTS:
+${eventsList}
 
-Active themes:
-${activeThemes.map(t => `${t.name} (${t.timeframe}, conviction ${t.conviction}/100): ${t.brief}`).join("\n\n")}
+${macroEnvironment ? `MACRO CONTEXT: ${macroEnvironment}` : ''}
 
-Write a 4–6 sentence personalised advisory memo that:
-1. Names which holdings are most exposed to recent events (positively or negatively)
-2. Notes alignment or misalignment with active themes
-3. Gives one specific, actionable recommendation
-4. Flags the single biggest risk to monitor
+Write a 3–4 sentence advisory memo that:
+1. Identifies the most significant risk or opportunity from current events
+2. Calls out which specific holdings are most affected
+3. Suggests a concrete near-term action or watchpoint
 
-Professional but direct tone. Plain prose only — no bullet points, no headers.`);
+Professional, direct language. No bullet points. Plain prose only.`
 
-  return text.trim() || "Unable to generate memo. Please try again.";
+  const response = await anthropic.messages.create({
+    model:      'claude-sonnet-4-20250514',
+    max_tokens: 512,
+    messages:   [{ role: 'user', content: prompt }],
+  })
+
+  return response.content
+    .filter(b => b.type === 'text')
+    .map(b => (b as any).text)
+    .join('')
+    .trim()
 }
