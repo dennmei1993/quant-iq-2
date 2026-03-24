@@ -1,0 +1,105 @@
+/* components/dashboard/RssSubscribe.module.css */
+
+.wrap {
+  background: var(--white);
+  border: 1px solid rgba(15,28,46,0.08);
+  border-radius: 8px;
+  padding: 1.2rem 1.4rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.icon { color: var(--gold); display: flex; align-items: center; }
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0;
+}
+
+.sub {
+  font-size: 0.77rem;
+  color: rgba(15,28,46,0.45);
+  margin: 0 0 1rem;
+  line-height: 1.55;
+}
+
+/* ── Feed list ── */
+.feedList { display: flex; flex-direction: column; gap: 0; }
+
+.feedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(15,28,46,0.05);
+}
+.feedRow:last-child { border-bottom: none; }
+
+.feedInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.feedTitle {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--navy);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feedDesc {
+  font-size: 0.7rem;
+  color: rgba(15,28,46,0.42);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Actions ── */
+.feedActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.copyBtn {
+  padding: 0.22rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid rgba(15,28,46,0.1);
+  background: transparent;
+  font-size: 0.68rem;
+  color: rgba(15,28,46,0.5);
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+}
+.copyBtn:hover { border-color: var(--gold); color: var(--navy); }
+
+.subscribeBtn {
+  padding: 0.22rem 0.6rem;
+  border-radius: 4px;
+  background: var(--navy);
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.12s;
+  white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+}
+.subscribeBtn:hover { opacity: 0.85; }
