@@ -2,17 +2,17 @@
  * lib/rss-sources.ts
  *
  * Master list of RSS feeds to ingest.
+ * To add a source: append one entry. Nothing else changes.
  *
- * To add a new source: append one entry to FEED_SOURCES.
- * Nothing else needs to change — the ingest cron picks it up automatically.
- *
- * Fields:
- *   id       — stable identifier used in logs and deduplication
- *   name     — human-readable label
- *   url      — RSS / Atom feed URL
- *   category — broad topic hint passed to Claude for context
- *   enabled  — set false to pause without deleting
- *   priority — lower = fetched first; high-priority feeds processed before rate-limited ones
+ * Feed status notes (as of 2025):
+ *   Reuters      — old feeds.reuters.com URLs are dead; use reutersagency.com
+ *   FT           — RSS requires subscription cookie; public feed blocked
+ *   Bloomberg    — public RSS feeds live and reliable
+ *   MarketWatch  — Dow Jones public feeds work
+ *   CNBC         — RSS feeds live and reliable
+ *   Seeking Alpha— blocks bots; disabled
+ *   Yahoo Finance— reliable public RSS, good volume
+ *   Fed          — official XML feeds, free, no auth needed
  */
 
 export interface FeedSource {
@@ -25,131 +25,43 @@ export interface FeedSource {
 }
 
 export const FEED_SOURCES: FeedSource[] = [
-  // ── Reuters ────────────────────────────────────────────────────────────────
-  {
-    id:       'reuters-business',
-    name:     'Reuters Business',
-    url:      'https://feeds.reuters.com/reuters/businessNews',
-    category: 'markets',
-    enabled:  true,
-    priority: 1,
-  },
-  {
-    id:       'reuters-markets',
-    name:     'Reuters Markets',
-    url:      'https://feeds.reuters.com/reuters/financialsNewsGlobal',
-    category: 'markets',
-    enabled:  true,
-    priority: 1,
-  },
-  {
-    id:       'reuters-world',
-    name:     'Reuters World News',
-    url:      'https://feeds.reuters.com/reuters/worldNews',
-    category: 'geopolitical',
-    enabled:  true,
-    priority: 2,
-  },
 
-  // ── Financial Times ────────────────────────────────────────────────────────
-  {
-    id:       'ft-markets',
-    name:     'FT Markets',
-    url:      'https://www.ft.com/markets?format=rss',
-    category: 'markets',
-    enabled:  true,
-    priority: 1,
-  },
-  {
-    id:       'ft-world',
-    name:     'FT World',
-    url:      'https://www.ft.com/world?format=rss',
-    category: 'geopolitical',
-    enabled:  true,
-    priority: 2,
-  },
-
-  // ── WSJ ───────────────────────────────────────────────────────────────────
-  {
-    id:       'wsj-markets',
-    name:     'WSJ Markets',
-    url:      'https://feeds.content.dowjones.io/public/rss/mw_marketpulse',
-    category: 'markets',
-    enabled:  true,
-    priority: 1,
-  },
-  {
-    id:       'wsj-economy',
-    name:     'WSJ Economy',
-    url:      'https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines',
-    category: 'macro',
-    enabled:  true,
-    priority: 2,
-  },
-
-  // ── Bloomberg (public RSS — limited) ──────────────────────────────────────
-  {
-    id:       'bloomberg-markets',
-    name:     'Bloomberg Markets',
-    url:      'https://feeds.bloomberg.com/markets/news.rss',
-    category: 'markets',
-    enabled:  true,
-    priority: 1,
-  },
-  {
-    id:       'bloomberg-politics',
-    name:     'Bloomberg Politics',
-    url:      'https://feeds.bloomberg.com/politics/news.rss',
-    category: 'geopolitical',
-    enabled:  true,
-    priority: 2,
-  },
-
-  // ── Seeking Alpha ─────────────────────────────────────────────────────────
-  {
-    id:       'seeking-alpha-market',
-    name:     'Seeking Alpha Market News',
-    url:      'https://seekingalpha.com/market_currents.xml',
-    category: 'markets',
-    enabled:  true,
-    priority: 2,
-  },
+  // ── Bloomberg ─────────────────────────────────────────────────────────────
+  { id: 'bloomberg-markets',    name: 'Bloomberg Markets',    url: 'https://feeds.bloomberg.com/markets/news.rss',    category: 'markets',     enabled: true,  priority: 1 },
+  { id: 'bloomberg-politics',   name: 'Bloomberg Politics',   url: 'https://feeds.bloomberg.com/politics/news.rss',   category: 'geopolitical',enabled: true,  priority: 2 },
+  { id: 'bloomberg-technology', name: 'Bloomberg Technology', url: 'https://feeds.bloomberg.com/technology/news.rss', category: 'tech',        enabled: true,  priority: 2 },
 
   // ── CNBC ──────────────────────────────────────────────────────────────────
-  {
-    id:       'cnbc-top-news',
-    name:     'CNBC Top News',
-    url:      'https://www.cnbc.com/id/100003114/device/rss/rss.html',
-    category: 'markets',
-    enabled:  true,
-    priority: 2,
-  },
-  {
-    id:       'cnbc-finance',
-    name:     'CNBC Finance',
-    url:      'https://www.cnbc.com/id/10000664/device/rss/rss.html',
-    category: 'markets',
-    enabled:  true,
-    priority: 2,
-  },
+  { id: 'cnbc-top-news', name: 'CNBC Top News',  url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', category: 'markets', enabled: true, priority: 1 },
+  { id: 'cnbc-finance',  name: 'CNBC Finance',   url: 'https://www.cnbc.com/id/10000664/device/rss/rss.html',  category: 'markets', enabled: true, priority: 2 },
+  { id: 'cnbc-economy',  name: 'CNBC Economy',   url: 'https://www.cnbc.com/id/20910258/device/rss/rss.html',  category: 'macro',   enabled: true, priority: 2 },
+  { id: 'cnbc-earnings', name: 'CNBC Earnings',  url: 'https://www.cnbc.com/id/15839135/device/rss/rss.html',  category: 'markets', enabled: true, priority: 2 },
 
-  // ── Macro / Central bank (to add next sprint) ─────────────────────────────
-  // {
-  //   id:       'fed-press-releases',
-  //   name:     'Federal Reserve Press Releases',
-  //   url:      'https://www.federalreserve.gov/feeds/press_all.xml',
-  //   category: 'central_bank',
-  //   enabled:  false,
-  //   priority: 1,
-  // },
-  // {
-  //   id:       'sec-edgar-8k',
-  //   name:     'SEC EDGAR 8-K Filings',
-  //   url:      'https://efts.sec.gov/LATEST/search-index?q=%22%22&dateRange=custom&startdt=2024-01-01&forms=8-K&_source=hits.hits._source.period_of_report,hits.hits._source.entity_name&hits.hits.total=true',
-  //   category: 'filings',
-  //   enabled:  false,
-  //   priority: 3,
-  // },
+  // ── MarketWatch ───────────────────────────────────────────────────────────
+  { id: 'marketwatch-pulse',     name: 'MarketWatch Market Pulse', url: 'https://feeds.content.dowjones.io/public/rss/mw_marketpulse',      category: 'markets', enabled: true, priority: 1 },
+  { id: 'marketwatch-headlines', name: 'MarketWatch Headlines',    url: 'https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines', category: 'markets', enabled: true, priority: 2 },
+  { id: 'marketwatch-economy',   name: 'MarketWatch Economy',      url: 'https://feeds.content.dowjones.io/public/rss/mw_economy',          category: 'macro',   enabled: true, priority: 2 },
+
+  // ── Yahoo Finance ─────────────────────────────────────────────────────────
+  { id: 'yahoo-finance-top', name: 'Yahoo Finance Top Stories', url: 'https://finance.yahoo.com/news/rssindex', category: 'markets', enabled: true, priority: 1 },
+
+  // ── Reuters (new URLs — old feeds.reuters.com is dead since 2023) ─────────
+  { id: 'reuters-business',  name: 'Reuters Business',      url: 'https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best',  category: 'markets',     enabled: true, priority: 1 },
+  { id: 'reuters-political', name: 'Reuters Political Risk', url: 'https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best', category: 'geopolitical',enabled: true, priority: 2 },
+
+  // ── Federal Reserve (high value, low volume, no auth needed) ─────────────
+  { id: 'fed-press-releases', name: 'Federal Reserve Press Releases', url: 'https://www.federalreserve.gov/feeds/press_all.xml', category: 'central_bank', enabled: true, priority: 1 },
+  { id: 'fed-speeches',       name: 'Federal Reserve Speeches',       url: 'https://www.federalreserve.gov/feeds/speeches.xml', category: 'central_bank', enabled: true, priority: 1 },
+
+  // ── Investopedia ──────────────────────────────────────────────────────────
+  { id: 'investopedia-news', name: 'Investopedia News', url: 'https://www.investopedia.com/feedbuilder/feed/getfeed/?feedName=rss_headline', category: 'markets', enabled: true, priority: 3 },
+
+  // ── Disabled ─────────────────────────────────────────────────────────────
+  // FT — requires subscription cookie
+  // Seeking Alpha — blocks bots aggressively
+  // Old Reuters — feeds.reuters.com 404 since 2023
+  // SEC EDGAR — non-standard feed format, needs custom parser
+
 ]
 
 // Active feeds sorted by priority

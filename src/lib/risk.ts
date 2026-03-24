@@ -78,7 +78,7 @@ export async function computePortfolioRisk(
   }
 
   // 2. Load asset sectors for held tickers
-  const tickers = holdings.map(h => h.ticker.toUpperCase())
+  const tickers = holdings.map((h: { ticker: string }) => h.ticker.toUpperCase())
 
   const { data: assets } = await supabase
     .from('assets')
@@ -106,12 +106,12 @@ export async function computePortfolioRisk(
   const recentEvents = events ?? []
 
   // 4. Score each holding
-  const holdingRisks: HoldingRisk[] = holdings.map(holding => {
+  const holdingRisks: HoldingRisk[] = holdings.map((holding: { id: string; ticker: string; quantity: number | null; avg_cost: number | null }) => {
     const ticker = holding.ticker.toUpperCase()
     const sector = tickerSectorMap.get(ticker)
 
     // Find matching events: either the event tags this ticker OR its sector
-    const matchingEvents = recentEvents.filter(e => {
+    const matchingEvents = recentEvents.filter((e: { tickers: string[] | null; sectors: string[] | null; sentiment_score: number; impact_level: string | null; published_at: string; id: string; headline: string; ai_summary: string | null }) => {
       const eventTickers = (e.tickers ?? []).map((t: string) => t.toUpperCase())
       const eventSectors = e.sectors ?? []
 
