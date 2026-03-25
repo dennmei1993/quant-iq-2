@@ -21,13 +21,13 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface EventInput {
-  headline:        string
-  ai_summary?:     string | null
-  event_type?:     string | null
-  sectors?:        string[] | null
+  headline:         string
+  ai_summary?:      string | null
+  event_type?:      string | null
+  sectors?:         string[] | null
   sentiment_score?: number | null
-  impact_score?:   number | null
-  published_at:    string
+  impact_score?:    number | null
+  published_at:     string
 }
 
 export interface TickerWeight {
@@ -37,13 +37,13 @@ export interface TickerWeight {
 }
 
 export interface ThemeOutput {
-  name:               string
-  label:              string
-  conviction:         number        // 0–100
-  momentum:           string
-  brief:              string        // 3-4 sentence thesis
-  ticker_weights:     TickerWeight[]
-  candidate_tickers:  string[]      // derived from ticker_weights, backward compat
+  name:              string
+  label:             string
+  conviction:        number        // 0–100
+  momentum:          string
+  brief:             string        // 3-4 sentence thesis
+  ticker_weights:    TickerWeight[]
+  candidate_tickers: string[]      // derived from ticker_weights, backward compat
 }
 
 // ─── generateTheme ────────────────────────────────────────────────────────────
@@ -110,7 +110,6 @@ Rules for ticker_weights:
 
   const parsed = JSON.parse(raw) as Omit<ThemeOutput, 'candidate_tickers'>
 
-  // Clamp weights to valid range in case Claude drifts
   const ticker_weights = parsed.ticker_weights.map(tw => ({
     ticker:    tw.ticker.toUpperCase().trim(),
     weight:    Math.max(0, Math.min(1, Number(tw.weight) || 0)),
@@ -124,15 +123,15 @@ Rules for ticker_weights:
   }
 }
 
-// ─── classifyEvent (unchanged) ────────────────────────────────────────────────
+// ─── classifyEvent ────────────────────────────────────────────────────────────
 
 export interface ClassificationOutput {
-  event_type:    string
-  sectors:       string[]
+  event_type:      string
+  sectors:         string[]
   sentiment_score: number
-  impact_score:  number   // 1–10: 1-2=low, 3-4=medium, 5-6=medium-high, 7-8=high, 9-10=breaking
-  tickers:       string[]
-  ai_summary:    string
+  impact_score:    number   // 1–10: 1-2=low, 3-4=medium, 5-6=medium-high, 7-8=high, 9-10=breaking
+  tickers:         string[]
+  ai_summary:      string
 }
 
 export async function classifyEvent(
@@ -179,7 +178,7 @@ impact_score scale:
   return JSON.parse(raw) as ClassificationOutput
 }
 
-// ─── generateAdvisoryMemo (unchanged) ─────────────────────────────────────────
+// ─── generateAdvisoryMemo ─────────────────────────────────────────────────────
 
 export async function generateAdvisoryMemo(
   holdings: { ticker: string; quantity?: number | null; avg_cost?: number | null }[],
@@ -234,11 +233,11 @@ export interface AssetSignalInput {
 }
 
 export interface ThemeInput {
-  name:               string
-  timeframe:          string
-  candidate_tickers:  string[]
-  conviction:         number
-  brief:              string
+  name:              string
+  timeframe:         string
+  candidate_tickers: string[]
+  conviction:        number
+  brief:             string
 }
 
 export interface AssetSignalOutput {
@@ -251,8 +250,7 @@ export interface AssetSignalOutput {
 /**
  * Score each asset against the current themes and recent events.
  * Returns a signal (buy/watch/hold/avoid), score (0-100), and rationale.
- *
- * Batches assets in groups of 20 to keep prompt size manageable.
+ * Batches assets in groups of 10 to keep prompt size manageable.
  */
 export async function generateAssetSignals(
   assets: AssetSignalInput[],
@@ -271,12 +269,14 @@ export async function generateAssetSignals(
     .join('\n')
 
   const results: AssetSignalOutput[] = []
-  const BATCH = 10   // reduced from 20 — keeps response well within token limit
-  const DELAY = 1500 // ms between batches
+  const BATCH = 10
+  const DELAY = 1500
 
   for (let i = 0; i < assets.length; i += BATCH) {
     const batch = assets.slice(i, i + BATCH)
-    const tickerList = batch.map(a => `${a.ticker} (${a.name}, ${a.asset_type}, sector: ${a.sector ?? 'unknown'})`).join('\n')
+    const tickerList = batch
+      .map(a => `${a.ticker} (${a.name}, ${a.asset_type}, sector: ${a.sector ?? 'unknown'})`)
+      .join('\n')
 
     const prompt = `You are a quantitative investment analyst. Given the current investment themes and recent market events, score each asset.
 
@@ -309,7 +309,7 @@ Signal rules:
     try {
       const response = await anthropic.messages.create({
         model:      'claude-sonnet-4-20250514',
-        max_tokens: 2048,  // increased — 10 assets × ~80 tokens each + overhead
+        max_tokens: 2048,
         messages:   [{ role: 'user', content: prompt }],
       })
 
@@ -326,14 +326,14 @@ Signal rules:
       const parsed = JSON.parse(raw) as AssetSignalOutput[]
       results.push(...parsed)
     } catch (err) {
-      console.error(`[generateAssetSignals] batch ${i / BATCH + 1} failed:`, err)
+      console.error(`[generateAssetSignals] batch ${Math.floor(i / BATCH) + 1} failed:`, err)
     }
 
-    // Rate limit protection between batches
     if (i + BATCH < assets.length) {
       await new Promise(r => setTimeout(r, DELAY))
     }
   }
 
-  return results
+   return results
 }
+

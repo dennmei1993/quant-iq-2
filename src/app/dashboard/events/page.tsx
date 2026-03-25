@@ -5,14 +5,14 @@ import styles from './events.module.css'
 import panelStyles from '@/components/dashboard/ui.module.css'
 
 interface Event {
-  id: string
-  headline: string
-  ai_summary: string | null
-  published_at: string
-  event_type: string | null
-  sectors: string[] | null
+  id:              string
+  headline:        string
+  ai_summary:      string | null
+  published_at:    string
+  event_type:      string | null
+  sectors:         string[] | null
   sentiment_score: number | null
-  impact_level: string | null
+  impact_score:    number | null
 }
 
 const TIME_FILTERS = [
@@ -25,20 +25,21 @@ const TIME_FILTERS = [
   { label: '5d',  hours: 120 },
 ]
 
+// Numeric impact_score thresholds: 0-10 scale
 const IMPACT_FILTERS = [
-  { label: 'All',    value: ''       },
-  { label: 'High',   value: 'high'   },
-  { label: 'Medium', value: 'medium' },
-  { label: 'Low',    value: 'low'    },
+  { label: 'All',    min: null },
+  { label: 'High',   min: 7    },  // 7-10
+  { label: 'Medium', min: 4    },  // 4-10
+  { label: 'Low',    min: 0    },  // 0-10 (same as all but explicit)
 ]
 
 const TYPE_FILTERS = [
-  { label: 'All Types',        value: ''                  },
-  { label: 'Monetary Policy',  value: 'monetary_policy'   },
-  { label: 'Geopolitical',     value: 'geopolitical'      },
-  { label: 'Corporate',        value: 'corporate'         },
-  { label: 'Economic Data',    value: 'economic_data'     },
-  { label: 'Regulatory',       value: 'regulatory'        },
+  { label: 'All Types',       value: ''                 },
+  { label: 'Monetary Policy', value: 'monetary_policy'  },
+  { label: 'Geopolitical',    value: 'geopolitical'     },
+  { label: 'Corporate',       value: 'corporate'        },
+  { label: 'Economic Data',   value: 'economic_data'    },
+  { label: 'Regulatory',      value: 'regulatory'       },
 ]
 
 const TYPE_LABELS: Record<string, string> = {
@@ -49,12 +50,12 @@ const TYPE_LABELS: Record<string, string> = {
   regulatory:      'Regulatory',
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  monetary_policy: styles.typeMonetary,
-  geopolitical:    styles.typeGeo,
-  corporate:       styles.typeCorp,
-  economic_data:   styles.typeEcon,
-  regulatory:      styles.typeReg,
+// Derive impact label from numeric score
+function impactFromScore(score: number | null): { label: string; css: string } {
+  if (score === null)  return { label: '—',      css: styles.impactNone }
+  if (score >= 7)      return { label: 'High',   css: styles.impactHigh }
+  if (score >= 4)      return { label: 'Medium', css: styles.impactMed  }
+  return                      { label: 'Low',    css: styles.impactLow  }
 }
 
 function relTime(iso: string) {
@@ -74,50 +75,53 @@ function formatTime(iso: string) {
 }
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<Event[]>([])
-  const [loading, setLoading] = useState(true)
-  const [timeFilter, setTimeFilter] = useState(24)
-  const [impactFilter, setImpactFilter] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [events, setEvents]       = useState<Event[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [timeFilter, setTimeFilter]   = useState(24)
+  const [impactMin, setImpactMin]     = useState<number | null>(null)
+  const [typeFilter, setTypeFilter]   = useState('')
+  const [expanded, setExpanded]   = useState<string | null>(null)
 
   const fetchEvents = useCallback(async () => {
     setLoading(true)
     setExpanded(null)
     const since = new Date(Date.now() - timeFilter * 60 * 60 * 1000).toISOString()
     const params = new URLSearchParams({ since, limit: '500' })
-    if (impactFilter) params.set('impact', impactFilter)
-    if (typeFilter)   params.set('event_type', typeFilter)
+    if (impactMin !== null) params.set('impact', String(impactMin))
+    if (typeFilter)         params.set('event_type', typeFilter)
 
     const res = await fetch(`/api/events?${params}`)
     const data = await res.json()
     setEvents(data.events ?? [])
     setLoading(false)
-  }, [timeFilter, impactFilter, typeFilter])
+  }, [timeFilter, impactMin, typeFilter])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
   const dotColor = (score: number | null) => {
-    if (score === null) return '#e09845'
-    if (score > 0.2) return '#4eca99'
-    if (score < -0.2) return '#e87070'
-    return '#e09845'
+    if (score === null) return '#555'
+    if (score >= 7) return '#e87070'
+    if (score >= 4) return '#e09845'
+    return 'rgba(200,185,165,0.3)'
   }
 
-  const scoreClass = (score: number | null) => {
+  const sentimentClass = (score: number | null) => {
     if (score === null) return panelStyles.scoreNeut
-    if (score > 0.2) return panelStyles.scoreBull
+    if (score > 0.2)  return panelStyles.scoreBull
     if (score < -0.2) return panelStyles.scoreBear
     return panelStyles.scoreNeut
   }
 
-  const impactInfo = (level: string | null) => {
-    if (level === 'high')   return { label: 'High',   css: styles.impactHigh }
-    if (level === 'medium') return { label: 'Medium', css: styles.impactMed  }
-    return                         { label: 'Low',    css: styles.impactLow  }
+  const typeCls: Record<string, string> = {
+    monetary_policy: styles.typeMonetary,
+    geopolitical:    styles.typeGeo,
+    corporate:       styles.typeCorp,
+    economic_data:   styles.typeEcon,
+    regulatory:      styles.typeReg,
   }
 
   const timeLabel = TIME_FILTERS.find(f => f.hours === timeFilter)?.label ?? '24h'
+  const impactLabel = IMPACT_FILTERS.find(f => f.min === impactMin)?.label ?? 'All'
 
   return (
     <div>
@@ -154,9 +158,9 @@ export default function EventsPage() {
             <span className={styles.filterLabel}>Impact</span>
             <div className={styles.filterToggle}>
               {IMPACT_FILTERS.map(f => (
-                <button key={f.value}
-                  className={`${styles.filterBtn} ${impactFilter === f.value ? styles.filterActive : ''}`}
-                  onClick={() => setImpactFilter(f.value)}>
+                <button key={String(f.min)}
+                  className={`${styles.filterBtn} ${impactMin === f.min ? styles.filterActive : ''}`}
+                  onClick={() => setImpactMin(f.min)}>
                   {f.label}
                 </button>
               ))}
@@ -164,7 +168,7 @@ export default function EventsPage() {
           </div>
 
           <div className={styles.filterGroup}>
-            <span className={styles.filterLabel}>Event type</span>
+            <span className={styles.filterLabel}>Type</span>
             <div className={styles.filterToggle}>
               {TYPE_FILTERS.map(f => (
                 <button key={f.value}
@@ -185,7 +189,7 @@ export default function EventsPage() {
           Event Intelligence Feed
           <span className={panelStyles.panelSub}>
             Last {timeLabel}
-            {impactFilter ? ` · ${impactFilter} impact` : ''}
+            {impactMin !== null && impactMin > 0 ? ` · ${impactLabel} impact` : ''}
             {typeFilter ? ` · ${TYPE_LABELS[typeFilter] ?? typeFilter}` : ''}
           </span>
         </div>
@@ -194,26 +198,26 @@ export default function EventsPage() {
 
         {!loading && events.length === 0 && (
           <div className={panelStyles.empty}>
-            No events found for the selected filters — try a longer time range or broader filter.
+            No events found — try a longer time range or broader filter.
           </div>
         )}
 
         {events.map(e => {
-          const impact = impactInfo(e.impact_level)
+          const impact     = impactFromScore(e.impact_score)
           const isExpanded = expanded === e.id
-          const typeCls = TYPE_COLORS[e.event_type ?? ''] ?? styles.typeDefault
+          const tCls       = typeCls[e.event_type ?? ''] ?? styles.typeDefault
 
           return (
             <div key={e.id}
               className={`${panelStyles.eventItem} ${styles.eventRow} ${isExpanded ? styles.eventExpanded : ''}`}
               onClick={() => setExpanded(isExpanded ? null : e.id)}>
 
-              <div className={panelStyles.eventDot} style={{ background: dotColor(e.sentiment_score) }} />
+              <div className={panelStyles.eventDot} style={{ background: dotColor(e.impact_score) }} />
 
               <div className={styles.eventMain}>
                 <div className={styles.eventTop}>
                   <div className={panelStyles.eventHeadline}>{e.headline}</div>
-                  <div className={`${panelStyles.eventScore} ${scoreClass(e.sentiment_score)}`}>
+                  <div className={`${panelStyles.eventScore} ${sentimentClass(e.sentiment_score)}`}>
                     {e.sentiment_score !== null
                       ? `${e.sentiment_score >= 0 ? '+' : ''}${e.sentiment_score.toFixed(2)}`
                       : '—'}
@@ -222,25 +226,30 @@ export default function EventsPage() {
 
                 <div className={styles.eventMeta}>
                   {e.event_type && (
-                    <span className={`${styles.typePill} ${typeCls}`}>
+                    <span className={`${styles.typePill} ${tCls}`}>
                       {TYPE_LABELS[e.event_type] ?? e.event_type}
                     </span>
                   )}
                   {e.sectors?.slice(0, 2).map(s => (
                     <span key={s} className={styles.sectorTag}>{s}</span>
                   ))}
-                  <span className={`${styles.impactBadge} ${impact.css}`}>{impact.label}</span>
+                  <span className={`${styles.impactBadge} ${impact.css}`}>
+                    {impact.label}
+                    {e.impact_score !== null && (
+                      <span className={styles.impactScore}> {e.impact_score.toFixed(1)}</span>
+                    )}
+                  </span>
                   <span className={styles.eventTime} title={formatTime(e.published_at)}>
                     {relTime(e.published_at)}
                   </span>
-                  <span className={styles.expandHint}>{isExpanded ? '▲ collapse' : '▼ details'}</span>
+                  <span className={styles.expandHint}>{isExpanded ? '▲' : '▼'}</span>
                 </div>
 
                 {isExpanded && (
                   <div className={styles.eventDetails}>
                     {e.ai_summary
                       ? <p className={styles.eventSummary}>{e.ai_summary}</p>
-                      : <p className={styles.eventSummaryEmpty}>No AI summary available for this event.</p>
+                      : <p className={styles.eventSummaryEmpty}>No AI summary available.</p>
                     }
                     {e.sectors && e.sectors.length > 0 && (
                       <div className={styles.detailRow}>
@@ -250,6 +259,12 @@ export default function EventsPage() {
                         </div>
                       </div>
                     )}
+                    <div className={styles.detailRow}>
+                      <span className={styles.detailLabel}>Impact score</span>
+                      <span className={styles.detailVal}>
+                        {e.impact_score !== null ? `${e.impact_score.toFixed(1)} / 10` : '—'}
+                      </span>
+                    </div>
                     <div className={styles.detailRow}>
                       <span className={styles.detailLabel}>Published</span>
                       <span className={styles.detailVal}>{formatTime(e.published_at)}</span>
