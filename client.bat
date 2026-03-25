@@ -1,3 +1,4 @@
+cat > /home/claude/quant-iq/src/app/dashboard/events/page.tsx << 'ENDOFFILE'
 'use client'
 // src/app/dashboard/events/page.tsx
 import { useState, useEffect, useCallback } from 'react'
@@ -199,3 +200,5 @@ export default function EventsPage() {
     </div>
   )
 }
+ENDOFFILE
+echo "done"
