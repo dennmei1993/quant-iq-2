@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const sector = p.get("sector");
     const since  = p.get("since");
 
-    const defaultSince = since ?? new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString();
+    const defaultSince = since ?? new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
 
     // Pass 1: recent events ordered by impact
     let q = supabase
