@@ -3,11 +3,6 @@ import { createServiceClient } from "@/lib/supabase/server";
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-const IMPACT_COLOR: Record<string, string> = {
-  high:   "var(--signal-bear)",
-  medium: "var(--signal-neut)",
-  low:    "rgba(232,226,217,0.3)",
-};
 
 interface EventRow {
   id:              string
@@ -15,7 +10,7 @@ interface EventRow {
   event_type:      string | null
   sectors:         string[] | null
   sentiment_score: number | null
-  impact_level:    string | null
+  impact_score:    number | null
   tickers:         string[] | null
   ai_summary:      string | null
   published_at:    string
@@ -26,8 +21,9 @@ export default async function EventsPage() {
 
   const result = await (supabase
     .from("events")
-    .select("id, headline, event_type, sectors, sentiment_score, impact_level, tickers, ai_summary, published_at")
+    .select("id, headline, event_type, sectors, sentiment_score, impact_score, tickers, ai_summary, published_at")
     .eq("ai_processed", true)
+    .order("impact_score", { ascending: false })
     .order("published_at", { ascending: false })
     .limit(50) as unknown as Promise<{ data: EventRow[] | null }>)
 
@@ -51,8 +47,8 @@ export default async function EventsPage() {
                   <div style={{ fontSize: "1rem", fontWeight: 700, color: scoreColor }}>
                     {score >= 0 ? "+" : ""}{score.toFixed(2)}
                   </div>
-                  <div style={{ fontSize: "0.65rem", color: IMPACT_COLOR[e.impact_level ?? "low"], textTransform: "uppercase", marginTop: "0.15rem" }}>
-                    {e.impact_level}
+                  <div style={{ fontSize: "0.65rem", color: (e.impact_score ?? 0) >= 7 ? "var(--signal-bear)" : (e.impact_score ?? 0) >= 4 ? "var(--signal-neut)" : "rgba(232,226,217,0.3)", textTransform: "uppercase", marginTop: "0.15rem" }}>
+                    {e.impact_score ?? 1}/10
                   </div>
                 </div>
               </div>

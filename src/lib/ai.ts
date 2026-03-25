@@ -21,13 +21,13 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface EventInput {
-  headline: string
-  ai_summary?: string | null
-  event_type?: string | null
-  sectors?: string[] | null
+  headline:        string
+  ai_summary?:     string | null
+  event_type?:     string | null
+  sectors?:        string[] | null
   sentiment_score?: number
-  impact_level?: string | null
-  published_at: string
+  impact_score?:   number | null
+  published_at:    string
 }
 
 export interface TickerWeight {
@@ -127,12 +127,12 @@ Rules for ticker_weights:
 // ─── classifyEvent (unchanged) ────────────────────────────────────────────────
 
 export interface ClassificationOutput {
-  event_type:      string
-  sectors:         string[]
+  event_type:    string
+  sectors:       string[]
   sentiment_score: number
-  impact_level:    string
-  tickers:         string[]
-  ai_summary:      string
+  impact_score:  number   // 1–10: 1-2=low, 3-4=medium, 5-6=medium-high, 7-8=high, 9-10=breaking
+  tickers:       string[]
+  ai_summary:    string
 }
 
 export async function classifyEvent(
@@ -149,10 +149,17 @@ Respond ONLY with a valid JSON object:
   "event_type": "<monetary_policy|geopolitical|corporate|economic_data|regulatory>",
   "sectors": ["<affected US market sectors>"],
   "sentiment_score": <float -1.0 to 1.0 for US markets>,
-  "impact_level": "<low|medium|high>",
+  "impact_score": <integer 1-10>,
   "tickers": ["<directly affected US-listed tickers, max 5>"],
   "ai_summary": "<1 sentence investment-relevant summary>"
-}`
+}
+
+impact_score scale:
+  9-10 = Breaking / systemic (Fed emergency action, war declaration, market halt)
+  7-8  = High impact (rate decision, major earnings miss, geopolitical shock)
+  5-6  = Medium-high (strong jobs report, sector-wide news, large M&A)
+  3-4  = Medium (earnings in-line, minor regulatory update, analyst upgrade)
+  1-2  = Low (routine filing, opinion piece, minor corporate news)`
 
   const response = await anthropic.messages.create({
     model:      'claude-sonnet-4-20250514',
@@ -176,7 +183,7 @@ Respond ONLY with a valid JSON object:
 
 export async function generateAdvisoryMemo(
   holdings: { ticker: string; quantity?: number | null; avg_cost?: number | null }[],
-  recentEvents: { headline: string; ai_summary?: string | null; sentiment_score: number; impact_level: string }[],
+  recentEvents: { headline: string; ai_summary?: string | null; sentiment_score: number; impact_score: number }[],
   macroEnvironment?: string
 ): Promise<string> {
   const holdingsList = holdings
@@ -185,7 +192,7 @@ export async function generateAdvisoryMemo(
 
   const eventsList = recentEvents
     .slice(0, 10)
-    .map(e => `- ${e.ai_summary ?? e.headline} [${e.impact_level}, sentiment: ${e.sentiment_score.toFixed(2)}]`)
+    .map(e => `- ${e.ai_summary ?? e.headline} [impact: ${e.impact_score}/10, sentiment: ${e.sentiment_score.toFixed(2)}]`)
     .join('\n')
 
   const prompt = `You are a professional investment advisor. Write a concise advisory memo for a portfolio.
@@ -249,7 +256,7 @@ export interface AssetSignalOutput {
  */
 export async function generateAssetSignals(
   assets: AssetSignalInput[],
-  events: { headline: string; ai_summary?: string | null; sentiment_score?: number | null; impact_level?: string | null }[],
+  events: { headline: string; ai_summary?: string | null; sentiment_score?: number | null; impact_score?: number | null }[],
   themes: ThemeInput[]
 ): Promise<AssetSignalOutput[]> {
   if (!assets.length) return []
@@ -260,7 +267,7 @@ export async function generateAssetSignals(
 
   const eventsSummary = events
     .slice(0, 15)
-    .map(e => `- ${e.ai_summary ?? e.headline} [${e.impact_level ?? 'unknown'}, sentiment: ${(e.sentiment_score ?? 0).toFixed(2)}]`)
+    .map(e => `- ${e.ai_summary ?? e.headline} [impact: ${e.impact_score ?? 1}/10, sentiment: ${(e.sentiment_score ?? 0).toFixed(2)}]`)
     .join('\n')
 
   const results: AssetSignalOutput[] = []

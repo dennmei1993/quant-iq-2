@@ -10,7 +10,7 @@ type LiveEvent = {
   id: string
   headline: string
   sentiment_score: number | null
-  impact_level: string | null
+  impact_score:  number | null
   event_type: string | null
   sectors: string[] | null
   tickers: string[] | null
@@ -187,11 +187,10 @@ export default function LandingPage() {
     ? events.reduce((s, e) => s + (e.sentiment_score ?? 0), 0) / events.length
     : null
 
-  const IMPACT_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
   const topEvents = [...events]
     .sort((a, b) => {
-      const rankDiff = (IMPACT_RANK[a.impact_level ?? 'low'] ?? 2) - (IMPACT_RANK[b.impact_level ?? 'low'] ?? 2)
-      if (rankDiff !== 0) return rankDiff
+      const scoreDiff = (b.impact_score ?? 0) - (a.impact_score ?? 0)
+      if (scoreDiff !== 0) return scoreDiff
       return new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
     })
     .slice(0, 4)
@@ -331,7 +330,7 @@ export default function LandingPage() {
               {/* OVERVIEW */}
               {activeTab === 'overview' && (
                 <div className={styles.dashContent}>
-                  {events.filter(e => e.impact_level === 'high').slice(0, 1).map(e => (
+                  {events.filter(e => (e.impact_score ?? 0) >= 7).slice(0, 1).map(e => (
                     <div key={e.id} className={styles.alertStrip}>
                       <strong style={{ color: sentimentColor(e.sentiment_score) }}>
                         HIGH IMPACT:
@@ -450,10 +449,10 @@ export default function LandingPage() {
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                               <span style={{
                                 fontSize: '0.65rem', fontWeight: 500, padding: '0.15rem 0.45rem', borderRadius: 4,
-                                background: e.impact_level === 'high' ? 'rgba(232,112,112,0.15)' : e.impact_level === 'medium' ? 'rgba(224,152,69,0.15)' : 'rgba(255,255,255,0.06)',
-                                color: e.impact_level === 'high' ? '#e87070' : e.impact_level === 'medium' ? '#e09845' : 'rgba(232,226,217,0.4)',
+                                background: (e.impact_score ?? 0) >= 7 ? 'rgba(232,112,112,0.15)' : (e.impact_score ?? 0) >= 4 ? 'rgba(224,152,69,0.15)' : 'rgba(255,255,255,0.06)',
+                                color: (e.impact_score ?? 0) >= 7 ? '#e87070' : (e.impact_score ?? 0) >= 4 ? '#e09845' : 'rgba(232,226,217,0.4)',
                               }}>
-                                {e.impact_level?.toUpperCase()} IMPACT
+                                {e.impact_score ?? 1}/10 IMPACT
                               </span>
                               {(e.sectors ?? []).map((s: string) => (
                                 <span key={s} style={{ fontSize: '0.65rem', padding: '0.15rem 0.45rem', borderRadius: 4, background: 'rgba(255,255,255,0.05)', color: 'rgba(232,226,217,0.4)' }}>
