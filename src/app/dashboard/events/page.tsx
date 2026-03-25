@@ -1,5 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/server";
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const IMPACT_COLOR: Record<string, string> = {
   high:   "var(--signal-bear)",
   medium: "var(--signal-neut)",
