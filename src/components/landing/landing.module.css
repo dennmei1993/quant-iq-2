@@ -227,3 +227,21 @@
 /* ── RESPONSIVE ── */
 @media(max-width:900px) { .footerGrid { grid-template-columns: 1fr 1fr; } .dash { grid-template-columns: 1fr; } .dashSidebar { display: none; } .dashGrid2, .dashGrid3 { grid-template-columns: 1fr; } }
 @media(max-width:560px) { .sectionCream, .sectionLight, .sectionNavy, .sectionSignup { padding: 5rem 6%; } .hero { padding: 8rem 6% 4rem; } .heroStats { gap: 1.5rem; } }
+
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.navSignIn {
+  font-size: 0.78rem;
+  color: rgba(232,226,217,0.6);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.navSignIn:hover {
+  color: var(--gold);
+}

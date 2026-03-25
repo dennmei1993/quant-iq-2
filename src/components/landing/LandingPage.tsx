@@ -216,7 +216,10 @@ export default function LandingPage() {
           <li><a href="#features">Features</a></li>
           <li><a href="#pricing">Pricing</a></li>
         </ul>
-        <a href="#signup" className={styles.navCta}>Early Access</a>
+        <div className={styles.navActions}>
+          <a href="/auth/login" className={styles.navSignIn}>Sign in</a>
+          <a href="#signup" className={styles.navCta}>Early Access</a>
+        </div>
         <button className={styles.hamburger} onClick={() => setNavOpen(!navOpen)} aria-label="menu">
           <span /><span /><span />
         </button>
