@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { createServiceClient } from "@/lib/supabase/server";
 
 const IMPACT_COLOR: Record<string, string> = {
   high:   "var(--signal-bear)",
@@ -6,15 +6,29 @@ const IMPACT_COLOR: Record<string, string> = {
   low:    "rgba(232,226,217,0.3)",
 };
 
-export default async function EventsPage() {
-  const supabase = await createServerSupabaseClient();
+interface EventRow {
+  id:              string
+  headline:        string
+  event_type:      string | null
+  sectors:         string[] | null
+  sentiment_score: number | null
+  impact_level:    string | null
+  tickers:         string[] | null
+  ai_summary:      string | null
+  published_at:    string
+}
 
-  const { data: events } = await supabase
+export default async function EventsPage() {
+  const supabase = createServiceClient();
+
+  const result = await (supabase
     .from("events")
     .select("id, headline, event_type, sectors, sentiment_score, impact_level, tickers, ai_summary, published_at")
     .eq("ai_processed", true)
     .order("published_at", { ascending: false })
-    .limit(50);
+    .limit(50) as unknown as Promise<{ data: EventRow[] | null }>)
+
+  const events = result.data
 
   return (
     <div>
