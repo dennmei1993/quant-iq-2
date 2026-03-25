@@ -1,9 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase";
 import RssSubscribe from "@/components/dashboard/RssSubscribe";
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient();
 
@@ -17,7 +14,7 @@ export default async function DashboardPage() {
       .select("id, headline, sentiment_score, impact_level, event_type, published_at")
       .eq("ai_processed", true)
       .order("published_at", { ascending: false })
-      .limit(8) as unknown as Promise<{ data: { id: string; headline: string; sentiment_score: number | null; impact_level: string | null; event_type: string | null; published_at: string }[] | null }>,
+      .limit(20) as unknown as Promise<{ data: { id: string; headline: string; sentiment_score: number | null; impact_level: string | null; event_type: string | null; published_at: string }[] | null }>,
     supabase
       .from("themes")
       .select("id, name, label, timeframe, conviction, momentum, candidate_tickers")
@@ -29,6 +26,16 @@ export default async function DashboardPage() {
   ]);
 
   console.log("[dashboard] events:", events?.length, "error:", error?.message);
+
+  // Sort by impact priority (high → medium → low), then by recency within each group
+  const IMPACT_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
+  const topEvents = [...(events ?? [])]
+    .sort((a, b) => {
+      const rankDiff = (IMPACT_RANK[a.impact_level ?? 'low'] ?? 2) - (IMPACT_RANK[b.impact_level ?? 'low'] ?? 2)
+      if (rankDiff !== 0) return rankDiff
+      return new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
+    })
+    .slice(0, 4)
 
   const avgSentiment = events?.length
     ? (events.reduce((s, e) => s + (e.sentiment_score ?? 0), 0) / events.length).toFixed(2)
@@ -57,10 +64,10 @@ export default async function DashboardPage() {
         <div>
           <SectionHeader title="Latest signals" href="/dashboard/events" />
           <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-            {(events ?? []).map(e => (
+            {topEvents.map(e => (
               <EventRow key={e.id} event={e} />
             ))}
-            {!events?.length && <Empty text="No classified events yet. Run the ingest cron." />}
+            {!topEvents.length && <Empty text="No classified events yet. Run the ingest cron." />}
           </div>
         </div>
 
