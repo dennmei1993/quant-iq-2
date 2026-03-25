@@ -21,7 +21,7 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: 'https://www.betteroption.com.au/auth/callback' },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) { setError(error.message); setLoading(false); return; }
     setDone(true);
