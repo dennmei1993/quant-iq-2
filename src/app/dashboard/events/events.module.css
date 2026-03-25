@@ -1,5 +1,10 @@
 /* src/app/dashboard/events/events.module.css */
 
+/* additions for impact_score */
+.impactNone  { background: rgba(255,255,255,0.04); color: rgba(200,185,165,0.2); border: 1px solid rgba(255,255,255,0.05); }
+.impactScore { font-family: 'DM Mono', monospace; font-size: 0.6rem; opacity: 0.7; }
+
+
 /* ── Filter bar ── */
 .filterBar {
   background: var(--dash-sidebar);
