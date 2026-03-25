@@ -10,7 +10,7 @@ interface Event {
   event_type: string | null
   sectors: string[] | null
   sentiment_score: number | null
-  impact_level: string | null
+  impact_score: number | null
 }
 
 export function EventFeedPreview({ events }: { events: Event[] }) {

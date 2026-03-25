@@ -34,7 +34,7 @@ export interface ScoredEvent {
   headline:        string
   event_type:      string | null
   sentiment_score: number | null
-  impact_level:    string | null
+  impact_score: number | null
   published_at:    string
 }
 
@@ -74,7 +74,7 @@ export function computeAnchorScore(events: ScoredEvent[]): Omit<AnchorResult, 's
   // Score each event
   const scored = events.map(e => {
     const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86_400_000
-    const impactW = IMPACT_WEIGHT[e.impact_level ?? 'low'] ?? 0.2
+    const impactW = IMPACT_WEIGHT[e.impact_score ?? 1] ?? 0.2
     const magnitude = Math.abs(e.sentiment_score ?? 0)
     const decay = Math.exp(-0.1 * ageDays)
     const contribution = magnitude * impactW * decay
@@ -131,9 +131,8 @@ export function shouldReplaceTheme(
 
 function buildReason(event: ScoredEvent): string {
   const typeLabel = EVENT_TYPE_LABELS[event.event_type ?? ''] ?? 'Market event'
-  const impactLabel = event.impact_level
-    ? `${event.impact_level} impact`
-    : 'notable impact'
+  const impactLabel = event.impact_score
+    ? `${event.impact_score}/10 impact` : "notable impact"
 
   return `${typeLabel} — ${impactLabel}`
 }

@@ -6,7 +6,7 @@
  * Computes a 0–100 risk score for a portfolio by:
  *   1. Loading all holdings for the portfolio
  *   2. For each holding, finding recent events that reference the ticker or its sector
- *   3. Weighting events by impact_level, sentiment_score, and recency
+ *   3. Weighting events by impact_score, sentiment_score, and recency
  *   4. Aggregating into a portfolio-level risk score + per-holding breakdown
  *
  * Risk score interpretation:
@@ -34,7 +34,7 @@ export interface HoldingRisk {
     headline: string
     ai_summary: string | null
     sentiment_score: number
-    impact_level: string | null
+    impact_score: number | null
     published_at: string
   } | null
 }
@@ -95,7 +95,7 @@ export async function computePortfolioRisk(
 
   const { data: events, error: evErr } = await supabase
     .from('events')
-    .select('id, headline, ai_summary, event_type, sectors, tickers, sentiment_score, impact_level, published_at')
+    .select('id, headline, ai_summary, event_type, sectors, tickers, sentiment_score, impact_score, published_at')
     .eq('ai_processed', true)
     .gte('published_at', since)
     .order('published_at', { ascending: false })
@@ -111,7 +111,7 @@ export async function computePortfolioRisk(
     const sector = tickerSectorMap.get(ticker)
 
     // Find matching events: either the event tags this ticker OR its sector
-    const matchingEvents = recentEvents.filter((e: { tickers: string[] | null; sectors: string[] | null; sentiment_score: number; impact_level: string | null; published_at: string; id: string; headline: string; ai_summary: string | null }) => {
+    const matchingEvents = recentEvents.filter((e: { tickers: string[] | null; sectors: string[] | null; sentiment_score: number; impact_score: number | null; published_at: string; id: string; headline: string; ai_summary: string | null }) => {
       const eventTickers = (e.tickers ?? []).map((t: string) => t.toUpperCase())
       const eventSectors = e.sectors ?? []
 
@@ -141,7 +141,7 @@ export async function computePortfolioRisk(
     let weightTotal = 0
 
     for (const e of matchingEvents) {
-      const impactW = IMPACT_WEIGHT[e.impact_level ?? 'low'] ?? 0.2
+      const impactW = IMPACT_WEIGHT[e.impact_score ?? 1] ?? 0.2
       // Recency decay: events from today get weight 1.0, 7 days ago get ~0.43
       const ageDays =
         (Date.now() - new Date(e.published_at).getTime()) / (1000 * 60 * 60 * 24)
@@ -161,8 +161,8 @@ export async function computePortfolioRisk(
 
     // Sort matching events by impact × |sentiment| to find most significant
     const sortedEvents = [...matchingEvents].sort((a, b) => {
-      const impactA = IMPACT_WEIGHT[a.impact_level ?? 'low'] ?? 0.2
-      const impactB = IMPACT_WEIGHT[b.impact_level ?? 'low'] ?? 0.2
+      const impactA = IMPACT_WEIGHT[a.impact_score ?? 1] ?? 0.2
+      const impactB = IMPACT_WEIGHT[b.impact_score ?? 1] ?? 0.2
       return (impactB * Math.abs(b.sentiment_score)) - (impactA * Math.abs(a.sentiment_score))
     })
 
@@ -180,9 +180,7 @@ export async function computePortfolioRisk(
         id: topEvent.id,
         headline: topEvent.headline,
         ai_summary: topEvent.ai_summary,
-        sentiment_score: topEvent.sentiment_score,
-        impact_level: topEvent.impact_level,
-        published_at: topEvent.published_at,
+        sentiment_score: topEvent.sentiment_score, impact_score: topEvent.impact_score, published_at: topEvent.published_at,
       },
     }
   })

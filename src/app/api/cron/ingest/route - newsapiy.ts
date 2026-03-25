@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
       const c = await classifyEvent(article.title, article.description);
 
       // Skip events Claude determined are not market-relevant
-      if (c.impact_level === 'ignore') {
+      if (c.impact_score === 'ignore') {
         await db.from("events").delete().eq("id", row.id);
         continue;
       }
@@ -110,9 +110,7 @@ export async function GET(req: NextRequest) {
       await db.from("events").update({
         event_type:      c.event_type,
         sectors:         c.sectors,
-        sentiment_score: c.sentiment_score,
-        impact_level:    c.impact_level,
-        tickers:         c.tickers,
+        sentiment_score: c.sentiment_score, impact_score:    c.impact_score, tickers:         c.tickers,
         ai_summary:      c.ai_summary,
         ai_processed:    true,
       }).eq("id", row.id);

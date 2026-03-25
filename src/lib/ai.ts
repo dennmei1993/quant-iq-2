@@ -25,7 +25,7 @@ export interface EventInput {
   ai_summary?:     string | null
   event_type?:     string | null
   sectors?:        string[] | null
-  sentiment_score?: number
+  sentiment_score?: number | null
   impact_score?:   number | null
   published_at:    string
 }

@@ -26,11 +26,13 @@ export async function POST(req: NextRequest) {
     const { supabase, user } = await requireUser();
 
     // Plan gate — free users cannot generate memos
-    const { data: profile } = await supabase
+    const profileResult = await (supabase
       .from("profiles")
       .select("plan")
       .eq("id", user.id)
-      .single();
+      .single() as unknown as Promise<{ data: { plan: string } | null }>)
+
+    const profile = profileResult.data
 
     if (!profile || profile.plan === "free") {
       return NextResponse.json(
@@ -54,16 +56,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No holdings in this portfolio" }, { status: 400 });
     }
 
-    // Recent high/medium impact events (last 48 h)
+    // Recent events with impact_score >= 3 (medium+) in last 48h
     const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-    const { data: events } = await supabase
+    const eventsResult = await (supabase
       .from("events")
-      .select("headline, event_type, sectors, sentiment_score, impact_level, ai_summary")
+      .select("headline, event_type, sectors, sentiment_score, impact_score, ai_summary")
       .eq("ai_processed", true)
-      .in("impact_level", ["high", "medium"])
+      .gte("impact_score", 3)
       .gte("published_at", since)
+      .order("impact_score", { ascending: false })
       .order("published_at", { ascending: false })
-      .limit(10);
+      .limit(10) as unknown as Promise<{ data: {
+        headline: string
+        event_type: string | null
+        sectors: string[] | null
+        sentiment_score: number | null
+        impact_score: number | null
+        ai_summary: string | null
+      }[] | null }>)
+
+    const events = eventsResult.data ?? []
 
     // Active themes
     const { data: themes } = await supabase
@@ -71,17 +83,29 @@ export async function POST(req: NextRequest) {
       .select("name, timeframe, conviction, brief")
       .eq("is_active", true);
 
+    const macroContext = themes?.length
+      ? `Active themes: ${themes.map((t: any) => `${t.name} (${t.timeframe}, conviction ${t.conviction ?? 0})`).join('; ')}`
+      : undefined
+
     const content = await generateAdvisoryMemo(
       holdings,
-      events ?? [],
-      themes ?? []
+      events.map(e => ({
+        headline:        e.headline,
+        ai_summary:      e.ai_summary,
+        sentiment_score: e.sentiment_score ?? 0,
+        impact_score:    e.impact_score ?? 1,
+      })),
+      macroContext
     );
 
-    const { data: memo, error } = await supabase
-      .from("advisory_memos")
+    const memoResult = await (supabase
+      .from("advisory_memos") as any)
       .insert({ user_id: user.id, portfolio_id, content, model: "claude-sonnet-4-20250514" })
       .select("id, content, created_at")
-      .single();
+      .single()
+
+    const memo = (memoResult as any).data
+    const error = (memoResult as any).error
 
     if (error) throw error;
     return NextResponse.json({ memo }, { status: 201 });

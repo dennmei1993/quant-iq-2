@@ -59,13 +59,13 @@ export async function GET(req: NextRequest) {
   // Build query
   let query = supabase
     .from('events')
-    .select('id, headline, source_url, source, source_name, published_at, event_type, sectors, sentiment_score, impact_level, tickers, ai_summary')
+    .select('id, headline, source_url, source, source_name, published_at, event_type, sectors, sentiment_score, impact_score, tickers, ai_summary')
     .eq('ai_processed', true)
     .not('ai_summary', 'is', null)
     .order('published_at', { ascending: false })
     .limit(limit)
 
-  if (impact)  query = query.eq('impact_level', impact)
+  if (impact)  query = query.eq('impact_score', impact)
   if (type)    query = query.eq('event_type', type)
   if (sector)  query = query.contains('sectors', [sector])
 
@@ -118,7 +118,7 @@ interface RssItem {
   event_type:      string | null
   sectors:         string[] | null
   sentiment_score: number | null
-  impact_level:    string | null
+  impact_score: number | null
   tickers:         string[] | null
   ai_summary:      string | null
 }
@@ -143,7 +143,7 @@ function buildRss({ title, description, link, feedUrl, items }: RssFeedParams): 
     const sentimentLabel = sentimentStr(item.sentiment_score)
     const tickersStr     = item.tickers?.length ? `Tickers: ${item.tickers.join(', ')}. ` : ''
     const sectorsStr     = item.sectors?.length ? `Sectors: ${item.sectors.join(', ')}. ` : ''
-    const impactStr      = item.impact_level ? `Impact: ${item.impact_level}. ` : ''
+    const impactStr      = item.impact_score ? `Impact: ${item.impact_score}. ` : ''
     const sourceStr      = item.source_name ? `Source: ${item.source_name}. ` : ''
 
     const fullDescription = [
@@ -156,7 +156,7 @@ function buildRss({ title, description, link, feedUrl, items }: RssFeedParams): 
     const categories = [
       item.event_type,
       ...(item.sectors ?? []),
-      item.impact_level ? `impact:${item.impact_level}` : null,
+      item.impact_score ? `impact:${item.impact_score}` : null,
     ]
       .filter(Boolean)
       .map(c => `      <category>${xmlEscape(c!)}</category>`)

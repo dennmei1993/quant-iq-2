@@ -1,13 +1,4 @@
 // app/api/cron/themes/route.ts
-// Vercel Cron — runs 09:00 UTC daily
-//
-// Theme persistence logic:
-//  1. Load current active theme per timeframe + its anchor_score
-//  2. Compute anchor score for today's events
-//  3. If current theme is still strong enough → keep it, update score only
-//  4. If signal faded OR new signal is 20% stronger → regenerate theme
-//  5. On replacement → insert alert for users with active portfolios
-
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { generateTheme, generateAssetSignals } from "@/lib/ai";
@@ -18,6 +9,28 @@ export const maxDuration = 300;
 
 const TIMEFRAMES = ["1m", "3m", "6m"] as const;
 const TTL_HOURS  = { "1m": 24, "3m": 72, "6m": 168 } as const;
+
+type EventRow = {
+  id: string
+  headline: string
+  event_type: string | null
+  sectors: string[] | null
+  sentiment_score: number | null
+  impact_score: number | null
+  ai_summary: string | null
+  published_at: string
+}
+
+type ThemeRow = {
+  id: string
+  name: string
+  anchor_score: number
+  is_anchored: boolean
+  anchored_since: string | null
+  conviction: number
+  candidate_tickers: string[] | null
+  brief: string | null
+}
 
 export async function GET(req: NextRequest) {
   const isVercelCron = req.headers.get("x-vercel-cron") === "1"
@@ -33,23 +46,17 @@ export async function GET(req: NextRequest) {
   const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
   // ── 1. Fetch qualifying events ────────────────────────────────────────────
-  const { data: events } = await db
+  const eventsResult = await (db
     .from("events")
-    .select("id, headline, event_type, sectors, sentiment_score, impact_level, ai_summary, published_at")
+    .select("id, headline, event_type, sectors, sentiment_score, impact_score, ai_summary, published_at")
     .eq("ai_processed", true)
-    .in("impact_level", ["high", "medium", "low"])
+    .gte("impact_score", 1)
     .gte("published_at", since)
+    .order("impact_score", { ascending: false })
     .order("published_at", { ascending: false })
-    .limit(50) as unknown as Promise<{ data: {
-      id: string
-      headline: string
-      event_type: string | null
-      sectors: string[] | null
-      sentiment_score: number | null
-      impact_level: string | null
-      ai_summary: string | null
-      published_at: string
-    }[] | null }>
+    .limit(50) as unknown as Promise<{ data: EventRow[] | null }>)
+
+  const events = eventsResult.data
 
   if (!events?.length) {
     return NextResponse.json({ ok: true, message: "No qualifying events", ...stats });
@@ -57,7 +64,6 @@ export async function GET(req: NextRequest) {
 
   log.push(`Loaded ${events.length} events for anchor scoring`)
 
-  // Compute new anchor score from today's events
   const { score: newScore, anchor_event, anchor_reason } = computeAnchorScore(events)
   log.push(`New anchor score: ${newScore.toFixed(3)} — "${anchor_reason}"`)
 
@@ -69,32 +75,20 @@ export async function GET(req: NextRequest) {
   // ── 2. Evaluate each timeframe ────────────────────────────────────────────
   for (const tf of TIMEFRAMES) {
     try {
-      // Load current active theme for this timeframe
-      const { data: currentThemes } = await db
+      const currentResult = await (db
         .from("themes")
         .select("id, name, anchor_score, is_anchored, anchored_since, conviction, candidate_tickers, brief")
         .eq("timeframe", tf)
         .eq("is_active", true)
-        .limit(1) as unknown as Promise<{ data: {
-          id: string
-          name: string
-          anchor_score: number
-          is_anchored: boolean
-          anchored_since: string | null
-          conviction: number
-          candidate_tickers: string[] | null
-          brief: string | null
-        }[] | null }>
+        .limit(1) as unknown as Promise<{ data: ThemeRow[] | null }>)
 
-      const current = currentThemes?.[0] ?? null
+      const current      = currentResult.data?.[0] ?? null
       const currentScore = current?.anchor_score ?? 0
 
       const { replace, reason: replaceReason } = shouldReplaceTheme(currentScore, newScore)
 
       if (current && !replace) {
-        // ── Keep current theme — update anchor score only ─────────────────
         log.push(`${tf}: keeping "${current.name}" (${replaceReason})`)
-
         await (db.from("themes") as any)
           .update({
             anchor_score: newScore,
@@ -109,20 +103,15 @@ export async function GET(req: NextRequest) {
           conviction:        current.conviction,
           brief:             current.brief ?? '',
         })
-
         stats.themes_kept++
         continue
       }
 
-      // ── Replace theme — deactivate old, generate new ──────────────────
       const isFirstTheme = !current
       log.push(`${tf}: ${isFirstTheme ? 'generating first theme' : `replacing "${current?.name}" — ${replaceReason}`}`)
 
-      // Deactivate old theme
       if (current) {
-        await (db.from("themes") as any)
-          .update({ is_active: false })
-          .eq("id", current.id)
+        await (db.from("themes") as any).update({ is_active: false }).eq("id", current.id)
       }
 
       await new Promise(r => setTimeout(r, 1500))
@@ -131,7 +120,6 @@ export async function GET(req: NextRequest) {
       const now        = new Date().toISOString()
       const expires_at = new Date(Date.now() + TTL_HOURS[tf] * 3_600_000).toISOString()
 
-      // Insert new theme with anchor data
       await (db.from("themes") as any).insert({
         name:              theme.name,
         label:             theme.label,
@@ -142,7 +130,6 @@ export async function GET(req: NextRequest) {
         candidate_tickers: theme.candidate_tickers,
         is_active:         true,
         expires_at,
-        // Anchor fields
         anchor_event_id:   anchor_event?.id ?? null,
         anchor_score:      newScore,
         anchored_since:    now,
@@ -153,7 +140,6 @@ export async function GET(req: NextRequest) {
       generatedThemes.push({ timeframe: tf, ...theme })
       stats.themes_replaced++
 
-      // ── Alert users when theme is replaced ───────────────────────────────
       if (current) {
         await alertUsersThemeReplaced(db, tf, current.name, theme.name, anchor_reason)
       }
@@ -166,16 +152,17 @@ export async function GET(req: NextRequest) {
 
   // ── 3. Update asset signals ───────────────────────────────────────────────
   try {
-    const { data: assets } = await db
+    const assetsResult = await (db
       .from("assets")
       .select("ticker, name, asset_type, sector") as unknown as Promise<{ data: {
         ticker: string; name: string; asset_type: string; sector: string | null
-      }[] | null }>
+      }[] | null }>)
+
+    const assets = assetsResult.data
 
     if (assets?.length) {
       await new Promise(r => setTimeout(r, 1500))
       const signals = await generateAssetSignals(assets, events, generatedThemes)
-
       for (const s of signals) {
         await (db.from("asset_signals") as any)
           .update({ signal: s.signal, score: s.score, rationale: s.rationale, updated_at: new Date().toISOString() })
@@ -197,8 +184,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, ...stats, log });
 }
 
-// ─── Alert users when a theme is replaced ────────────────────────────────────
-
 async function alertUsersThemeReplaced(
   db: ReturnType<typeof createServiceClient>,
   timeframe: string,
@@ -207,22 +192,20 @@ async function alertUsersThemeReplaced(
   reason: string
 ) {
   try {
-    // Find all users who have portfolios (they care about theme changes)
-    const { data: portfolios } = await db
+    const result = await (db
       .from("portfolios")
-      .select("user_id") as unknown as Promise<{ data: { user_id: string }[] | null }>
+      .select("user_id") as unknown as Promise<{ data: { user_id: string }[] | null }>)
 
-    if (!portfolios?.length) return
+    if (!result.data?.length) return
 
     const tf_label: Record<string, string> = { '1m': '1-month', '3m': '3-month', '6m': '6-month' }
 
-    for (const { user_id } of portfolios) {
+    for (const { user_id } of result.data) {
       await (db.from("alerts") as any).insert({
         user_id,
-        alert_type: 'theme_update',
+        type:       'theme_update',
         title:      `${tf_label[timeframe] ?? timeframe} theme updated`,
         body:       `"${oldName}" has been replaced by "${newName}". Trigger: ${reason}.`,
-        type:       'theme_update',
         is_read:    false,
         created_at: new Date().toISOString(),
       })
@@ -232,21 +215,19 @@ async function alertUsersThemeReplaced(
   }
 }
 
-// ─── Polygon price refresh ────────────────────────────────────────────────────
-
 async function refreshPolygonPrices(db: ReturnType<typeof createServiceClient>) {
   const key = process.env.POLYGON_API_KEY;
   if (!key) return 0;
 
-  const { data: assets } = await db
+  const assetsResult = await (db
     .from("assets")
     .select("ticker")
-    .in("asset_type", ["stock", "etf"]) as unknown as Promise<{ data: { ticker: string }[] | null }>
+    .in("asset_type", ["stock", "etf"]) as unknown as Promise<{ data: { ticker: string }[] | null }>)
 
-  if (!assets?.length) return 0;
+  if (!assetsResult.data?.length) return 0;
 
   try {
-    const tickers = assets.map(a => a.ticker).join(",");
+    const tickers = assetsResult.data.map(a => a.ticker).join(",");
     const res = await fetch(
       `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers}&apiKey=${key}`
     );

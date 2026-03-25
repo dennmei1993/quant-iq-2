@@ -29,7 +29,7 @@ interface EventRow {
   sectors: string[] | null
   tickers: string[] | null
   sentiment_score: number
-  impact_level: string | null
+  impact_score: number | null
   published_at: string
 }
 
@@ -51,7 +51,7 @@ interface PortfolioRow {
  * Generate alerts for all users with portfolios.
  * Looks at events from the last 24 hours that are:
  *   - ai_processed = true
- *   - impact_level in ('high', 'medium')
+ *   - impact_score in ('high', 'medium')
  *
  * Returns the total number of new alerts inserted.
  */
@@ -63,9 +63,9 @@ export async function generateAlertsForAllUsers(
 
   const { data: events, error: eventsErr } = await supabase
     .from('events')
-    .select('id, headline, ai_summary, event_type, sectors, tickers, sentiment_score, impact_level, published_at')
+    .select('id, headline, ai_summary, event_type, sectors, tickers, sentiment_score, impact_score, published_at')
     .eq('ai_processed', true)
-    .in('impact_level', ['high', 'medium'])
+    .in('impact_score', ['high', 'medium'])
     .gte('published_at', since)
     .order('published_at', { ascending: false })
     .limit(50)
@@ -148,7 +148,7 @@ export async function generateAlertsForAllUsers(
           alert_type: match.type,
           title: match.title,
           message,
-          severity: event.impact_level === 'high' ? 'high' : 'medium',
+          severity: (event.impact_score ?? 0) >= 7 ? 'high' : 'medium',
           sentiment: sentimentLabel(event.sentiment_score),
           is_read: false,
           created_at: new Date().toISOString(),
@@ -234,7 +234,7 @@ function resolveAlertMatch(
 
   // Sector match → macro_shift
   const sectorOverlap = eventSectors.find(s => heldSectors.has(s))
-  if (sectorOverlap && event.impact_level === 'high') {
+  if (sectorOverlap && (event.impact_score ?? 0) >= 7) {
     return {
       type: 'macro_shift',
       title: `Macro shift affecting your ${sectorOverlap} holdings`,

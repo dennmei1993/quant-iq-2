@@ -9,7 +9,7 @@ export default async function Home() {
   const [{ data: events }, { data: themes }, { data: signals }] = await Promise.all([
     supabase
       .from('events')
-      .select('headline, sentiment_score, impact_level, event_type, sectors, published_at')
+      .select('headline, sentiment_score, impact_score, event_type, sectors, published_at')
       .eq('ai_processed', true)
       .order('published_at', { ascending: false })
       .limit(6),

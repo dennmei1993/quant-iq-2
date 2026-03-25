@@ -16,12 +16,12 @@ export async function GET(req: NextRequest) {
 
     let q = supabase
       .from("events")
-      .select("id, headline, event_type, sectors, sentiment_score, impact_level, tickers, ai_summary, published_at, source")
+      .select("id, headline, event_type, sectors, sentiment_score, impact_score, tickers, ai_summary, published_at, source")
       .eq("ai_processed", true)
       .order("published_at", { ascending: false })
       .limit(limit);
 
-    if (impact) q = q.eq("impact_level", impact);
+    if (impact) q = q.eq("impact_score", impact);
     if (sector) q = q.contains("sectors", [sector]);
     if (since)  q = q.gte("published_at", since);
 
