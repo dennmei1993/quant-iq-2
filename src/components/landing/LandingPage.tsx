@@ -131,9 +131,11 @@ export default function LandingPage() {
   const [dataLoaded, setDataLoaded] = useState(false)
 
   // ── Fetch live data ─────────────────────────────────────────────────────────
+  const DEMO_EVENT_LIMIT = 6
+
   useEffect(() => {
     Promise.all([
-      fetch('/api/events?limit=6&fields=tickers').then(r => r.json()).catch(() => ({ events: [] })),
+      fetch(`/api/events?limit=${DEMO_EVENT_LIMIT}&fields=tickers`).then(r => r.json()).catch(() => ({ events: [] })),
       fetch('/api/themes').then(r => r.json()).catch(() => ({ themes: [] })),
       fetch('/api/assets').then(r => r.json()).catch(() => ({ assets: [] })),
     ]).then(([evData, thData, asData]) => {
@@ -184,6 +186,15 @@ export default function LandingPage() {
   const avgSentiment = events.length
     ? events.reduce((s, e) => s + (e.sentiment_score ?? 0), 0) / events.length
     : null
+
+  const IMPACT_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
+  const topEvents = [...events]
+    .sort((a, b) => {
+      const rankDiff = (IMPACT_RANK[a.impact_level ?? 'low'] ?? 2) - (IMPACT_RANK[b.impact_level ?? 'low'] ?? 2)
+      if (rankDiff !== 0) return rankDiff
+      return new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
+    })
+    .slice(0, 4)
 
   const TAB_TITLES: Record<string, string> = {
     overview: 'Overview', events: 'Event Feed',
@@ -358,7 +369,7 @@ export default function LandingPage() {
                   <div className={styles.dashGrid2}>
                     <div className={styles.dashPanel}>
                       <div className={styles.dashPanelTitle}>Top Signals <span>LIVE</span></div>
-                      {events.slice(0, 4).map(e => (
+                      {topEvents.map(e => (
                         <div key={e.id} className={styles.eventItem}>
                           <div className={styles.eventDot} style={{ background: sentimentColor(e.sentiment_score) }} />
                           <div className={styles.eventBody}>
@@ -422,7 +433,6 @@ export default function LandingPage() {
                           </div>
                         </div>
 
-                        {/* Detail panel */}
                         {selectedEvent === e.id && (
                           <div style={{
                             background: 'rgba(255,255,255,0.03)',
@@ -438,7 +448,6 @@ export default function LandingPage() {
                               </p>
                             )}
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                              {/* Impact badge */}
                               <span style={{
                                 fontSize: '0.65rem', fontWeight: 500, padding: '0.15rem 0.45rem', borderRadius: 4,
                                 background: e.impact_level === 'high' ? 'rgba(232,112,112,0.15)' : e.impact_level === 'medium' ? 'rgba(224,152,69,0.15)' : 'rgba(255,255,255,0.06)',
@@ -446,13 +455,11 @@ export default function LandingPage() {
                               }}>
                                 {e.impact_level?.toUpperCase()} IMPACT
                               </span>
-                              {/* Sectors */}
                               {(e.sectors ?? []).map((s: string) => (
                                 <span key={s} style={{ fontSize: '0.65rem', padding: '0.15rem 0.45rem', borderRadius: 4, background: 'rgba(255,255,255,0.05)', color: 'rgba(232,226,217,0.4)' }}>
                                   {s}
                                 </span>
                               ))}
-                              {/* Tickers */}
                               {(e.tickers ?? []).map((t: string) => (
                                 <span key={t} style={{ fontSize: '0.65rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: 4, background: 'rgba(78,202,153,0.1)', color: '#4eca99' }}>
                                   {t}
@@ -467,7 +474,7 @@ export default function LandingPage() {
                   </div>
                 </div>
               )}
-              
+
               {/* THEMES */}
               {activeTab === 'themes' && (
                 <div className={styles.dashContent}>
