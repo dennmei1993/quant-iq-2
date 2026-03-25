@@ -1,25 +1,29 @@
-// app/auth/login/page.tsx
 "use client";
+// app/auth/login/page.tsx
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    const supabase = createClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); setLoading(false); return; }
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // Use router.push + refresh so Next.js middleware picks up the new session cookie
     window.location.href = "/dashboard";
   }
 
@@ -32,51 +36,6 @@ export default function LoginPage() {
         <AuthButton loading={loading} label="Sign in" />
         <div style={{ textAlign: "center", fontSize: "0.82rem", color: "rgba(232,226,217,0.4)" }}>
           No account? <a href="/auth/signup" style={{ color: "var(--gold)" }}>Sign up</a>
-        </div>
-      </form>
-    </AuthLayout>
-  );
-}
-
-// ── Signup page ───────────────────────────────────────────────────────────────
-// app/auth/signup/page.tsx — export separately in real project
-export function SignupPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  async function handleSignup(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    const { error } = await supabase.auth.signUp({
-      email, password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) { setError(error.message); setLoading(false); return; }
-    setDone(true);
-  }
-
-  if (done) return (
-    <AuthLayout title="Check your email">
-      <p style={{ color: "rgba(232,226,217,0.6)", textAlign: "center", lineHeight: 1.7 }}>
-        We sent a confirmation link to <strong style={{ color: "var(--gold)" }}>{email}</strong>.
-        Click it to activate your account.
-      </p>
-    </AuthLayout>
-  );
-
-  return (
-    <AuthLayout title="Create account">
-      <form onSubmit={handleSignup} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        <AuthInput label="Email" type="email" value={email} onChange={setEmail} />
-        <AuthInput label="Password" type="password" value={password} onChange={setPassword} />
-        {error && <div style={{ color: "var(--signal-bear)", fontSize: "0.82rem" }}>{error}</div>}
-        <AuthButton loading={loading} label="Create account" />
-        <div style={{ textAlign: "center", fontSize: "0.82rem", color: "rgba(232,226,217,0.4)" }}>
-          Already have an account? <a href="/auth/login" style={{ color: "var(--gold)" }}>Sign in</a>
         </div>
       </form>
     </AuthLayout>
