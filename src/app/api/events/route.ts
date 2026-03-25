@@ -1,5 +1,5 @@
 // GET /api/events
-// Query params: limit (max 50), impact, sector, since (ISO timestamp)
+// Query params: limit (max 50), impact (min score e.g. 7), sector, since (ISO timestamp)
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
 import { createServiceClient } from '@/lib/supabase/server'
@@ -18,10 +18,11 @@ export async function GET(req: NextRequest) {
       .from("events")
       .select("id, headline, event_type, sectors, sentiment_score, impact_score, tickers, ai_summary, published_at, source")
       .eq("ai_processed", true)
+      .order("impact_score", { ascending: false })
       .order("published_at", { ascending: false })
       .limit(limit);
 
-    if (impact) q = q.eq("impact_score", impact);
+    if (impact) q = q.gte("impact_score", Number(impact));
     if (sector) q = q.contains("sectors", [sector]);
     if (since)  q = q.gte("published_at", since);
 
