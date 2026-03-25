@@ -14,22 +14,49 @@ export async function GET(req: NextRequest) {
     const sector = p.get("sector");
     const since  = p.get("since");
 
+    // Default recency window: last 48h
+    // Callers can override with ?since= for older data
+    const defaultSince = since ?? new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
     let q = supabase
       .from("events")
       .select("id, headline, event_type, sectors, sentiment_score, impact_score, tickers, ai_summary, published_at, source")
       .eq("ai_processed", true)
+      .gte("published_at", defaultSince)
       .order("impact_score", { ascending: false })
       .order("published_at", { ascending: false })
       .limit(limit);
 
     if (impact) q = q.gte("impact_score", Number(impact));
     if (sector) q = q.contains("sectors", [sector]);
-    if (since)  q = q.gte("published_at", since);
 
     const { data, error } = await q;
     if (error) throw error;
 
-    return NextResponse.json({ events: data ?? [], count: data?.length ?? 0 });
+    // If recency window yields fewer than requested, backfill with older events
+    const events = data ?? [];
+    if (events.length < limit && !since) {
+      const needed = limit - events.length;
+      const existingIds = events.map(e => e.id);
+
+      let backfillQ = supabase
+        .from("events")
+        .select("id, headline, event_type, sectors, sentiment_score, impact_score, tickers, ai_summary, published_at, source")
+        .eq("ai_processed", true)
+        .lt("published_at", defaultSince)
+        .order("impact_score", { ascending: false })
+        .order("published_at", { ascending: false })
+        .limit(needed);
+
+      if (impact)          backfillQ = backfillQ.gte("impact_score", Number(impact));
+      if (sector)          backfillQ = backfillQ.contains("sectors", [sector]);
+      if (existingIds.length) backfillQ = backfillQ.not("id", "in", `(${existingIds.map(id => `"${id}"`).join(',')})`);
+
+      const { data: backfill } = await backfillQ;
+      events.push(...(backfill ?? []));
+    }
+
+    return NextResponse.json({ events, count: events.length });
   } catch (e) {
     console.error('[api/events]', e)
     const { body, status } = errorResponse(e)
