@@ -4,6 +4,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
 import { createServiceClient } from '@/lib/supabase/server'
 
+type EventRow = {
+  id:              string
+  headline:        string
+  event_type:      string | null
+  sectors:         string[] | null
+  sentiment_score: number | null
+  impact_score:    number | null
+  tickers:         string[] | null
+  ai_summary:      string | null
+  published_at:    string
+  source:          string | null
+}
+
+const SELECT = "id, headline, event_type, sectors, sentiment_score, impact_score, tickers, ai_summary, published_at, source"
+
 export async function GET(req: NextRequest) {
   try {
     const supabase = createServiceClient();
@@ -14,13 +29,12 @@ export async function GET(req: NextRequest) {
     const sector = p.get("sector");
     const since  = p.get("since");
 
-    // Default recency window: last 48h
-    // Callers can override with ?since= for older data
-    const defaultSince = since ?? new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const defaultSince = since ?? new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString();
 
+    // Pass 1: recent events ordered by impact
     let q = supabase
       .from("events")
-      .select("id, headline, event_type, sectors, sentiment_score, impact_score, tickers, ai_summary, published_at, source")
+      .select(SELECT)
       .eq("ai_processed", true)
       .gte("published_at", defaultSince)
       .order("impact_score", { ascending: false })
@@ -30,29 +44,32 @@ export async function GET(req: NextRequest) {
     if (impact) q = q.gte("impact_score", Number(impact));
     if (sector) q = q.contains("sectors", [sector]);
 
-    const { data, error } = await q;
+    const { data, error } = await (q as unknown as Promise<{ data: EventRow[] | null; error: any }>);
     if (error) throw error;
 
-    // If recency window yields fewer than requested, backfill with older events
-    const events = data ?? [];
+    const events: EventRow[] = data ?? [];
+
+    // Pass 2: backfill with older events if recent window is sparse
     if (events.length < limit && !since) {
-      const needed = limit - events.length;
+      const needed      = limit - events.length;
       const existingIds = events.map(e => e.id);
 
       let backfillQ = supabase
         .from("events")
-        .select("id, headline, event_type, sectors, sentiment_score, impact_score, tickers, ai_summary, published_at, source")
+        .select(SELECT)
         .eq("ai_processed", true)
         .lt("published_at", defaultSince)
         .order("impact_score", { ascending: false })
         .order("published_at", { ascending: false })
         .limit(needed);
 
-      if (impact)          backfillQ = backfillQ.gte("impact_score", Number(impact));
-      if (sector)          backfillQ = backfillQ.contains("sectors", [sector]);
-      if (existingIds.length) backfillQ = backfillQ.not("id", "in", `(${existingIds.map(id => `"${id}"`).join(',')})`);
+      if (impact) backfillQ = backfillQ.gte("impact_score", Number(impact));
+      if (sector) backfillQ = backfillQ.contains("sectors", [sector]);
+      if (existingIds.length) {
+        backfillQ = backfillQ.not("id", "in", `(${existingIds.map(id => `"${id}"`).join(',')})`)
+      }
 
-      const { data: backfill } = await backfillQ;
+      const { data: backfill } = await (backfillQ as unknown as Promise<{ data: EventRow[] | null }>);
       events.push(...(backfill ?? []));
     }
 
