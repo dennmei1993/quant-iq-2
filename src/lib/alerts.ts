@@ -65,7 +65,7 @@ export async function generateAlertsForAllUsers(
     .from('events')
     .select('id, headline, ai_summary, event_type, sectors, tickers, sentiment_score, impact_score, published_at')
     .eq('ai_processed', true)
-    .in('impact_score', ['high', 'medium'])
+    .gte('impact_score', 3)
     .gte('published_at', since)
     .order('published_at', { ascending: false })
     .limit(50)
