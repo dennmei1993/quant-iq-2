@@ -1,7 +1,7 @@
 // src/app/api/events/route.ts
 // Query params: limit, impact (min score 0-10), sector, since (ISO), event_type
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 type EventRow = {
   id:              string
@@ -20,18 +20,17 @@ const SELECT = 'id, headline, event_type, sectors, sentiment_score, impact_score
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Public endpoint — no auth required, events are read-only public intelligence
+    const supabase = createServiceClient()
 
     const p         = req.nextUrl.searchParams
     const limit     = Math.min(Number(p.get('limit') ?? 100), 500)
-    const impact    = p.get('impact')      // minimum impact_score e.g. "5"
+    const impact    = p.get('impact')
     const sector    = p.get('sector')
     const since     = p.get('since')
     const eventType = p.get('event_type')
 
-    const defaultSince = since ?? new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
+    const defaultSince = since ?? new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
 
     // ── Pass 1: events within the requested time window ──
     let q = supabase
