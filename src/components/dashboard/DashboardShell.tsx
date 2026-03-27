@@ -1,4 +1,4 @@
-'use client'
+'use client' // v2
 // src/components/dashboard/DashboardShell.tsx
 import { useState } from 'react'
 import Link from 'next/link'
