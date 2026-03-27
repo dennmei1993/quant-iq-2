@@ -23,6 +23,7 @@ import { activeSources } from '@/lib/rss-sources'
 import { classifyEvent } from '@/lib/ai'
 import { fetchPricesForTickers, fetchSparklinesForTickers } from '@/lib/polygon'
 import { generateAlertsForAllUsers } from '@/lib/alerts'
+import { generateWatchlistAlerts } from '@/lib/watchlist-alerts'
 
 export const runtime     = 'nodejs'
 export const maxDuration = 300  // 5 minutes — requires Vercel Pro or cron function
@@ -237,6 +238,10 @@ export async function GET(req: NextRequest) {
   try {
     const count = await generateAlertsForAllUsers(supabase)
     log.push(`Created ${count} new alerts`)
+
+    const watchlistAlerts = await generateWatchlistAlerts(supabase)
+    log.push(`Created ${watchlistAlerts} watchlist theme alerts`)
+
   } catch (err) {
     errors.push(`Alert generation failed: ${String(err)}`)
   }
