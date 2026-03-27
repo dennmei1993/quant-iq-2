@@ -270,7 +270,7 @@ export async function scoreAspect(
  */
 export function generateSyntheticEvents(
   macroRows: { aspect: string; score: number }[],
-  threshold = 1.5
+  threshold = 0.5
 ): import('@/lib/ai').EventInput[] {
   const now = new Date().toISOString()
   const synthetic: import('@/lib/ai').EventInput[] = []
