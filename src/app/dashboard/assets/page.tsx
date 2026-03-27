@@ -1,5 +1,7 @@
+// src/app/dashboard/assets/page.tsx
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type AssetSignal = {
   signal: string; score: number;
@@ -18,7 +20,7 @@ const SIGNAL_COLOR: Record<string, string> = {
   avoid: "var(--signal-bear)",
 };
 
-const TYPE_OPTIONS  = ["all","stock","etf","crypto","commodity"];
+const TYPE_OPTIONS   = ["all","stock","etf","crypto","commodity"];
 const SIGNAL_OPTIONS = ["all","buy","watch","hold","avoid"];
 
 export default function AssetsPage() {
@@ -77,11 +79,14 @@ function AssetCard({ asset: a }: { asset: Asset }) {
   return (
     <div style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 8, padding: "1rem 1.1rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-        <div>
-          <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--cream)" }}>{a.ticker}</div>
+
+        {/* Clickable ticker + name */}
+        <Link href={`/dashboard/tickers/${a.ticker}`} style={{ textDecoration: "none", flex: 1 }}>
+          <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--gold)" }}>{a.ticker}</div>
           <div style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.4)" }}>{a.name}</div>
-        </div>
-        <span style={{ fontSize: "0.7rem", fontWeight: 600, background: `${sigColor}18`, color: sigColor, padding: "0.2rem 0.55rem", borderRadius: 20, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        </Link>
+
+        <span style={{ fontSize: "0.7rem", fontWeight: 600, background: `${sigColor}18`, color: sigColor, padding: "0.2rem 0.55rem", borderRadius: 20, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>
           {signal}
         </span>
       </div>
