@@ -1,7 +1,7 @@
 // GET /api/themes
 // Query params: timeframe (1m | 3m | 6m) — omit to get all active
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser, errorResponse } from "@/lib/supabase";
+import { errorResponse } from "@/lib/supabase";
 import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {

@@ -1,7 +1,7 @@
 // GET /api/assets
 // Query params: type (stock|etf|crypto|commodity), signal (buy|watch|hold|avoid)
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser, errorResponse } from "@/lib/supabase";
+import { errorResponse } from "@/lib/supabase";
 import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
