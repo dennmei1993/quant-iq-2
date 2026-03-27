@@ -11,8 +11,9 @@ import {
   formatMarketCap,
   formatVolume,
 } from '@/lib/polygon-ticker'
-import WatchlistButton from '@/components/dashboard/WatchlistButton'
-import ThesisButton    from '@/components/dashboard/ThesisButton'
+import WatchlistButton  from '@/components/dashboard/WatchlistButton'
+import ThesisButton     from '@/components/dashboard/ThesisButton'
+import PortfolioButton  from '@/components/dashboard/PortfolioButton'
 
 export const dynamic  = 'force-dynamic'
 export const revalidate = 0
@@ -102,7 +103,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   const themeMap       = new Map(activeThemes.map(t => [t.id, t]))
 
   // Parallel fetches — all independent
-  const [signal, themeTickerRows, events, assetRow, watchlistRow, details, price, bars] = await Promise.all([
+  const [signal, themeTickerRows, events, assetRow, watchlistRow, portfolioRow, details, price, bars] = await Promise.all([
 
     query<SignalRow>(
       db.from('asset_signals')
@@ -140,6 +141,16 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         )
       : Promise.resolve(null),
 
+    userId
+      ? query<{ id: string }>(
+          db.from('holdings')
+            .select('id')
+            .eq('ticker', ticker)
+            .limit(1)
+            .single()
+        )
+      : Promise.resolve(null),
+
     fetchTickerDetails(ticker),
     fetchTickerPrice(ticker),
     fetchTickerBars(ticker, 30),
@@ -158,6 +169,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
   const name         = details?.name ?? assetRow?.name ?? ticker
   const isWatched    = !!watchlistRow
+  const isInPortfolio = !!portfolioRow
   const recentEvents = events ?? []
   const changeUp     = (price?.change_pct ?? 0) >= 0
 
@@ -194,6 +206,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <ThesisButton ticker={ticker} />
+          {userId && <PortfolioButton ticker={ticker} name={name} initialAdded={isInPortfolio} />}
           {userId && <WatchlistButton ticker={ticker} initialWatched={isWatched} />}
         </div>
       </div>
