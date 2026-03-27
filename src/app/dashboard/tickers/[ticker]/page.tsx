@@ -76,8 +76,9 @@ function Sparkline({ bars }: { bars: { close: number }[] }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default async function TickerPage({ params }: { params: { ticker: string } }) {
-  const ticker = params.ticker.toUpperCase()
+export default async function TickerPage({ params }: { params: Promise<{ ticker: string }> }) {
+  const { ticker: rawTicker } = await params
+  const ticker = rawTicker.toUpperCase()
   const db     = createServiceClient()
 
   // Get current user via cookies directly — avoids createClient async issues
