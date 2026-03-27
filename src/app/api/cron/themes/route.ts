@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { generateTheme, generateAssetSignals, type MacroContext } from "@/lib/ai";
 import { computeAnchorScore, shouldReplaceTheme } from "@/lib/anchor";
 import { generateSyntheticEvents } from "@/lib/macro";
+import { syncThemeTickers, recalculateThemeWeights } from "@/lib/theme-tickers";
 
 export const runtime     = "nodejs";
 export const maxDuration = 300;
@@ -117,7 +118,7 @@ export async function GET(req: NextRequest) {
 
       // Inject synthetic macro events into the pool
       // These ensure themes are macro-driven even on quiet news days
-      const syntheticEvents = generateSyntheticEvents(macroRows)
+      const syntheticEvents = generateSyntheticEvents(macroRows, 0.8)
       if (syntheticEvents.length > 0) {
         // Cast synthetic events to match EventRow shape for the pipeline
         const syntheticAsRows = syntheticEvents.map((e, i) => ({
@@ -178,6 +179,9 @@ export async function GET(req: NextRequest) {
           brief:             current.brief ?? "",
         })
 
+        // Recalculate weights in theme_tickers (conviction may have changed)
+        await recalculateThemeWeights(db, current.id, current.conviction)
+
         stats.themes_kept++
         continue
       }
@@ -210,6 +214,21 @@ export async function GET(req: NextRequest) {
         is_anchored:       newScore > 0.15,
         anchor_reason,
       })
+
+      // Fetch the new theme id to sync ticker weights
+      const newThemeResult = await (db
+        .from("themes")
+        .select("id")
+        .eq("timeframe", tf)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1) as unknown as Promise<{ data: { id: string }[] | null }>)
+
+      const newThemeId = newThemeResult.data?.[0]?.id
+      if (newThemeId) {
+        const syncResult = await syncThemeTickers(db, newThemeId, theme.conviction, theme.ticker_weights)
+        log.push(`${tf}: synced ${syncResult.upserted} ticker weights (${syncResult.skipped} skipped — not in assets)`)
+      }
 
       generatedThemes.push({ timeframe: tf, ...theme })
       stats.themes_replaced++
