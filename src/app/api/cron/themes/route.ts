@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { generateTheme, generateAssetSignals, type MacroContext } from "@/lib/ai";
 import { computeAnchorScore, shouldReplaceTheme } from "@/lib/anchor";
+import { generateSyntheticEvents } from "@/lib/macro";
 
 export const runtime     = "nodejs";
 export const maxDuration = 300;
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
   const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
 
   // ── 1. Fetch events ───────────────────────────────────────────────────────
-  const events = await query<EventRow[]>(
+  let events = await query<EventRow[]>(
     db.from("events")
       .select("id, headline, event_type, sectors, sentiment_score, impact_score, ai_summary, published_at")
       .eq("ai_processed", true)
@@ -79,6 +80,8 @@ export async function GET(req: NextRequest) {
   if (!events?.length) {
     return NextResponse.json({ ok: true, message: "No qualifying events", ...stats })
   }
+  // Ensure mutable array for synthetic event injection below
+  events = [...events]
 
   log.push(`Loaded ${events.length} events for anchor scoring`)
 
@@ -111,6 +114,25 @@ export async function GET(req: NextRequest) {
 
       macroContext = { overall, aspects, regime, commentary: regime }
       log.push(`Macro context: ${overall >= 0 ? "+" : ""}${overall}/10 — ${regime}`)
+
+      // Inject synthetic macro events into the pool
+      // These ensure themes are macro-driven even on quiet news days
+      const syntheticEvents = generateSyntheticEvents(macroRows)
+      if (syntheticEvents.length > 0) {
+        // Cast synthetic events to match EventRow shape for the pipeline
+        const syntheticAsRows = syntheticEvents.map((e, i) => ({
+          id:              `synthetic-${i}`,
+          headline:        e.headline ?? '',
+          event_type:      e.event_type ?? null,
+          sectors:         e.sectors ?? null,
+          sentiment_score: e.sentiment_score ?? null,
+          impact_score:    e.impact_score ?? null,
+          ai_summary:      e.ai_summary ?? null,
+          published_at:    e.published_at,
+        }))
+        events.push(...syntheticAsRows)
+        log.push(`Injected ${syntheticEvents.length} synthetic macro events into theme pool`)
+      }
     }
   } catch {
     log.push("Macro scores not available — generating themes without macro context")

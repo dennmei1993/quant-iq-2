@@ -257,3 +257,118 @@ export async function scoreAspect(
     scored_at:   new Date().toISOString(),
   }
 }
+
+// ─── Synthetic event generation ───────────────────────────────────────────────
+
+/**
+ * Generate synthetic EventInput entries from macro scores.
+ * Only generates for aspects with |score| >= threshold.
+ * These are fed into the theme generation pipeline alongside real events.
+ *
+ * On quiet news days these dominate theme generation.
+ * On busy days real high-impact events outweigh them naturally.
+ */
+export function generateSyntheticEvents(
+  macroRows: { aspect: string; score: number }[],
+  threshold = 1.5
+): import('@/lib/ai').EventInput[] {
+  const now = new Date().toISOString()
+  const synthetic: import('@/lib/ai').EventInput[] = []
+
+  for (const { aspect, score } of macroRows) {
+    if (Math.abs(score) < threshold) continue
+
+    const config    = ASPECT_CONFIG[aspect as MacroAspect]
+    const positive  = score > 0
+    const magnitude = Math.abs(score)
+
+    // Map score magnitude to impact_score (1-10)
+    // |score| 1.5 → impact 4, |score| 5 → impact 7, |score| 8+ → impact 9
+    const impact_score = Math.min(10, Math.round(3 + magnitude * 0.75))
+
+    // Map score to sentiment (-1 to +1)
+    const sentiment_score = parseFloat((score / 10).toFixed(3))
+
+    const template = SYNTHETIC_TEMPLATES[aspect as MacroAspect]
+    if (!template) continue
+
+    const headline    = positive ? template.bullish_headline    : template.bearish_headline
+    const ai_summary  = positive ? template.bullish_summary     : template.bearish_summary
+    const event_type  = template.event_type
+    const sectors     = template.sectors
+
+    synthetic.push({
+      headline,
+      ai_summary,
+      event_type,
+      sectors,
+      sentiment_score,
+      impact_score,
+      published_at: now,
+    })
+  }
+
+  return synthetic
+}
+
+// ─── Synthetic event templates per aspect ────────────────────────────────────
+
+interface SyntheticTemplate {
+  bullish_headline: string
+  bearish_headline: string
+  bullish_summary:  string
+  bearish_summary:  string
+  event_type:       string
+  sectors:          string[]
+}
+
+const SYNTHETIC_TEMPLATES: Record<MacroAspect, SyntheticTemplate> = {
+  fed: {
+    bullish_headline: "Federal Reserve signals dovish pivot as economic conditions improve",
+    bearish_headline: "Federal Reserve maintains restrictive stance amid persistent inflation pressures",
+    bullish_summary:  "Fed policy turning accommodative creates tailwind for rate-sensitive equities, REITs, and growth stocks as borrowing costs ease.",
+    bearish_summary:  "Elevated interest rates sustain pressure on rate-sensitive sectors including real estate, utilities, and high-growth tech while supporting financials.",
+    event_type:       "monetary_policy",
+    sectors:          ["Financial Services", "Real Estate", "Technology", "Utilities"],
+  },
+  inflation: {
+    bullish_headline: "Inflation data shows continued moderation toward Fed target",
+    bearish_headline: "Inflation remains elevated challenging consumer spending and corporate margins",
+    bullish_summary:  "Cooling inflation reduces pressure on Fed policy, supporting consumer discretionary spending and easing input cost pressures across sectors.",
+    bearish_summary:  "Persistent inflation erodes consumer purchasing power, squeezes corporate margins, and keeps Fed rates elevated — negative for growth assets.",
+    event_type:       "economic_data",
+    sectors:          ["Consumer Discretionary", "Consumer Staples", "Industrials", "Materials"],
+  },
+  labour: {
+    bullish_headline: "Strong labour market data signals robust economic foundation",
+    bearish_headline: "Labour market shows signs of deterioration raising recession concerns",
+    bullish_summary:  "Healthy employment supports consumer spending and corporate earnings growth, providing fundamental underpinning for equity markets.",
+    bearish_summary:  "Weakening jobs market threatens consumer spending and signals potential economic slowdown, increasing recession risk for cyclical sectors.",
+    event_type:       "economic_data",
+    sectors:          ["Consumer Discretionary", "Financials", "Industrials", "Healthcare"],
+  },
+  growth: {
+    bullish_headline: "Economic growth indicators beat expectations supporting risk assets",
+    bearish_headline: "Growth data disappoints raising stagflation and recession fears",
+    bullish_summary:  "Above-trend GDP and PMI readings support corporate earnings expectations and justify higher equity valuations across cyclical sectors.",
+    bearish_summary:  "Below-trend growth data raises recession probability, favouring defensive sectors and cash while pressuring cyclical and high-beta assets.",
+    event_type:       "economic_data",
+    sectors:          ["Industrials", "Technology", "Consumer Discretionary", "Materials"],
+  },
+  geopolitical: {
+    bullish_headline: "Geopolitical tensions ease supporting risk appetite and energy stability",
+    bearish_headline: "Escalating geopolitical conflict disrupts energy markets and global supply chains",
+    bullish_summary:  "Reduced geopolitical risk premium supports global trade flows and energy price stability, benefiting risk assets and transport sectors.",
+    bearish_summary:  "Geopolitical conflict drives energy price volatility, supply chain disruptions, and flight-to-safety flows favouring defense, commodities, and gold.",
+    event_type:       "geopolitical",
+    sectors:          ["Energy", "Defense", "Materials", "Transportation"],
+  },
+  credit: {
+    bullish_headline: "Financial conditions ease as credit spreads tighten and volatility falls",
+    bearish_headline: "Credit conditions tighten as spreads widen and financial stress indicators rise",
+    bullish_summary:  "Tight credit spreads and low volatility signal healthy financial conditions, supporting risk appetite and corporate borrowing for growth.",
+    bearish_summary:  "Widening credit spreads and elevated VIX signal financial stress, tightening lending conditions and increasing downside risk for leveraged assets.",
+    event_type:       "corporate",
+    sectors:          ["Financials", "Real Estate", "Consumer Discretionary", "Energy"],
+  },
+}
