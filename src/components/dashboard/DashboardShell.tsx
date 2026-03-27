@@ -1,4 +1,4 @@
-'use client' // v2
+'use client'
 // src/components/dashboard/DashboardShell.tsx
 import { useState } from 'react'
 import Link from 'next/link'
@@ -42,7 +42,6 @@ export default function DashboardShell({ user, children }: Props) {
 
   return (
     <div className={styles.shell}>
-      {/* Sidebar */}
       <aside className={`${styles.sidebar} ${mobileOpen ? styles.open : ''}`}>
         <div className={styles.sidebarLogo}>
           <span className={styles.logoDot} />
@@ -50,10 +49,10 @@ export default function DashboardShell({ user, children }: Props) {
         </div>
 
         <nav className={styles.nav}>
-          {NAV.map((item, i) => (
+          {NAV.map((item) => (
             <div key={item.href}>
               {item.separator && (
-                <div style={{ height: 1, background: 'rgba(200,169,110,0.1)', margin: '0.4rem 1rem 0.4rem' }} />
+                <div style={{ height: 1, background: 'rgba(200,169,110,0.1)', margin: '0.4rem 1rem' }} />
               )}
               {item.section && (
                 <div className={styles.navSection}>{item.section}</div>
@@ -85,7 +84,6 @@ export default function DashboardShell({ user, children }: Props) {
         </div>
       </aside>
 
-      {/* Main area */}
       <div className={styles.main}>
         <header className={styles.topbar}>
           <button className={styles.menuBtn} onClick={() => setMobileOpen(!mobileOpen)}>
@@ -105,7 +103,6 @@ export default function DashboardShell({ user, children }: Props) {
         </main>
       </div>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div className={styles.overlay} onClick={() => setMobileOpen(false)} />
       )}
