@@ -21,13 +21,13 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface EventInput {
-  headline:         string
-  ai_summary?:      string | null
-  event_type?:      string | null
-  sectors?:         string[] | null
+  headline:        string
+  ai_summary?:     string | null
+  event_type?:     string | null
+  sectors?:        string[] | null
   sentiment_score?: number | null
-  impact_score?:    number | null
-  published_at:     string
+  impact_score?:   number | null
+  published_at:    string
 }
 
 export interface TickerWeight {
@@ -37,20 +37,49 @@ export interface TickerWeight {
 }
 
 export interface ThemeOutput {
-  name:              string
-  label:             string
-  conviction:        number        // 0–100
-  momentum:          string
-  brief:             string        // 3-4 sentence thesis
-  ticker_weights:    TickerWeight[]
-  candidate_tickers: string[]      // derived from ticker_weights, backward compat
+  name:               string
+  label:              string
+  conviction:         number        // 0–100
+  momentum:           string
+  brief:              string        // 3-4 sentence thesis
+  ticker_weights:     TickerWeight[]
+  candidate_tickers:  string[]      // derived from ticker_weights, backward compat
 }
 
 // ─── generateTheme ────────────────────────────────────────────────────────────
 
+// ─── Macro context type ───────────────────────────────────────────────────────
+
+export interface MacroContext {
+  overall:    number   // -10 to +10 weighted average
+  aspects:    Record<string, number>  // per-aspect scores
+  regime:     string   // human label e.g. "Risk-off", "Stagflationary"
+  commentary: string   // one line summary
+}
+
+function buildRegimeLabel(overall: number, aspects: Record<string, number>): string {
+  if (overall >= 4)  return 'Risk-on — broad bullish momentum'
+  if (overall >= 1)  return 'Mildly bullish — selective opportunities'
+  if (overall >= -1) return 'Neutral — mixed signals, defensive tilt'
+  if (overall >= -4) return 'Risk-off — caution warranted'
+
+  // Identify dominant negative driver
+  const minAspect = Object.entries(aspects).sort((a, b) => a[1] - b[1])[0]
+  const labels: Record<string, string> = {
+    fed:          'Hawkish Fed shock — rate-sensitive assets under pressure',
+    inflation:    'Inflationary shock — stagflationary risks elevated',
+    geopolitical: 'Geopolitical crisis — defensive positioning preferred',
+    credit:       'Credit stress — financial conditions tightening',
+    labour:       'Labour market deterioration — recession risk rising',
+    growth:       'Growth slowdown — defensive sectors favoured',
+  }
+  return labels[minAspect[0]] ?? 'Strongly risk-off — broad defensive positioning'
+}
+
 export async function generateTheme(
   events: EventInput[],
-  timeframe: '1m' | '3m' | '6m'
+  timeframe: '1m' | '3m' | '6m',
+  macroContext?: MacroContext
 ): Promise<ThemeOutput> {
   const timeframeLabel = { '1m': '1-month', '3m': '3-month', '6m': '6-month' }[timeframe]
 
@@ -59,8 +88,20 @@ export async function generateTheme(
     .map(e => `- ${e.headline}${e.ai_summary ? ` (${e.ai_summary})` : ''}`)
     .join('\n')
 
-  const prompt = `You are a professional investment analyst. Based on these recent macro and market events, identify the single strongest ${timeframeLabel} investment theme for US markets.
+  const macroSection = macroContext ? `
+CURRENT MACRO ENVIRONMENT:
+Overall score: ${macroContext.overall > 0 ? '+' : ''}${macroContext.overall.toFixed(1)}/10 — ${macroContext.regime}
+Breakdown: Fed ${macroContext.aspects.fed?.toFixed(1) ?? 'n/a'} | Inflation ${macroContext.aspects.inflation?.toFixed(1) ?? 'n/a'} | Labour ${macroContext.aspects.labour?.toFixed(1) ?? 'n/a'} | Growth ${macroContext.aspects.growth?.toFixed(1) ?? 'n/a'} | Geopolitical ${macroContext.aspects.geopolitical?.toFixed(1) ?? 'n/a'} | Credit ${macroContext.aspects.credit?.toFixed(1) ?? 'n/a'}
 
+Calibrate theme conviction and bias to this macro regime:
+- Overall < -3: prefer defensive themes, lower conviction (max 60), bearish/neutral momentum
+- Overall -3 to 0: mixed themes, moderate conviction (max 75), cautious tilt
+- Overall 0 to +3: balanced themes, conviction based on event strength
+- Overall > +3: growth/risk-on themes, higher conviction allowed, bullish momentum
+` : ''
+
+  const prompt = `You are a professional investment analyst. Based on these recent macro and market events, identify the single strongest ${timeframeLabel} investment theme for US markets.
+${macroSection ? '\n' + macroSection : ''}
 RECENT EVENTS:
 ${eventLines}
 
@@ -110,6 +151,7 @@ Rules for ticker_weights:
 
   const parsed = JSON.parse(raw) as Omit<ThemeOutput, 'candidate_tickers'>
 
+  // Clamp weights to valid range in case Claude drifts
   const ticker_weights = parsed.ticker_weights.map(tw => ({
     ticker:    tw.ticker.toUpperCase().trim(),
     weight:    Math.max(0, Math.min(1, Number(tw.weight) || 0)),
@@ -123,15 +165,15 @@ Rules for ticker_weights:
   }
 }
 
-// ─── classifyEvent ────────────────────────────────────────────────────────────
+// ─── classifyEvent (unchanged) ────────────────────────────────────────────────
 
 export interface ClassificationOutput {
-  event_type:      string
-  sectors:         string[]
+  event_type:    string
+  sectors:       string[]
   sentiment_score: number
-  impact_score:    number   // 1–10: 1-2=low, 3-4=medium, 5-6=medium-high, 7-8=high, 9-10=breaking
-  tickers:         string[]
-  ai_summary:      string
+  impact_score:  number   // 1–10: 1-2=low, 3-4=medium, 5-6=medium-high, 7-8=high, 9-10=breaking
+  tickers:       string[]
+  ai_summary:    string
 }
 
 export async function classifyEvent(
@@ -178,7 +220,7 @@ impact_score scale:
   return JSON.parse(raw) as ClassificationOutput
 }
 
-// ─── generateAdvisoryMemo ─────────────────────────────────────────────────────
+// ─── generateAdvisoryMemo (unchanged) ─────────────────────────────────────────
 
 export async function generateAdvisoryMemo(
   holdings: { ticker: string; quantity?: number | null; avg_cost?: number | null }[],
@@ -233,11 +275,11 @@ export interface AssetSignalInput {
 }
 
 export interface ThemeInput {
-  name:              string
-  timeframe:         string
-  candidate_tickers: string[]
-  conviction:        number
-  brief:             string
+  name:               string
+  timeframe:          string
+  candidate_tickers:  string[]
+  conviction:         number
+  brief:              string
 }
 
 export interface AssetSignalOutput {
@@ -250,7 +292,8 @@ export interface AssetSignalOutput {
 /**
  * Score each asset against the current themes and recent events.
  * Returns a signal (buy/watch/hold/avoid), score (0-100), and rationale.
- * Batches assets in groups of 10 to keep prompt size manageable.
+ *
+ * Batches assets in groups of 20 to keep prompt size manageable.
  */
 export async function generateAssetSignals(
   assets: AssetSignalInput[],
@@ -269,14 +312,12 @@ export async function generateAssetSignals(
     .join('\n')
 
   const results: AssetSignalOutput[] = []
-  const BATCH = 10
-  const DELAY = 1500
+  const BATCH = 10   // reduced from 20 — keeps response well within token limit
+  const DELAY = 1500 // ms between batches
 
   for (let i = 0; i < assets.length; i += BATCH) {
     const batch = assets.slice(i, i + BATCH)
-    const tickerList = batch
-      .map(a => `${a.ticker} (${a.name}, ${a.asset_type}, sector: ${a.sector ?? 'unknown'})`)
-      .join('\n')
+    const tickerList = batch.map(a => `${a.ticker} (${a.name}, ${a.asset_type}, sector: ${a.sector ?? 'unknown'})`).join('\n')
 
     const prompt = `You are a quantitative investment analyst. Given the current investment themes and recent market events, score each asset.
 
@@ -309,7 +350,7 @@ Signal rules:
     try {
       const response = await anthropic.messages.create({
         model:      'claude-sonnet-4-20250514',
-        max_tokens: 2048,
+        max_tokens: 2048,  // increased — 10 assets × ~80 tokens each + overhead
         messages:   [{ role: 'user', content: prompt }],
       })
 
@@ -326,14 +367,14 @@ Signal rules:
       const parsed = JSON.parse(raw) as AssetSignalOutput[]
       results.push(...parsed)
     } catch (err) {
-      console.error(`[generateAssetSignals] batch ${Math.floor(i / BATCH) + 1} failed:`, err)
+      console.error(`[generateAssetSignals] batch ${i / BATCH + 1} failed:`, err)
     }
 
+    // Rate limit protection between batches
     if (i + BATCH < assets.length) {
       await new Promise(r => setTimeout(r, DELAY))
     }
   }
 
-   return results
+  return results
 }
-
