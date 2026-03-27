@@ -83,20 +83,17 @@ function GaugeMeter({ score }: { score: number }) {
 
   return (
     <div className={styles.gaugeWrap}>
-      {/* Scale labels */}
       <div className={styles.gaugeLabels}>
         <span>-10</span>
         <span>0</span>
         <span>+10</span>
       </div>
-      {/* Track */}
       <div className={styles.gaugeTrack}>
-        {/* Gradient fill from left to score position */}
-        <div className={styles.gaugeFill} style={{ width: `${pct}%`, background: color }} />
-        {/* Midpoint marker */}
         <div className={styles.gaugeMid} />
-        {/* Score pointer */}
-        <div className={styles.gaugePointer} style={{ left: `${pct}%`, background: color }} />
+        <div
+          className={styles.gaugePointer}
+          style={{ left: `${pct}%`, background: color, color }}
+        />
       </div>
     </div>
   )

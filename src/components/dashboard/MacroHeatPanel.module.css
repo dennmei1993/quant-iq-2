@@ -145,42 +145,53 @@
 
 .gaugeTrack {
   position: relative;
-  height: 5px;
-  background: rgba(255,255,255,0.07);
+  height: 6px;
+  /* Full red → amber → green gradient always visible */
+  background: linear-gradient(
+    to right,
+    #e87070 0%,
+    #e8a070 25%,
+    #e09845 50%,
+    #8de0bf 75%,
+    #4eca99 100%
+  );
   border-radius: 3px;
   overflow: visible;
 }
 
-.gaugeFill {
+/* Dim overlay so the pointer pops */
+.gaugeTrack::before {
+  content: '';
   position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
+  inset: 0;
+  background: rgba(15, 28, 46, 0.35);
   border-radius: 3px;
-  transition: width 0.4s ease;
-  opacity: 0.7;
 }
 
+/* Midpoint marker */
 .gaugeMid {
   position: absolute;
   left: 50%;
-  top: -2px;
+  top: -3px;
   width: 1px;
-  height: 9px;
-  background: rgba(255,255,255,0.15);
+  height: 12px;
+  background: rgba(255,255,255,0.2);
   transform: translateX(-50%);
+  z-index: 1;
 }
 
+/* Score pointer — glows in the aspect's score colour */
 .gaugePointer {
   position: absolute;
   top: 50%;
-  width: 9px;
-  height: 9px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  border: 1.5px solid rgba(15,28,46,0.8);
+  border: 2px solid rgba(15,28,46,0.9);
   transition: left 0.4s ease;
-  z-index: 1;
+  z-index: 2;
+  box-shadow: 0 0 6px currentColor;
 }
 
 /* ── Detail ── */
