@@ -13,13 +13,14 @@ interface Props {
 }
 
 const NAV = [
-  { href: '/dashboard',           label: 'Overview',       icon: '⬡',  section: 'Overview' },
-  { href: '/dashboard/events',    label: 'Event Feed',     icon: '📡', section: null },
-  { href: '/dashboard/themes',    label: 'Themes',         icon: '🎯', section: 'Advisory' },
-  { href: '/dashboard/assets',    label: 'Asset Screener', icon: '📊', section: null },
-  { href: '/dashboard/portfolio', label: 'My Portfolio',   icon: '🗂️', section: 'Portfolio' },
-  { href: '/dashboard/alerts',    label: 'Alerts',         icon: '🔔', section: null },
-  { href: '/dashboard/settings',  label: 'Settings',       icon: '⚙',  section: 'Account' },
+  { href: '/dashboard',           label: 'Overview',       icon: '⬡',  section: 'Overview',  separator: false },
+  { href: '/dashboard/events',    label: 'Event Feed',     icon: '📡', section: null,        separator: false },
+  { href: '/dashboard/themes',    label: 'Themes',         icon: '🎯', section: 'Advisory',  separator: false },
+  { href: '/dashboard/assets',    label: 'Asset Screener', icon: '📊', section: null,        separator: false },
+  { href: '/dashboard/watchlist', label: 'Watchlist',      icon: '★',  section: null,        separator: true  },
+  { href: '/dashboard/portfolio', label: 'My Portfolio',   icon: '🗂️', section: 'Portfolio', separator: false },
+  { href: '/dashboard/alerts',    label: 'Alerts',         icon: '🔔', section: null,        separator: false },
+  { href: '/dashboard/settings',  label: 'Settings',       icon: '⚙',  section: 'Account',  separator: false },
 ]
 
 export default function DashboardShell({ user, children }: Props) {
@@ -51,6 +52,9 @@ export default function DashboardShell({ user, children }: Props) {
         <nav className={styles.nav}>
           {NAV.map((item, i) => (
             <div key={item.href}>
+              {item.separator && (
+                <div style={{ height: 1, background: 'rgba(200,169,110,0.1)', margin: '0.4rem 1rem 0.4rem' }} />
+              )}
               {item.section && (
                 <div className={styles.navSection}>{item.section}</div>
               )}
