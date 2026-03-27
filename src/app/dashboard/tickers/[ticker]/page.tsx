@@ -1,267 +1,312 @@
-// src/app/dashboard/themes/page.tsx
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
+import {
+  fetchTickerDetails,
+  fetchTickerPrice,
+  fetchTickerBars,
+  formatMarketCap,
+  formatVolume,
+} from '@/lib/polygon-ticker'
+import WatchlistButton from '@/components/dashboard/WatchlistButton'
+import ThesisButton    from '@/components/dashboard/ThesisButton'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-type TickerWeight = {
-  ticker:       string
-  final_weight: number
-  relevance:    number
-  rationale:    string | null
-}
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type Theme = {
-  id:                string
-  name:              string
-  label:             string | null
-  timeframe:         string
-  conviction:        number | null
-  momentum:          string | null
-  brief:             string | null
-  anchor_reason:     string | null
-  anchored_since:    string | null
-  expires_at:        string | null
-  theme_type:        string
-  ticker_weights:    TickerWeight[]
-}
+type SignalRow = { signal: string | null; score: number | null; rationale: string | null; updated_at: string | null }
+type ThemeRow  = { theme_id: string; final_weight: number; themes: { name: string; timeframe: string; conviction: number | null; theme_type: string } }
+type EventRow  = { id: string; headline: string; ai_summary: string | null; sentiment_score: number | null; impact_score: number | null; published_at: string }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function query<T>(q: any): Promise<T | null> {
   const result = await q
   return (result as any).data as T | null
 }
 
-const MOMENTUM_LABEL: Record<string, string> = {
-  strong_up: '↑↑ Strong', moderate_up: '↑ Moderate',
-  neutral: '→ Neutral', moderate_down: '↓ Moderate', strong_down: '↓↓ Strong',
+function signalColor(s: string | null) {
+  return ({ buy: 'var(--signal-bull)', watch: 'var(--signal-neut)', hold: 'rgba(232,226,217,0.4)', avoid: 'var(--signal-bear)' } as Record<string, string>)[s ?? ''] ?? 'rgba(232,226,217,0.4)'
 }
-const MOMENTUM_COLOR: Record<string, string> = {
-  strong_up: 'var(--signal-bull)', moderate_up: '#8de0bf',
-  neutral: 'var(--signal-neut)', moderate_down: '#e8a070', strong_down: 'var(--signal-bear)',
-}
-const TF_LABEL: Record<string, string> = { '1m': '1 Month', '3m': '3 Months', '6m': '6 Months' }
 
-function weightColor(w: number) {
-  if (w >= 0.7) return 'var(--signal-bull)'
-  if (w >= 0.4) return 'var(--signal-neut)'
-  return 'rgba(232,226,217,0.35)'
+function sentimentColor(s: number | null) {
+  if (!s) return 'var(--signal-neut)'
+  if (s > 0.1) return 'var(--signal-bull)'
+  if (s < -0.1) return 'var(--signal-bear)'
+  return 'var(--signal-neut)'
 }
-function weightLabel(w: number) {
-  if (w >= 0.8) return 'Primary'
-  if (w >= 0.6) return 'Strong'
-  if (w >= 0.4) return 'Moderate'
-  return 'Peripheral'
+
+function tfLabel(tf: string) {
+  return ({ '1m': '1M', '3m': '3M', '6m': '6M' } as Record<string, string>)[tf] ?? tf
 }
-function relTime(iso: string | null) {
-  if (!iso) return ''
+
+function relTime(iso: string) {
   const hrs = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
   if (hrs < 1) return 'just now'
   if (hrs < 24) return `${hrs}h ago`
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-function SectionHeader({ title, subtitle, count }: { title: string; subtitle: string; count: number }) {
+// Inline SVG sparkline from bar data
+function Sparkline({ bars }: { bars: { close: number }[] }) {
+  if (bars.length < 2) return null
+  const closes = bars.map(b => b.close)
+  const min    = Math.min(...closes)
+  const max    = Math.max(...closes)
+  const range  = max - min || 1
+  const w = 200, h = 48, pad = 4
+  const pts = closes.map((c, i) => {
+    const x = pad + (i / (closes.length - 1)) * (w - 2 * pad)
+    const y = pad + (1 - (c - min) / range) * (h - 2 * pad)
+    return `${x},${y}`
+  }).join(' ')
+  const isUp = closes[closes.length - 1] >= closes[0]
+  const color = isUp ? '#4eca99' : '#e87070'
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
-      <div>
-        <h2 style={{ color: 'var(--cream)', fontSize: '1rem', fontWeight: 600, margin: 0 }}>{title}</h2>
-        <p style={{ color: 'rgba(232,226,217,0.35)', fontSize: '0.75rem', margin: '0.2rem 0 0' }}>{subtitle}</p>
-      </div>
-      <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', background: 'rgba(255,255,255,0.04)', padding: '0.2rem 0.5rem', borderRadius: 4 }}>
-        {count} theme{count !== 1 ? 's' : ''}
-      </span>
-    </div>
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
   )
 }
 
-function ThemeCard({ theme, variant }: { theme: Theme; variant: 'watchlist' | 'dynamic' }) {
-  const mColor      = MOMENTUM_COLOR[theme.momentum ?? 'neutral'] ?? 'var(--signal-neut)'
-  const accentColor = variant === 'watchlist' ? '#7ab4e8' : mColor
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
-  return (
-    <div style={{
-      background: 'var(--navy2)',
-      border: `1px solid ${variant === 'watchlist' ? 'rgba(122,180,232,0.15)' : 'var(--dash-border)'}`,
-      borderRadius: 10, overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{ padding: '1.3rem 1.5rem', borderBottom: '1px solid var(--dash-border)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.7rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{
-              fontSize: '0.6rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em',
-              background: variant === 'watchlist' ? 'rgba(122,180,232,0.12)' : 'rgba(200,169,110,0.12)',
-              color: variant === 'watchlist' ? '#7ab4e8' : 'var(--gold)',
-              padding: '0.18rem 0.5rem', borderRadius: 4,
-            }}>
-              {variant === 'watchlist' ? '📌 Watchlist' : TF_LABEL[theme.timeframe] ?? theme.timeframe}
-            </span>
-            {theme.label && theme.label !== 'WATCHLIST' && (
-              <span style={{
-                fontSize: '0.6rem', fontWeight: 600, textTransform: 'uppercase',
-                background: `${mColor}18`, color: mColor, padding: '0.18rem 0.5rem', borderRadius: 4,
-              }}>
-                {theme.label}
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-            {variant === 'dynamic' && (
-              <span style={{ fontSize: '0.72rem', color: mColor, fontWeight: 500 }}>
-                {MOMENTUM_LABEL[theme.momentum ?? 'neutral'] ?? '→ Neutral'}
-              </span>
-            )}
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: accentColor, lineHeight: 1 }}>{theme.conviction ?? 0}</div>
-              <div style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.25)', marginTop: 2 }}>CONVICTION</div>
-            </div>
-          </div>
-        </div>
+export default async function TickerPage({ params }: { params: { ticker: string } }) {
+  const ticker  = params.ticker.toUpperCase()
+  const db      = createServiceClient()
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
 
-        <h3 style={{ color: 'var(--cream)', fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.55rem', lineHeight: 1.3 }}>
-          {theme.name}
-        </h3>
+  // Parallel fetches
+  const [signal, themeRows, events, assetRow, watchlistRow, details, price, bars] = await Promise.all([
+    query<SignalRow>(
+      db.from('asset_signals').select('signal, score, rationale, updated_at').eq('ticker', ticker).single()
+    ),
+    query<ThemeRow[]>(
+      db.from('theme_tickers')
+        .select('theme_id, final_weight, themes!inner(name, timeframe, conviction, theme_type)')
+        .eq('ticker', ticker)
+        .eq('themes.is_active', true)
+        .order('final_weight', { ascending: false })
+    ),
+    query<EventRow[]>(
+      db.from('events')
+        .select('id, headline, ai_summary, sentiment_score, impact_score, published_at')
+        .contains('tickers', [ticker])
+        .eq('ai_processed', true)
+        .order('published_at', { ascending: false })
+        .limit(5)
+    ),
+    query<{ ticker: string; name: string; asset_type: string; sector: string | null }>(
+      db.from('assets').select('ticker, name, asset_type, sector').eq('ticker', ticker).single()
+    ),
+    user ? query<{ ticker: string }>(
+      db.from('user_watchlist').select('ticker').eq('user_id', user.id).eq('ticker', ticker).single()
+    ) : Promise.resolve(null),
+    fetchTickerDetails(ticker),
+    fetchTickerPrice(ticker),
+    fetchTickerBars(ticker, 30),
+  ])
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.7rem' }}>
-          <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
-            <div style={{ width: `${theme.conviction ?? 0}%`, height: '100%', background: accentColor, borderRadius: 2 }} />
-          </div>
-          <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.25)' }}>{theme.conviction ?? 0}/100</span>
-        </div>
+  // 404 if completely unknown
+  if (!assetRow && !details) return notFound()
 
-        {theme.brief && (
-          <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.5)', lineHeight: 1.6, margin: 0 }}>{theme.brief}</p>
-        )}
-
-        {variant === 'dynamic' && (theme.anchor_reason || theme.anchored_since) && (
-          <div style={{ display: 'flex', gap: '1.2rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
-            {theme.anchor_reason && (
-              <span style={{ fontSize: '0.67rem', color: 'rgba(200,169,110,0.45)', fontStyle: 'italic' }}>⚓ {theme.anchor_reason}</span>
-            )}
-            {theme.anchored_since && (
-              <span style={{ fontSize: '0.67rem', color: 'rgba(232,226,217,0.18)' }}>anchored {relTime(theme.anchored_since)}</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Ticker weights */}
-      <div style={{ padding: '0.9rem 1.5rem' }}>
-        <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.65rem' }}>
-          Associated Assets · {theme.ticker_weights.length} tickers
-        </div>
-
-        {theme.ticker_weights.length === 0 ? (
-          <p style={{ fontSize: '0.75rem', color: 'rgba(232,226,217,0.18)', fontStyle: 'italic', margin: 0 }}>No tickers mapped yet.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            {theme.ticker_weights.map(tw => (
-              <div key={tw.ticker} style={{
-                display: 'grid', gridTemplateColumns: '72px 1fr 110px 76px',
-                alignItems: 'center', gap: '0.7rem',
-                padding: '0.5rem 0.7rem',
-                background: 'rgba(255,255,255,0.02)', borderRadius: 5,
-                border: '1px solid rgba(255,255,255,0.035)',
-              }}>
-                {/* ── Clickable ticker ── */}
-                <Link
-                  href={`/dashboard/tickers/${tw.ticker}`}
-                  style={{
-                    fontSize: '0.83rem', fontWeight: 700, color: 'var(--gold)',
-                    fontFamily: 'monospace', textDecoration: 'none',
-                  }}
-                >
-                  {tw.ticker}
-                </Link>
-
-                <span style={{ fontSize: '0.71rem', color: 'rgba(232,226,217,0.4)', lineHeight: 1.4 }}>
-                  {tw.rationale ?? '—'}
-                </span>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
-                    <div style={{ width: `${tw.final_weight * 100}%`, height: '100%', background: weightColor(tw.final_weight), borderRadius: 2 }} />
-                  </div>
-                  <span style={{ fontSize: '0.63rem', color: weightColor(tw.final_weight), minWidth: '2.2rem', textAlign: 'right', fontWeight: 600 }}>
-                    {(tw.final_weight * 100).toFixed(0)}%
-                  </span>
-                </div>
-
-                <span style={{
-                  fontSize: '0.58rem', fontWeight: 500, textAlign: 'center',
-                  background: `${weightColor(tw.final_weight)}18`, color: weightColor(tw.final_weight),
-                  padding: '0.12rem 0.35rem', borderRadius: 3,
-                }}>
-                  {weightLabel(tw.final_weight)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-export default async function ThemesPage() {
-  const supabase = createServiceClient()
-
-  const allThemes = await query<Omit<Theme, 'ticker_weights'>[]>(
-    supabase.from('themes')
-      .select('id, name, label, timeframe, conviction, momentum, brief, anchor_reason, anchored_since, expires_at, theme_type')
-      .eq('is_active', true)
-      .order('theme_type').order('timeframe')
-  ) ?? []
-
-  const themeIds   = allThemes.map(t => t.id)
-  const tickerRows = themeIds.length > 0
-    ? await query<(TickerWeight & { theme_id: string })[]>(
-        supabase.from('theme_tickers')
-          .select('theme_id, ticker, final_weight, relevance, rationale')
-          .in('theme_id', themeIds)
-          .order('final_weight', { ascending: false })
-      ) ?? []
-    : []
-
-  const weightsByTheme = new Map<string, TickerWeight[]>()
-  for (const row of tickerRows) {
-    const { theme_id, ...rest } = row
-    if (!weightsByTheme.has(theme_id)) weightsByTheme.set(theme_id, [])
-    weightsByTheme.get(theme_id)!.push(rest)
-  }
-
-  const themes: Theme[] = allThemes.map(t => ({ ...t, ticker_weights: weightsByTheme.get(t.id) ?? [] }))
-  const watchlistThemes = themes.filter(t => t.theme_type === 'watchlist')
-  const dynamicThemes   = themes.filter(t => t.theme_type === 'dynamic')
+  const name        = details?.name ?? assetRow?.name ?? ticker
+  const isWatched   = !!watchlistRow
+  const themes      = themeRows ?? []
+  const recentEvents = events ?? []
+  const changeUp    = (price?.change_pct ?? 0) >= 0
 
   return (
     <div>
-      <h1 style={{ color: 'var(--cream)', fontFamily: 'serif', fontSize: '1.8rem', marginBottom: '0.4rem' }}>Themes</h1>
-      <p style={{ color: 'rgba(232,226,217,0.35)', fontSize: '0.82rem', marginBottom: '2.5rem' }}>
-        Persistent watchlist themes and AI-generated market themes with associated asset weights
-      </p>
+      {/* Back link */}
+      <Link href="/dashboard/assets" style={{ fontSize: '0.75rem', color: 'rgba(200,169,110,0.5)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginBottom: '1.5rem' }}>
+        ← Asset Screener
+      </Link>
 
-      <div style={{ marginBottom: '3rem' }}>
-        <SectionHeader title="Watchlist Themes" subtitle="Persistent structural themes — always tracked regardless of daily news" count={watchlistThemes.length} />
-        {watchlistThemes.length === 0 ? (
-          <div style={{ color: 'rgba(232,226,217,0.2)', fontSize: '0.82rem', padding: '2rem 0' }}>No watchlist themes yet — run migration 010 to seed starters.</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(520px, 1fr))', gap: '1.2rem' }}>
-            {watchlistThemes.map(t => <ThemeCard key={t.id} theme={t} variant="watchlist" />)}
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', marginBottom: '0.3rem' }}>
+            <h1 style={{ color: 'var(--cream)', fontFamily: 'monospace', fontSize: '2rem', fontWeight: 700, margin: 0 }}>
+              {ticker}
+            </h1>
+            {signal?.signal && (
+              <span style={{
+                fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+                color: signalColor(signal.signal),
+                background: `${signalColor(signal.signal)}18`,
+                padding: '0.2rem 0.55rem', borderRadius: 4,
+              }}>
+                {signal.signal}
+              </span>
+            )}
           </div>
-        )}
+          <div style={{ color: 'rgba(232,226,217,0.45)', fontSize: '0.9rem' }}>{name}</div>
+          {(details?.sector || assetRow?.sector) && (
+            <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.25)', marginTop: '0.2rem' }}>
+              {details?.sector ?? assetRow?.sector} · {details?.exchange ?? assetRow?.asset_type}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <ThesisButton ticker={ticker} />
+          {user && <WatchlistButton ticker={ticker} initialWatched={isWatched} />}
+        </div>
       </div>
 
-      <div>
-        <SectionHeader title="Market Themes" subtitle="AI-generated from recent high-impact events · updated daily" count={dynamicThemes.length} />
-        {dynamicThemes.length === 0 ? (
-          <div style={{ color: 'rgba(232,226,217,0.2)', fontSize: '0.82rem', padding: '2rem 0' }}>No market themes yet — run the themes cron to generate.</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-            {dynamicThemes.map(t => <ThemeCard key={t.id} theme={t} variant="dynamic" />)}
+      {/* ── Price row ────────────────────────────────────────────────────── */}
+      {price?.close && (
+        <div style={{
+          background: 'var(--navy2)', border: '1px solid var(--dash-border)',
+          borderRadius: 10, padding: '1.2rem 1.5rem', marginBottom: '1.5rem',
+          display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '2rem', alignItems: 'center',
+        }}>
+          <div>
+            <div style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--cream)', lineHeight: 1, fontFamily: 'monospace' }}>
+              ${price.close.toFixed(2)}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: changeUp ? 'var(--signal-bull)' : 'var(--signal-bear)', marginTop: '0.2rem', fontWeight: 500 }}>
+              {changeUp ? '+' : ''}{price.change?.toFixed(2)} ({changeUp ? '+' : ''}{price.change_pct?.toFixed(2)}%)
+            </div>
+            {price.date && (
+              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.2)', marginTop: '0.2rem' }}>Prev close · {price.date}</div>
+            )}
           </div>
-        )}
+
+          {/* Sparkline */}
+          {bars.length > 2 && (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <Sparkline bars={bars} />
+              <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.2)', marginLeft: '0.5rem' }}>30d</span>
+            </div>
+          )}
+
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 1.5rem' }}>
+            {[
+              ['Open',   `$${price.open?.toFixed(2) ?? '—'}`],
+              ['High',   `$${price.high?.toFixed(2) ?? '—'}`],
+              ['Low',    `$${price.low?.toFixed(2)  ?? '—'}`],
+              ['Volume', formatVolume(price.volume)],
+              ['Mkt Cap', formatMarketCap(details?.market_cap ?? null)],
+              ['Employees', details?.employees ? details.employees.toLocaleString() : '—'],
+            ].map(([label, val]) => (
+              <div key={label}>
+                <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--cream)', fontFamily: 'monospace' }}>{val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        {/* Left column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+          {/* Description */}
+          {details?.description && (
+            <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
+              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>About</div>
+              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.7, margin: 0 }}>
+                {details.description.slice(0, 500)}{details.description.length > 500 ? '…' : ''}
+              </p>
+              {details.homepage && (
+                <a href={details.homepage} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '0.72rem', color: 'var(--gold)', opacity: 0.6, display: 'inline-block', marginTop: '0.6rem' }}>
+                  {details.homepage.replace(/^https?:\/\//, '')} ↗
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Signal rationale */}
+          {signal?.rationale && (
+            <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Signal Rationale</div>
+                {signal.score !== null && (
+                  <span style={{ fontSize: '0.72rem', color: signalColor(signal.signal), fontWeight: 600 }}>
+                    {signal.score}/100
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>
+                {signal.rationale}
+              </p>
+              {signal.updated_at && (
+                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>
+                  Updated {relTime(signal.updated_at)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+          {/* Themes */}
+          {themes.length > 0 && (
+            <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
+              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
+                Active Themes · {themes.length}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {themes.map(row => (
+                  <div key={row.theme_id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '0.55rem 0.75rem',
+                    background: 'rgba(255,255,255,0.025)', borderRadius: 6,
+                    border: '1px solid rgba(255,255,255,0.04)',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--cream)', fontWeight: 500 }}>{row.themes.name}</div>
+                      <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.25)', marginTop: '0.1rem' }}>
+                        {row.themes.theme_type === 'watchlist' ? '📌 Watchlist' : tfLabel(row.themes.timeframe)} · {row.themes.conviction ?? 0} conviction
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: row.final_weight >= 0.7 ? 'var(--signal-bull)' : row.final_weight >= 0.4 ? 'var(--signal-neut)' : 'rgba(232,226,217,0.35)' }}>
+                        {(row.final_weight * 100).toFixed(0)}%
+                      </div>
+                      <div style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.2)' }}>weight</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent events */}
+          {recentEvents.length > 0 && (
+            <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
+              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
+                Recent Events · {recentEvents.length}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {recentEvents.map(e => (
+                  <div key={e.id} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: sentimentColor(e.sentiment_score), marginTop: '0.3rem', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--cream)', lineHeight: 1.4 }}>
+                        {e.ai_summary ?? e.headline}
+                      </div>
+                      <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.25)', marginTop: '0.15rem' }}>
+                        {relTime(e.published_at)} · impact {e.impact_score ?? '?'}/10
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
