@@ -6,12 +6,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
-  const { data: profile } = await supabase
+  const { data: profileData } = await supabase
     .from("profiles")
     .select("email, full_name, plan")
     .eq("id", user.id)
     .single();
 
+  const profile = profileData as { email: string | null; full_name: string | null; plan: string | null } | null;
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--dash-bg)" }}>
       <DashboardSidebar
@@ -41,19 +42,25 @@ function DashboardSidebar({ user }: { user: { email: string; fullName: string | 
       </div>
       <nav style={{ flex: 1, padding: "1rem 0" }}>
         {[
-          { href: "/dashboard",           label: "Overview"  },
-          { href: "/dashboard/events",    label: "Events"    },
-          { href: "/dashboard/themes",    label: "Themes"    },
-          { href: "/dashboard/assets",    label: "Screener"  },
-          { href: "/dashboard/portfolio", label: "Portfolio" },
-          { href: "/dashboard/alerts",    label: "Alerts"    },
-        ].map(({ href, label }) => (
-          <a key={href} href={href} style={{
-            display: "block", padding: "0.5rem 1.2rem",
-            color: "rgba(232,226,217,0.6)", fontSize: "0.85rem",
-          }}>
-            {label}
-          </a>
+          { href: "/dashboard",           label: "Overview"       },
+          { href: "/dashboard/events",    label: "Events"         },
+          { href: "/dashboard/themes",    label: "Themes"         },
+          { href: "/dashboard/assets",    label: "Screener"       },
+          { href: "/dashboard/watchlist", label: "Watchlist"      },
+          { href: "/dashboard/portfolio", label: "Portfolio"      },
+          { href: "/dashboard/alerts",    label: "Alerts"         },
+        ].map(({ href, label }, i) => (
+          <div key={href}>
+            {label === "Watchlist" && (
+              <div style={{ height: 1, background: "rgba(200,169,110,0.1)", margin: "0.4rem 1.2rem" }} />
+            )}
+            <a href={href} style={{
+              display: "block", padding: "0.5rem 1.2rem",
+              color: "rgba(232,226,217,0.6)", fontSize: "0.85rem",
+            }}>
+              {label}
+            </a>
+          </div>
         ))}
       </nav>
       <div style={{ padding: "1rem 1.2rem", borderTop: "1px solid var(--dash-border)" }}>
