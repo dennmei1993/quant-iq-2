@@ -170,10 +170,7 @@ function ThemeCard({ theme, variant }: { theme: Theme; variant: 'watchlist' | 'd
                   style={{
                     fontSize: '0.83rem', fontWeight: 700, color: 'var(--gold)',
                     fontFamily: 'monospace', textDecoration: 'none',
-                    transition: 'opacity 0.15s',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
                 >
                   {tw.ticker}
                 </Link>
