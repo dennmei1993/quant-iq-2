@@ -1,19 +1,19 @@
 // src/app/api/admin/sync-prices/route.ts
 /**
- * POST /api/admin/sync-prices
+ * POST /api/admin/sync-prices?priority=1|2|3
  *
- * Manual trigger — syncs prices for ALL 152 tickers.
- * 152 tickers ÷ 5 per batch × 13s = ~400s — run locally or extend timeout.
- * Use priority param to sync a subset:
- *   ?priority=1  — ~23 tickers (~65s)
- *   ?priority=2  — priority 1+2 (~100 tickers, ~260s)
- *   ?priority=3  — all 152 tickers (~400s, may timeout on Vercel)
+ * Manual trigger — syncs prices for tickers up to given priority.
+ * Skips sparklines to stay within 300s timeout.
  *
- * Auth: ADMIN_SECRET header
+ *   priority=1  ~23 tickers  ~65s
+ *   priority=2  ~100 tickers ~260s
+ *   priority=3  ~152 tickers (may timeout — use priority=2 max)
+ *
+ * Auth: x-admin-secret header
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { fetchPricesForTickers, fetchSparklinesForTickers } from '@/lib/polygon'
+import { fetchPricesForTickers } from '@/lib/polygon'
 
 export const maxDuration = 300
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   const log: string[] = []
 
   try {
-    const query = db
+    const { data: assets } = await db
       .from('assets')
       .select('ticker, bootstrap_priority')
       .eq('is_active', true)
@@ -47,23 +47,20 @@ export async function POST(req: NextRequest) {
       .order('bootstrap_priority')
       .order('ticker')
 
-    const { data: assets } = await query
     const tickers = (assets ?? []).map((a: any) => a.ticker)
     log.push(`Syncing prices for ${tickers.length} tickers (priority ≤ ${priority})...`)
 
-    const prices     = await fetchPricesForTickers(tickers)
-    const sparklines = await fetchSparklinesForTickers([...prices.keys()])
+    // No sparklines — prices only to stay within timeout
+    const prices = await fetchPricesForTickers(tickers)
 
     const rows = [...prices.keys()].map(t => {
-      const p    = prices.get(t)!
-      const bars = sparklines.get(t) ?? []
+      const p = prices.get(t)!
       return {
         ticker:     t,
         price_usd:  p.price,
         change_pct: p.change_pct,
         signal:     deriveSignal(p.change_pct),
         score:      deriveSignalScore(p.change_pct),
-        sparkline:  bars.map((b: any) => b.c),
         updated_at: new Date().toISOString(),
       }
     })
@@ -73,7 +70,7 @@ export async function POST(req: NextRequest) {
         .upsert(rows, { onConflict: 'ticker' })
     }
 
-    log.push(`Done: ${prices.size} / ${tickers.length} prices synced`)
+    log.push(`Done: ${prices.size} / ${tickers.length} synced`)
     return NextResponse.json({ ok: true, synced: prices.size, total: tickers.length, log })
   } catch (e) {
     console.error('[admin/sync-prices]', e)
