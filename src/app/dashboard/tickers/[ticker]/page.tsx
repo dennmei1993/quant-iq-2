@@ -14,8 +14,6 @@ import {
 import WatchlistButton  from '@/components/dashboard/WatchlistButton'
 import ThesisButton     from '@/components/dashboard/ThesisButton'
 import PortfolioButton  from '@/components/dashboard/PortfolioButton'
-import SyncPriceButton  from '@/components/dashboard/SyncPriceButton'
-
 
 export const dynamic  = 'force-dynamic'
 export const revalidate = 0
@@ -109,7 +107,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
     query<SignalRow>(
       db.from('asset_signals')
-        .select('signal, score, rationale, updated_at')
+        .select('signal, score, price_usd, rationale, updated_at')
         .eq('ticker', ticker)
         .single()
     ),
@@ -160,6 +158,30 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
   if (!assetRow && !details) return notFound()
 
+  // ── Auto-sync price if signal is missing ──────────────────────────────────
+  // If this ticker has no signal data yet, fetch it from Polygon now so the
+  // page renders with real data rather than showing all dashes.
+  let signalData = signal
+  if (!signal?.signal) {
+    try {
+      const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
+      const syncRes = await fetch(`${base}/api/admin/sync-prices?tickers=${ticker}`, {
+        method:  'POST',
+        headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '' },
+      })
+      if (syncRes.ok) {
+        // Re-fetch signal after sync
+        const freshSignal = await query<SignalRow>(
+          db.from('asset_signals')
+            .select('signal, score, price_usd, rationale, updated_at')
+            .eq('ticker', ticker)
+            .single()
+        )
+        if (freshSignal) signalData = freshSignal
+      }
+    } catch { /* sync failed silently — render with whatever we have */ }
+  }
+
   // Join theme_tickers rows with themeMap — no nested DB join needed
   const themes: ThemeRow[] = (themeTickerRows ?? [])
     .map(row => {
@@ -188,13 +210,13 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             <h1 style={{ color: 'var(--cream)', fontFamily: 'monospace', fontSize: '2rem', fontWeight: 700, margin: 0 }}>
               {ticker}
             </h1>
-            {signal?.signal && (
+            {signalData?.signal && (
               <span style={{
                 fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
-                color: signalColor(signal.signal), background: `${signalColor(signal.signal)}18`,
+                color: signalColor(signalData?.signal), background: `${signalColor(signalData?.signal)}18`,
                 padding: '0.2rem 0.55rem', borderRadius: 4,
               }}>
-                {signal.signal}
+                {signalData?.signal}
               </span>
             )}
           </div>
@@ -210,7 +232,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
           <ThesisButton ticker={ticker} />
           {userId && <PortfolioButton ticker={ticker} name={name} initialAdded={isInPortfolio} />}
           {userId && <WatchlistButton ticker={ticker} initialWatched={isWatched} />}
-          <SyncPriceButton ticker={ticker} />
         </div>
       </div>
 
@@ -276,17 +297,17 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             </div>
           )}
 
-          {signal?.rationale && (
+          {signalData?.rationale && (
             <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
                 <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Signal Rationale</div>
-                {signal.score !== null && (
-                  <span style={{ fontSize: '0.72rem', color: signalColor(signal.signal), fontWeight: 600 }}>{signal.score}/100</span>
+                {signalData?.score !== null && (
+                  <span style={{ fontSize: '0.72rem', color: signalColor(signalData?.signal), fontWeight: 600 }}>{signalData?.score}/100</span>
                 )}
               </div>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>{signal.rationale}</p>
-              {signal.updated_at && (
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>Updated {relTime(signal.updated_at)}</div>
+              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>{signalData.rationale}</p>
+              {signalData.updated_at && (
+                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>Updated {relTime(signalData.updated_at)}</div>
               )}
             </div>
           )}
