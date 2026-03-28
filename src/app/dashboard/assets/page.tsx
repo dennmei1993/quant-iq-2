@@ -113,12 +113,6 @@ function AssetCard({ asset: a }: { asset: Asset }) {
         </div>
       )}
 
-      {a.rationale && (
-        <div style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.35)", lineHeight: 1.5 }}>
-          {a.rationale}
-        </div>
-      )}
-
       <div style={{ fontSize: "0.65rem", color: "rgba(232,226,217,0.2)", marginTop: "0.5rem" }}>
         {a.asset_type} · {a.sector ?? "general"}
       </div>
