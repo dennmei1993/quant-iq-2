@@ -20,7 +20,7 @@ export const revalidate = 0
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SignalRow = { signal: string | null; score: number | null; price_usd?: number | null; change_pct?: number | null; rationale: string | null; rationale_signal?: string | null; updated_at: string | null }
+type SignalRow = { signal: string | null; score: number | null; price_usd?: number | null; change_pct?: number | null; rationale: string | null; updated_at: string | null }
 type ThemeRow  = { theme_id: string; name: string; timeframe: string; conviction: number | null; theme_type: string; final_weight: number }
 type EventRow  = { id: string; headline: string; ai_summary: string | null; sentiment_score: number | null; impact_score: number | null; published_at: string }
 type AssetRow  = { ticker: string; name: string; asset_type: string; sector: string | null }
@@ -50,7 +50,7 @@ async function generateSignalRationale(
       ? `Current price: $${price.toFixed(2)}, change: ${changePct !== null ? (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%' : 'N/A'}`
       : 'Price data unavailable'
 
-    const prompt = `You are a professional investment analyst. Write a concise signal rationale for ${name} (${ticker}).
+    const prompt = `You are a professional investment analyst. Write a detailed signal rationale for ${name} (${ticker}).
 
 Signal: ${signal.toUpperCase()}
 ${priceContext}
@@ -58,7 +58,7 @@ ${priceContext}
 Recent news events:
 ${eventContext || 'No recent events found.'}
 
-Write a paragraph (2-3 sentences) explaining:
+Write a full paragraph (4-6 sentences) explaining:
 1. Why this ticker currently has a ${signal} signal
 2. What the recent price action and news suggest about near-term outlook
 3. Key risks or catalysts investors should watch
@@ -164,7 +164,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
     query<SignalRow>(
       db.from('asset_signals')
-        .select('signal, score, rationale, rationale_signal, updated_at')
+        .select('signal, score, price_usd, rationale, updated_at')
         .eq('ticker', ticker)
         .single()
     ),
@@ -230,7 +230,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         // Re-fetch signal after sync
         const freshSignal = await query<SignalRow>(
           db.from('asset_signals')
-            .select('signal, score, rationale, rationale_signal, updated_at')
+            .select('signal, score, price_usd, rationale, updated_at')
             .eq('ticker', ticker)
             .single()
         )
@@ -244,8 +244,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     ? (Date.now() - new Date(signalData.updated_at).getTime()) / 3_600_000
     : Infinity
 
-  const signalChanged = signalData?.signal !== (signalData as any).rationale_signal
-    if (signalData?.signal && (!signalData.rationale || rationaleAge > 24 || signalChanged)) {
+  if (signalData?.signal && (!signalData.rationale || rationaleAge > 24)) {
     try {
       const rationale = await generateSignalRationale(
         ticker,
@@ -257,7 +256,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       )
       if (rationale) {
         await (db.from('asset_signals') as any)
-          .update({ rationale, rationale_signal: signalData.signal, updated_at: new Date().toISOString() })
+          .update({ rationale, updated_at: new Date().toISOString() })
           .eq('ticker', ticker)
         signalData = { ...signalData, rationale }
       }
@@ -387,9 +386,9 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                   <span style={{ fontSize: '0.72rem', color: signalColor(signalData?.signal), fontWeight: 600 }}>{signalData?.score}/100</span>
                 )}
               </div>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>{signalData.rationale}</p>
-              {signalData.updated_at && (
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>Updated {relTime(signalData.updated_at)}</div>
+              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>{signalData?.rationale}</p>
+              {signalData?.updated_at && (
+                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>Updated {relTime(signalData?.updated_at)}</div>
               )}
             </div>
           )}

@@ -49,8 +49,7 @@ export async function GET(req: NextRequest) {
         .not('sentiment_score', 'is', null),
 
       db.from('theme_tickers')
-        .select('ticker, themes!inner(conviction, is_active)')
-        .eq('themes.is_active', true),
+        .select('ticker, themes(conviction, is_active)'),
 
       db.from('macro_scores')
         .select('score'),
@@ -63,10 +62,12 @@ export async function GET(req: NextRequest) {
       : 0
 
     // Flatten theme_tickers with conviction
-    const themeRows = (themeTickersResult.data ?? []).map((r: any) => ({
-      ticker:     r.ticker,
-      conviction: (r.themes as any)?.conviction ?? 0,
-    }))
+    const themeRows = (themeTickersResult.data ?? [])
+      .filter((r: any) => r.themes?.is_active !== false)
+      .map((r: any) => ({
+        ticker:     r.ticker,
+        conviction: (r.themes as any)?.conviction ?? 0,
+      }))
 
     log.push(`Macro score: ${macroScore.toFixed(2)}, theme rows: ${themeRows.length}`)
 

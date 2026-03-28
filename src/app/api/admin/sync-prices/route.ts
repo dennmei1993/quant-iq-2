@@ -74,8 +74,7 @@ export async function POST(req: NextRequest) {
         .not('sentiment_score', 'is', null),
 
       db.from('theme_tickers')
-        .select('ticker, themes!inner(conviction, is_active)')
-        .eq('themes.is_active', true)
+        .select('ticker, themes(conviction, is_active)')
         .in('ticker', tickers),
 
       db.from('macro_scores').select('score'),
@@ -86,10 +85,12 @@ export async function POST(req: NextRequest) {
       ? macroScores.reduce((a: number, b: number) => a + b, 0) / macroScores.length
       : 0
 
-    const themeRows = (themeTickersResult.data ?? []).map((r: any) => ({
-      ticker:     r.ticker,
-      conviction: (r.themes as any)?.conviction ?? 0,
-    }))
+    const themeRows = (themeTickersResult.data ?? [])
+      .filter((r: any) => r.themes?.is_active !== false)
+      .map((r: any) => ({
+        ticker:     r.ticker,
+        conviction: (r.themes as any)?.conviction ?? 0,
+      }))
 
     const priceInputs = [...prices.entries()].map(([ticker, p]) => ({
       ticker, change_pct: p.change_pct,
