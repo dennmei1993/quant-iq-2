@@ -14,6 +14,8 @@ import {
 import WatchlistButton  from '@/components/dashboard/WatchlistButton'
 import ThesisButton     from '@/components/dashboard/ThesisButton'
 import PortfolioButton  from '@/components/dashboard/PortfolioButton'
+import SyncPriceButton  from '@/components/dashboard/SyncPriceButton'
+
 
 export const dynamic  = 'force-dynamic'
 export const revalidate = 0
@@ -208,6 +210,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
           <ThesisButton ticker={ticker} />
           {userId && <PortfolioButton ticker={ticker} name={name} initialAdded={isInPortfolio} />}
           {userId && <WatchlistButton ticker={ticker} initialWatched={isWatched} />}
+          <SyncPriceButton ticker={ticker} />
         </div>
       </div>
 
