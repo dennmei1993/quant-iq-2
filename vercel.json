@@ -1,9 +1,8 @@
-
 {
   "crons": [
-    { "path": "/api/cron/ingest",     "schedule": "0 * * * *"  },
-    { "path": "/api/cron/themes",     "schedule": "0 14 * * *" },
-    { "path": "/api/cron/macro",      "schedule": "0 13 * * *" },
+    { "path": "/api/cron/ingest",     "schedule": "0 8 * * *"  },
+    { "path": "/api/cron/macro",      "schedule": "0 9 * * *"  },
+    { "path": "/api/cron/themes",     "schedule": "0 10 * * *" },
     { "path": "/api/cron/financials", "schedule": "0 6 * * 1"  }
   ],
   "functions": {
