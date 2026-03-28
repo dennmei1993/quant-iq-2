@@ -20,7 +20,7 @@ export const revalidate = 0
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SignalRow = { signal: string | null; score: number | null; price_usd?: number | null; change_pct?: number | null; rationale: string | null; updated_at: string | null }
+type SignalRow = { signal: string | null; score: number | null; price_usd?: number | null; change_pct?: number | null; rationale: string | null; rationale_signal?: string | null; updated_at: string | null }
 type ThemeRow  = { theme_id: string; name: string; timeframe: string; conviction: number | null; theme_type: string; final_weight: number }
 type EventRow  = { id: string; headline: string; ai_summary: string | null; sentiment_score: number | null; impact_score: number | null; published_at: string }
 type AssetRow  = { ticker: string; name: string; asset_type: string; sector: string | null }
@@ -164,7 +164,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
     query<SignalRow>(
       db.from('asset_signals')
-        .select('signal, score, price_usd, rationale, updated_at')
+        .select('signal, score, rationale, rationale_signal, updated_at')
         .eq('ticker', ticker)
         .single()
     ),
@@ -230,7 +230,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         // Re-fetch signal after sync
         const freshSignal = await query<SignalRow>(
           db.from('asset_signals')
-            .select('signal, score, price_usd, rationale, updated_at')
+            .select('signal, score, rationale, rationale_signal, updated_at')
             .eq('ticker', ticker)
             .single()
         )
@@ -244,7 +244,8 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     ? (Date.now() - new Date(signalData.updated_at).getTime()) / 3_600_000
     : Infinity
 
-  if (signalData?.signal && (!signalData.rationale || rationaleAge > 24)) {
+  const signalChanged = signalData?.signal !== (signalData as any).rationale_signal
+    if (signalData?.signal && (!signalData.rationale || rationaleAge > 24 || signalChanged)) {
     try {
       const rationale = await generateSignalRationale(
         ticker,
@@ -256,7 +257,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       )
       if (rationale) {
         await (db.from('asset_signals') as any)
-          .update({ rationale, updated_at: new Date().toISOString() })
+          .update({ rationale, rationale_signal: signalData.signal, updated_at: new Date().toISOString() })
           .eq('ticker', ticker)
         signalData = { ...signalData, rationale }
       }
