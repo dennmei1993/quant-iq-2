@@ -20,7 +20,7 @@ export const revalidate = 0
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SignalRow = { signal: string | null; score: number | null; rationale: string | null; updated_at: string | null }
+type SignalRow = { signal: string | null; score: number | null; price_usd?: number | null; change_pct?: number | null; rationale: string | null; updated_at: string | null }
 type ThemeRow  = { theme_id: string; name: string; timeframe: string; conviction: number | null; theme_type: string; final_weight: number }
 type EventRow  = { id: string; headline: string; ai_summary: string | null; sentiment_score: number | null; impact_score: number | null; published_at: string }
 type AssetRow  = { ticker: string; name: string; asset_type: string; sector: string | null }
@@ -30,6 +30,63 @@ type AssetRow  = { ticker: string; name: string; asset_type: string; sector: str
 async function query<T>(q: any): Promise<T | null> {
   const result = await q
   return (result as any).data as T | null
+}
+
+// Generate AI signal rationale using recent events for this ticker
+async function generateSignalRationale(
+  ticker:  string,
+  name:    string,
+  signal:  string,
+  price:   number | null,
+  changePct: number | null,
+  events:  { headline: string; ai_summary: string | null; sentiment_score: number | null; impact_score: number | null; published_at: string }[]
+): Promise<string | null> {
+  try {
+    const eventContext = events.slice(0, 5).map(e =>
+      `- ${e.ai_summary ?? e.headline} (impact: ${e.impact_score ?? '?'}/10, sentiment: ${e.sentiment_score?.toFixed(2) ?? '?'})`
+    ).join('\n')
+
+    const priceContext = price
+      ? `Current price: $${price.toFixed(2)}, change: ${changePct !== null ? (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%' : 'N/A'}`
+      : 'Price data unavailable'
+
+    const prompt = `You are a professional investment analyst. Write a detailed signal rationale for ${name} (${ticker}).
+
+Signal: ${signal.toUpperCase()}
+${priceContext}
+
+Recent news events:
+${eventContext || 'No recent events found.'}
+
+Write a full paragraph (4-6 sentences) explaining:
+1. Why this ticker currently has a ${signal} signal
+2. What the recent price action and news suggest about near-term outlook
+3. Key risks or catalysts investors should watch
+4. Context on sector or macro conditions affecting this stock
+
+Be specific, factual, and use plain language that a non-professional investor can understand. Do not use bullet points.`
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:  'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-api-key':         process.env.ANTHROPIC_API_KEY ?? '',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model:      'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        messages:   [{ role: 'user', content: prompt }],
+      }),
+      signal: AbortSignal.timeout(30_000),
+    })
+
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.content?.[0]?.text?.trim() ?? null
+  } catch {
+    return null
+  }
 }
 
 function signalColor(s: string | null) {
@@ -162,7 +219,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   // If this ticker has no signal data yet, fetch it from Polygon now so the
   // page renders with real data rather than showing all dashes.
   let signalData = signal
-  if (!signal?.signal) {
+  if (!signal?.price_usd) {
     try {
       const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
       const syncRes = await fetch(`${base}/api/admin/sync-prices?tickers=${ticker}`, {
@@ -180,6 +237,30 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         if (freshSignal) signalData = freshSignal
       }
     } catch { /* sync failed silently — render with whatever we have */ }
+  }
+
+  // ── Generate AI rationale on-demand if missing or stale (> 24h) ─────────────
+  const rationaleAge = signalData?.updated_at
+    ? (Date.now() - new Date(signalData.updated_at).getTime()) / 3_600_000
+    : Infinity
+
+  if (signalData?.signal && (!signalData.rationale || rationaleAge > 24)) {
+    try {
+      const rationale = await generateSignalRationale(
+        ticker,
+        details?.name ?? assetRow?.name ?? ticker,
+        signalData.signal,
+        (signalData as any).price_usd ?? null,
+        (signalData as any).change_pct ?? null,
+        (events ?? []),
+      )
+      if (rationale) {
+        await (db.from('asset_signals') as any)
+          .update({ rationale, updated_at: new Date().toISOString() })
+          .eq('ticker', ticker)
+        signalData = { ...signalData, rationale }
+      }
+    } catch { /* rationale generation failed silently */ }
   }
 
   // Join theme_tickers rows with themeMap — no nested DB join needed
