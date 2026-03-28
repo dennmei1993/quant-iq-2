@@ -1,16 +1,5 @@
 /**
- * src/app/api/cron/ingest/route.ts — RSS edition
- *
- * Flow:
- *  1. Fetch all enabled RSS feeds concurrently
- *  2. Deduplicate against events already in the DB (by url)
- *  3. Insert new raw events
- *  4. Classify each with Claude (1-second delay between calls)
- *  5. Generate alerts for users with holdings
- *
- * NOTE: Polygon price sync moved to /api/cron/financials to avoid timeout.
- *
- * Auth: CRON_SECRET bearer token
+ * src/app/api/cron/ingest/route.ts — RSS edition (with timing logs)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -30,23 +19,27 @@ function isAuthorised(req: NextRequest): boolean {
   return secret.length > 0 && auth === `Bearer ${secret}`
 }
 
+function elapsed(start: number): string {
+  return `${((Date.now() - start) / 1000).toFixed(1)}s`
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorised(req)) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
+  const T0     = Date.now()
   const supabase = createServiceClient()
   const log: string[] = []
   const errors: string[] = []
 
   // ── Step 1: Fetch RSS feeds ───────────────────────────────────────────────
-
-  log.push(`Fetching ${activeSources.length} RSS feeds...`)
+  log.push(`[${elapsed(T0)}] Fetching ${activeSources.length} RSS feeds...`)
   const articles = await fetchAllFeeds(activeSources)
-  log.push(`Fetched ${articles.length} articles across all feeds`)
+  log.push(`[${elapsed(T0)}] Fetched ${articles.length} articles`)
 
   // ── Step 2: Deduplicate against DB ───────────────────────────────────────
-
+  log.push(`[${elapsed(T0)}] Deduplicating...`)
   const incomingUrls = articles.map(a => a.url)
   const { data: existingRows } = await supabase
     .from('events')
@@ -56,22 +49,22 @@ export async function GET(req: NextRequest) {
 
   const existingUrls  = new Set((existingRows ?? []).map(r => r.source_url))
   const newArticles   = articles.filter(a => !existingUrls.has(a.url))
-  log.push(`${newArticles.length} new articles after URL deduplication (${articles.length - newArticles.length} already stored)`)
+  log.push(`[${elapsed(T0)}] ${newArticles.length} new after URL dedup`)
 
-  // ── Step 2b: Fuzzy headline deduplication ────────────────────────────────
-
+  // ── Step 2b: Fuzzy dedup ─────────────────────────────────────────────────
   const dedupedArticles = fuzzyDeduplicateHeadlines(newArticles, 0.85)
-  const fuzzyRemoved    = newArticles.length - dedupedArticles.length
-  if (fuzzyRemoved > 0) log.push(`Removed ${fuzzyRemoved} cross-feed duplicates (fuzzy match)`)
+  log.push(`[${elapsed(T0)}] ${dedupedArticles.length} after fuzzy dedup`)
 
   // ── Step 3 & 4: Insert + classify ────────────────────────────────────────
-
   const MAX_PER_RUN = 20
   const toInsert    = dedupedArticles.slice(0, MAX_PER_RUN)
   let classified    = 0
   let insertFailed  = 0
 
+  log.push(`[${elapsed(T0)}] Starting insert+classify for ${toInsert.length} articles`)
+
   for (const article of toInsert) {
+    const t = Date.now()
     const insertResult = await (supabase.from('events') as any)
       .insert({
         headline:     article.headline,
@@ -104,25 +97,26 @@ export async function GET(req: NextRequest) {
         })
         .eq('id', inserted.id)
       classified++
+      log.push(`[${elapsed(T0)}] Classified event ${classified} (took ${elapsed(t)})`)
     } catch (aiErr) {
       errors.push(`Claude failed for event ${inserted.id}: ${String(aiErr)}`)
     }
   }
 
-  log.push(`Classified: ${classified} events, insert failures: ${insertFailed}`)
+  log.push(`[${elapsed(T0)}] Done insert+classify: ${classified} classified, ${insertFailed} failed`)
 
-  // ── Backlog: classify previously unprocessed events ───────────────────────
-
+  // ── Backlog ───────────────────────────────────────────────────────────────
+  log.push(`[${elapsed(T0)}] Checking backlog...`)
   try {
     const { data: backlog } = await supabase
       .from('events')
       .select('id, headline, ai_summary')
       .eq('ai_processed', false)
       .order('created_at', { ascending: true })
-      .limit(MAX_PER_RUN) as { data: { id: string; headline: string; ai_summary: string | null }[] | null }
+      .limit(5) as { data: { id: string; headline: string; ai_summary: string | null }[] | null }
 
     if (backlog?.length) {
-      log.push(`Processing ${backlog.length} backlog events...`)
+      log.push(`[${elapsed(T0)}] Processing ${backlog.length} backlog events`)
       let backlogClassified = 0
       for (const event of backlog) {
         await new Promise(r => setTimeout(r, 1000))
@@ -141,26 +135,29 @@ export async function GET(req: NextRequest) {
             .eq('id', event.id)
           backlogClassified++
         } catch (err) {
-          errors.push(`Backlog classification failed for ${event.id}: ${String(err)}`)
+          errors.push(`Backlog failed for ${event.id}: ${String(err)}`)
         }
       }
-      log.push(`Backlog: ${backlogClassified} / ${backlog.length} classified`)
+      log.push(`[${elapsed(T0)}] Backlog: ${backlogClassified} classified`)
+    } else {
+      log.push(`[${elapsed(T0)}] No backlog`)
     }
   } catch (err) {
     errors.push(`Backlog fetch failed: ${String(err)}`)
   }
 
-  // ── Step 5: Alert generation ──────────────────────────────────────────────
-
-  log.push('Generating alerts...')
+  // ── Alerts ────────────────────────────────────────────────────────────────
+  log.push(`[${elapsed(T0)}] Generating alerts...`)
   try {
     const count = await generateAlertsForAllUsers(supabase)
-    log.push(`Created ${count} new alerts`)
+    log.push(`[${elapsed(T0)}] Created ${count} new alerts`)
     const watchlistAlerts = await generateWatchlistAlerts(supabase)
-    log.push(`Created ${watchlistAlerts} watchlist theme alerts`)
+    log.push(`[${elapsed(T0)}] Created ${watchlistAlerts} watchlist alerts`)
   } catch (err) {
     errors.push(`Alert generation failed: ${String(err)}`)
   }
+
+  log.push(`[${elapsed(T0)}] DONE — total elapsed: ${elapsed(T0)}`)
 
   return NextResponse.json({
     status: errors.length === 0 ? 'ok' : 'partial',
@@ -170,7 +167,7 @@ export async function GET(req: NextRequest) {
   })
 }
 
-// ─── Fuzzy headline deduplication ────────────────────────────────────────────
+// ─── Fuzzy dedup ──────────────────────────────────────────────────────────────
 
 function fuzzyDeduplicateHeadlines<T extends { headline: string; publishedAt: string }>(
   articles: T[], threshold: number
