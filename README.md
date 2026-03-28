@@ -283,3 +283,6 @@ All routes require a valid Supabase session cookie (set automatically on login) 
 
 **`maxDuration` exceeded on Vercel Hobby**
 → Set `maxDuration = 60` in both cron routes and reduce `QUERIES` array to 2 items.
+#   u p d a t e d   0 3 / 2 8 / 2 0 2 6   1 7 : 2 9 : 2 8  
+ #   u p d a t e d   0 3 / 2 8 / 2 0 2 6   1 7 : 3 0 : 0 1  
+ 
