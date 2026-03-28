@@ -1,3 +1,5 @@
+// src/app/dashboard/page.tsx
+import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
 import RssSubscribe from "@/components/dashboard/RssSubscribe";
 import MacroHeatPanel from "@/components/dashboard/MacroHeatPanel";
@@ -43,12 +45,10 @@ export default async function DashboardPage() {
         Overview
       </h1>
 
-      {/* Macro heat map */}
       <div style={{ marginBottom: "1.5rem" }}>
         <MacroHeatPanel />
       </div>
 
-      {/* Active themes panel */}
       {themes.length > 0 && (
         <div style={{ marginBottom: "2rem" }}>
           <SectionHeader title="Macro-driven themes" href="/dashboard/themes" />
@@ -58,7 +58,6 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Event feed — full width now that themes moved up */}
       <div>
         <SectionHeader title="Latest signals" href="/dashboard/events" />
         <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
@@ -67,15 +66,12 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* RSS subscriptions */}
       <div style={{ marginTop: "2rem" }}>
         <RssSubscribe />
       </div>
     </div>
   );
 }
-
-// ── Sub-components ────────────────────────────────────────────────────────────
 
 function SectionHeader({ title, href }: { title: string; href: string }) {
   return (
@@ -107,7 +103,6 @@ function ThemePanel({ theme }: { theme: Theme }) {
 
   return (
     <div style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 8, padding: "1.1rem 1.2rem" }}>
-      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.6rem" }}>
         <div style={{ fontSize: "0.65rem", background: "rgba(200,169,110,0.12)", color: "var(--gold)", padding: "0.15rem 0.4rem", borderRadius: 3, fontWeight: 500 }}>
           {tfLabel}
@@ -117,12 +112,10 @@ function ThemePanel({ theme }: { theme: Theme }) {
         </div>
       </div>
 
-      {/* Theme name */}
       <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--cream)", lineHeight: 1.3, marginBottom: "0.5rem" }}>
         {theme.name}
       </div>
 
-      {/* Conviction bar */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
         <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.07)", borderRadius: 2 }}>
           <div style={{ width: `${theme.conviction ?? 0}%`, height: "100%", background: momentumColor, borderRadius: 2 }} />
@@ -132,26 +125,34 @@ function ThemePanel({ theme }: { theme: Theme }) {
         </div>
       </div>
 
-      {/* Brief */}
       {theme.brief && (
         <div style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.45)", lineHeight: 1.55, marginBottom: "0.7rem" }}>
           {theme.brief.slice(0, 120)}{theme.brief.length > 120 ? "…" : ""}
         </div>
       )}
 
-      {/* Anchor reason */}
       {theme.anchor_reason && (
         <div style={{ fontSize: "0.62rem", color: "rgba(200,169,110,0.5)", marginBottom: "0.6rem", fontStyle: "italic" }}>
           ⚓ {theme.anchor_reason}
         </div>
       )}
 
-      {/* Tickers */}
+      {/* Tickers — clickable */}
       <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
         {(theme.candidate_tickers ?? []).slice(0, 5).map(t => (
-          <span key={t} style={{ fontSize: "0.62rem", background: "rgba(78,202,153,0.08)", color: "var(--signal-bull)", padding: "0.1rem 0.35rem", borderRadius: 3, fontWeight: 500 }}>
-            {t}
-          </span>
+          <Link key={t} href={`/dashboard/tickers/${t}`} style={{ textDecoration: "none" }}>
+            <span style={{
+              fontSize: "0.62rem",
+              background: "rgba(78,202,153,0.08)",
+              color: "var(--signal-bull)",
+              padding: "0.1rem 0.35rem",
+              borderRadius: 3,
+              fontWeight: 500,
+              cursor: "pointer",
+            }}>
+              {t}
+            </span>
+          </Link>
         ))}
       </div>
     </div>
