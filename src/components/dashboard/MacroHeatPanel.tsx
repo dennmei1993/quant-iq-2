@@ -19,46 +19,58 @@ const ASPECT_META: Record<string, {
   bullNote: string; bearNote: string
 }> = {
   fed: {
-    label: 'Fed Policy', icon: '🏦', subtitle: 'Rate decisions · FOMC',
-    sectors: ['Financials', 'Real Estate', 'Utilities', 'Technology'],
-    themes:  ['Rate-Sensitive Growth', 'Regional Banking', 'Mortgage REITs'],
-    bullNote: 'Rate cuts → growth stocks, REITs, small caps benefit',
-    bearNote: 'Rate hikes → financials, USD, short-duration assets benefit',
+    label:    'Interest Rates',
+    icon:     '🏦',
+    subtitle: 'US Federal Reserve · borrowing costs',
+    sectors:  ['Banks & lenders', 'Property & housing', 'Power & utilities', 'Tech companies'],
+    themes:   ['Rate-Sensitive Growth', 'Regional Banking', 'Property Trusts'],
+    bullNote: 'Rates falling → cheaper loans, rising property values, tech stocks tend to go up',
+    bearNote: 'Rates rising → banks earn more, savings rates improve, property prices under pressure',
   },
   inflation: {
-    label: 'Inflation', icon: '📈', subtitle: 'CPI · PCE · PPI',
-    sectors: ['Energy', 'Materials', 'Consumer Staples', 'Industrials'],
-    themes:  ['Commodity Supercycle', 'Inflation Hedges', 'Clean Energy Transition'],
-    bullNote: 'Falling inflation → consumer discretionary, tech multiples expand',
-    bearNote: 'Rising inflation → commodities, energy, TIPS, gold benefit',
+    label:    'Cost of Living',
+    icon:     '🛒',
+    subtitle: 'Prices · inflation · purchasing power',
+    sectors:  ['Oil & gas', 'Mining & metals', 'Supermarkets & staples', 'Manufacturing'],
+    themes:   ['Commodity Supercycle', 'Inflation Hedges', 'Clean Energy Transition'],
+    bullNote: 'Prices cooling → household budgets improve, consumer spending picks up',
+    bearNote: 'Prices rising → energy, gold, and everyday essential companies hold value better',
   },
   labour: {
-    label: 'Labour Market', icon: '👷', subtitle: 'NFP · Unemployment',
-    sectors: ['Consumer Discretionary', 'Consumer Staples', 'Retail', 'Healthcare'],
-    themes:  ['Consumer Spending', 'Wage Growth', 'AI Automation'],
-    bullNote: 'Strong jobs → consumer spending, retail, discretionary',
-    bearNote: 'Weak jobs → defensive sectors, staples, healthcare',
+    label:    'Jobs & Wages',
+    icon:     '👷',
+    subtitle: 'Employment · wage growth · job security',
+    sectors:  ['Retail & shopping', 'Restaurants & leisure', 'Supermarkets', 'Healthcare'],
+    themes:   ['Consumer Spending', 'Wage Growth', 'AI & Automation'],
+    bullNote: 'More jobs → people spend more, retailers and restaurants benefit',
+    bearNote: 'Job losses → people cut spending, defensive stocks like supermarkets hold up better',
   },
   growth: {
-    label: 'Growth', icon: '📊', subtitle: 'GDP · PMI · Retail',
-    sectors: ['Technology', 'Industrials', 'Consumer Discretionary', 'Materials'],
-    themes:  ['AI Infrastructure', 'Capex Cycle', 'Reshoring'],
-    bullNote: 'Strong growth → cyclicals, tech, small caps outperform',
-    bearNote: 'Weak growth → defensives, healthcare, utilities hold up',
+    label:    'Economic Growth',
+    icon:     '📊',
+    subtitle: 'GDP · business activity · consumer spending',
+    sectors:  ['Technology', 'Construction & infrastructure', 'Retail & discretionary', 'Mining'],
+    themes:   ['AI Infrastructure', 'Infrastructure Buildout', 'Reshoring'],
+    bullNote: 'Economy growing → most shares do well, especially tech and construction',
+    bearNote: 'Economy slowing → everyday essential stocks and healthcare tend to hold up better',
   },
   geopolitical: {
-    label: 'Geopolitical', icon: '🌐', subtitle: 'Wars · Sanctions · Trade',
-    sectors: ['Defense', 'Energy', 'Gold/Commodities', 'Cybersecurity'],
-    themes:  ['Defense Industrial Complex', 'Middle East Energy Crisis', 'Cybersecurity'],
-    bullNote: 'De-escalation → risk-on, emerging markets, trade beneficiaries',
-    bearNote: 'Escalation → defense, energy, gold, USD safe havens',
+    label:    'World Events',
+    icon:     '🌐',
+    subtitle: 'Conflicts · trade tensions · global stability',
+    sectors:  ['Defence & weapons', 'Oil & gas', 'Gold', 'Cybersecurity'],
+    themes:   ['Defense Industrial Complex', 'Middle East Energy Crisis', 'Cybersecurity'],
+    bullNote: 'Tensions easing → markets generally rise, travel and trade stocks recover',
+    bearNote: 'Tensions rising → defence, oil, and gold companies typically benefit',
   },
   credit: {
-    label: 'Credit', icon: '💳', subtitle: 'Spreads · VIX · Yields',
-    sectors: ['Financials', 'High Yield', 'Real Estate', 'Private Equity'],
-    themes:  ['Financial Stability', 'Regional Banking', 'Leveraged Buyouts'],
-    bullNote: 'Tightening spreads → risk assets, high yield, equities',
-    bearNote: 'Widening spreads → quality bonds, defensives, cash',
+    label:    'Market Confidence',
+    icon:     '📉',
+    subtitle: 'Investor sentiment · market stress · fear levels',
+    sectors:  ['Banks & financial services', 'Insurance', 'Property', 'Shares broadly'],
+    themes:   ['Financial Stability', 'Regional Banking', 'Income & Dividends'],
+    bullNote: 'Confidence high → investors willing to take risks, shares generally rise',
+    bearNote: 'Confidence low → investors move to safety — cash, government bonds, gold',
   },
 }
 
@@ -75,13 +87,13 @@ function scoreColor(score: number): string {
 }
 
 function scoreLabel(score: number): string {
-  if (score >= 6)  return 'Very Bullish'
-  if (score >= 3)  return 'Bullish'
-  if (score >= 1)  return 'Mildly Bullish'
+  if (score >= 6)  return 'Very Positive'
+  if (score >= 3)  return 'Positive'
+  if (score >= 1)  return 'Slightly Positive'
   if (score >= -1) return 'Neutral'
-  if (score >= -3) return 'Mildly Bearish'
-  if (score >= -6) return 'Bearish'
-  return 'Very Bearish'
+  if (score >= -3) return 'Slightly Negative'
+  if (score >= -6) return 'Negative'
+  return 'Very Negative'
 }
 
 function scoreToPct(score: number): number {
@@ -97,12 +109,12 @@ function relTime(iso: string): string {
 }
 
 function GaugeMeter({ score }: { score: number }) {
-  const pct = scoreToPct(score)
+  const pct   = scoreToPct(score)
   const color = scoreColor(score)
   return (
     <div className={styles.gaugeWrap}>
       <div className={styles.gaugeLabels}>
-        <span>-10</span><span>0</span><span>+10</span>
+        <span>Negative</span><span>Neutral</span><span>Positive</span>
       </div>
       <div className={styles.gaugeTrack}>
         <div className={styles.gaugeMid} />
@@ -147,25 +159,28 @@ function MeterCard({ score }: { score: MacroScore }) {
           {/* AI commentary */}
           <p className={styles.commentary}>{score.commentary}</p>
 
-          {/* Bull/bear implication */}
+          {/* Plain English implication */}
           {meta && (
             <div style={{
               fontSize: '0.72rem',
               color: isBull ? '#4eca99' : '#e87070',
               background: isBull ? 'rgba(78,202,153,0.06)' : 'rgba(232,112,112,0.06)',
               border: `1px solid ${isBull ? 'rgba(78,202,153,0.15)' : 'rgba(232,112,112,0.15)'}`,
-              borderRadius: 5, padding: '0.45rem 0.65rem',
-              marginBottom: '0.75rem', lineHeight: 1.5,
+              borderRadius: 5, padding: '0.5rem 0.7rem',
+              marginBottom: '0.75rem', lineHeight: 1.6,
             }}>
-              {isBull ? '↑ ' : '↓ '}{isBull ? meta.bullNote : meta.bearNote}
+              <strong style={{ display: 'block', marginBottom: '0.2rem', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.7 }}>
+                What this means for investors
+              </strong>
+              {isBull ? meta.bullNote : meta.bearNote}
             </div>
           )}
 
-          {/* Impacted sectors */}
+          {/* Affected industries */}
           {meta?.sectors.length > 0 && (
             <div style={{ marginBottom: '0.65rem' }}>
               <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.35rem' }}>
-                Impacted Sectors
+                Industries most affected
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                 {meta.sectors.map(s => (
@@ -181,11 +196,11 @@ function MeterCard({ score }: { score: MacroScore }) {
             </div>
           )}
 
-          {/* Related themes */}
+          {/* Related investment themes */}
           {meta?.themes.length > 0 && (
             <div style={{ marginBottom: '0.65rem' }}>
               <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.35rem' }}>
-                Related Themes
+                Related investment themes
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                 {meta.themes.map(t => (
@@ -202,7 +217,7 @@ function MeterCard({ score }: { score: MacroScore }) {
           )}
 
           <div className={styles.detailMeta}>
-            <span>{score.event_count} events analysed</span>
+            <span>{score.event_count} news events analysed</span>
             <span>Updated {relTime(score.scored_at)}</span>
           </div>
         </div>
@@ -225,22 +240,22 @@ export default function MacroHeatPanel() {
 
   if (loading) return (
     <div className={styles.wrap}>
-      <div className={styles.header}><h3 className={styles.title}>Macro Heat Map</h3></div>
-      <div className={styles.loading}>Loading macro scores…</div>
+      <div className={styles.header}><h3 className={styles.title}>Market Conditions</h3></div>
+      <div className={styles.loading}>Loading…</div>
     </div>
   )
 
   if (error) return (
     <div className={styles.wrap}>
-      <div className={styles.header}><h3 className={styles.title}>Macro Heat Map</h3></div>
+      <div className={styles.header}><h3 className={styles.title}>Market Conditions</h3></div>
       <div className={styles.empty}>{error}</div>
     </div>
   )
 
   if (!scores.length) return (
     <div className={styles.wrap}>
-      <div className={styles.header}><h3 className={styles.title}>Macro Heat Map</h3></div>
-      <div className={styles.empty}>No macro scores yet — run the macro cron to generate scores.</div>
+      <div className={styles.header}><h3 className={styles.title}>Market Conditions</h3></div>
+      <div className={styles.empty}>No data yet — run the macro cron to generate scores.</div>
     </div>
   )
 
@@ -251,8 +266,8 @@ export default function MacroHeatPanel() {
     <div className={styles.wrap}>
       <div className={styles.header}>
         <div>
-          <h3 className={styles.title}>Macro Heat Map</h3>
-          <p className={styles.sub}>AI-scored sentiment across 6 macro dimensions · click to expand</p>
+          <h3 className={styles.title}>Market Conditions</h3>
+          <p className={styles.sub}>How 6 key economic factors are affecting markets right now · click any card to learn more</p>
         </div>
         <div className={styles.overall}>
           <div className={styles.overallLabel}>Overall</div>
