@@ -11,19 +11,50 @@ import {
   formatMarketCap,
   formatVolume,
 } from '@/lib/polygon-ticker'
-import WatchlistButton  from '@/components/dashboard/WatchlistButton'
-import ThesisButton     from '@/components/dashboard/ThesisButton'
-import PortfolioButton  from '@/components/dashboard/PortfolioButton'
+import WatchlistButton from '@/components/dashboard/WatchlistButton'
+import ThesisButton    from '@/components/dashboard/ThesisButton'
+import PortfolioButton from '@/components/dashboard/PortfolioButton'
 
-export const dynamic  = 'force-dynamic'
+export const dynamic    = 'force-dynamic'
 export const revalidate = 0
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SignalRow = { signal: string | null; score: number | null; price_usd?: number | null; change_pct?: number | null; rationale: string | null; updated_at: string | null }
-type ThemeRow  = { theme_id: string; name: string; timeframe: string; conviction: number | null; theme_type: string; final_weight: number }
-type EventRow  = { id: string; headline: string; ai_summary: string | null; sentiment_score: number | null; impact_score: number | null; published_at: string }
-type AssetRow  = { ticker: string; name: string; asset_type: string; sector: string | null }
+type SignalRow = {
+  signal:              string | null
+  score:               number | null
+  price_usd:           number | null
+  change_pct:          number | null
+  rationale:           string | null
+  rationale_signal:    string | null
+  rationale_updated_at:string | null
+  updated_at:          string | null
+}
+
+type ThemeRow = {
+  theme_id:    string
+  name:        string
+  timeframe:   string
+  conviction:  number | null
+  theme_type:  string
+  final_weight:number
+}
+
+type EventRow = {
+  id:              string
+  headline:        string
+  ai_summary:      string | null
+  sentiment_score: number | null
+  impact_score:    number | null
+  published_at:    string
+}
+
+type AssetRow = {
+  ticker:     string
+  name:       string
+  asset_type: string
+  sector:     string | null
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,14 +63,62 @@ async function query<T>(q: any): Promise<T | null> {
   return (result as any).data as T | null
 }
 
-// Generate AI signal rationale using recent events for this ticker
+function signalColor(s: string | null) {
+  return ({
+    buy:   'var(--signal-bull)',
+    watch: 'var(--signal-neut)',
+    hold:  'rgba(232,226,217,0.4)',
+    avoid: 'var(--signal-bear)',
+  } as Record<string, string>)[s ?? ''] ?? 'rgba(232,226,217,0.4)'
+}
+
+function sentimentColor(s: number | null) {
+  if (!s) return 'var(--signal-neut)'
+  if (s > 0.1)  return 'var(--signal-bull)'
+  if (s < -0.1) return 'var(--signal-bear)'
+  return 'var(--signal-neut)'
+}
+
+function tfLabel(tf: string) {
+  return ({ '1m': '1M', '3m': '3M', '6m': '6M' } as Record<string, string>)[tf] ?? tf
+}
+
+function relTime(iso: string) {
+  const hrs = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
+  if (hrs < 1)  return 'just now'
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
+function Sparkline({ bars }: { bars: { close: number }[] }) {
+  if (bars.length < 2) return null
+  const closes = bars.map(b => b.close)
+  const min    = Math.min(...closes)
+  const max    = Math.max(...closes)
+  const range  = max - min || 1
+  const w = 200, h = 48, pad = 4
+  const pts = closes.map((c, i) => {
+    const x = pad + (i / (closes.length - 1)) * (w - 2 * pad)
+    const y = pad + (1 - (c - min) / range) * (h - 2 * pad)
+    return `${x},${y}`
+  }).join(' ')
+  const color = closes[closes.length - 1] >= closes[0] ? '#4eca99' : '#e87070'
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// ─── AI rationale generator ───────────────────────────────────────────────────
+
 async function generateSignalRationale(
-  ticker:  string,
-  name:    string,
-  signal:  string,
-  price:   number | null,
+  ticker:    string,
+  name:      string,
+  signal:    string,
+  price:     number | null,
   changePct: number | null,
-  events:  { headline: string; ai_summary: string | null; sentiment_score: number | null; impact_score: number | null; published_at: string }[]
+  events:    EventRow[]
 ): Promise<string | null> {
   try {
     const eventContext = events.slice(0, 5).map(e =>
@@ -89,49 +168,6 @@ Be specific, factual, and use plain language that a non-professional investor ca
   }
 }
 
-function signalColor(s: string | null) {
-  return ({ buy: 'var(--signal-bull)', watch: 'var(--signal-neut)', hold: 'rgba(232,226,217,0.4)', avoid: 'var(--signal-bear)' } as Record<string, string>)[s ?? ''] ?? 'rgba(232,226,217,0.4)'
-}
-
-function sentimentColor(s: number | null) {
-  if (!s) return 'var(--signal-neut)'
-  if (s > 0.1) return 'var(--signal-bull)'
-  if (s < -0.1) return 'var(--signal-bear)'
-  return 'var(--signal-neut)'
-}
-
-function tfLabel(tf: string) {
-  return ({ '1m': '1M', '3m': '3M', '6m': '6M' } as Record<string, string>)[tf] ?? tf
-}
-
-function relTime(iso: string) {
-  const hrs = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
-  if (hrs < 1) return 'just now'
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
-
-function Sparkline({ bars }: { bars: { close: number }[] }) {
-  if (bars.length < 2) return null
-  const closes = bars.map(b => b.close)
-  const min    = Math.min(...closes)
-  const max    = Math.max(...closes)
-  const range  = max - min || 1
-  const w = 200, h = 48, pad = 4
-  const pts = closes.map((c, i) => {
-    const x = pad + (i / (closes.length - 1)) * (w - 2 * pad)
-    const y = pad + (1 - (c - min) / range) * (h - 2 * pad)
-    return `${x},${y}`
-  }).join(' ')
-  const isUp  = closes[closes.length - 1] >= closes[0]
-  const color = isUp ? '#4eca99' : '#e87070'
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function TickerPage({ params }: { params: Promise<{ ticker: string }> }) {
@@ -139,7 +175,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   const ticker = rawTicker.toUpperCase()
   const db     = createServiceClient()
 
-  // Get current user via cookies directly — avoids createClient async issues
+  // ── Auth ──────────────────────────────────────────────────────────────────
   let userId: string | null = null
   try {
     const cookieStore = await cookies()
@@ -152,19 +188,19 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     userId = user?.id ?? null
   } catch { /* unauthenticated */ }
 
-  // Fetch active themes first — avoids nested join filter problem
+  // ── Active themes (two-step to avoid nested join filter issue) ────────────
   const activeThemes = await query<{ id: string; name: string; timeframe: string; conviction: number | null; theme_type: string }[]>(
     db.from('themes').select('id, name, timeframe, conviction, theme_type').eq('is_active', true)
   ) ?? []
   const activeThemeIds = activeThemes.map(t => t.id)
   const themeMap       = new Map(activeThemes.map(t => [t.id, t]))
 
-  // Parallel fetches — all independent
+  // ── Parallel data fetches ─────────────────────────────────────────────────
   const [signal, themeTickerRows, events, assetRow, watchlistRow, portfolioRow, details, price, bars] = await Promise.all([
 
     query<SignalRow>(
       db.from('asset_signals')
-        .select('signal, score, price_usd, rationale, updated_at')
+        .select('signal, score, price_usd, change_pct, rationale, rationale_signal, rationale_updated_at, updated_at')
         .eq('ticker', ticker)
         .single()
     ),
@@ -200,11 +236,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
     userId
       ? query<{ id: string }>(
-          db.from('holdings')
-            .select('id')
-            .eq('ticker', ticker)
-            .limit(1)
-            .single()
+          db.from('holdings').select('id').eq('ticker', ticker).limit(1).single()
         )
       : Promise.resolve(null),
 
@@ -215,11 +247,9 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
   if (!assetRow && !details) return notFound()
 
-  // ── Auto-sync price if signal is missing ──────────────────────────────────
-  // If this ticker has no signal data yet, fetch it from Polygon now so the
-  // page renders with real data rather than showing all dashes.
-  let signalData = signal
-  if (!signal?.price_usd) {
+  // ── Auto-sync: fetch price if signal missing ──────────────────────────────
+  let signalData: SignalRow | null = signal
+  if (!signalData?.signal) {
     try {
       const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
       const syncRes = await fetch(`${base}/api/admin/sync-prices?tickers=${ticker}`, {
@@ -227,43 +257,50 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '' },
       })
       if (syncRes.ok) {
-        // Re-fetch signal after sync
-        const freshSignal = await query<SignalRow>(
+        const fresh = await query<SignalRow>(
           db.from('asset_signals')
-            .select('signal, score, price_usd, rationale, updated_at')
+            .select('signal, score, price_usd, change_pct, rationale, rationale_signal, rationale_updated_at, updated_at')
             .eq('ticker', ticker)
             .single()
         )
-        if (freshSignal) signalData = freshSignal
+        if (fresh) signalData = fresh
       }
-    } catch { /* sync failed silently — render with whatever we have */ }
+    } catch { /* sync failed silently */ }
   }
 
-  // ── Generate AI rationale on-demand if missing or stale (> 24h) ─────────────
-  const rationaleAge = signalData?.updated_at
-    ? (Date.now() - new Date(signalData.updated_at).getTime()) / 3_600_000
+  // ── Rationale: generate if missing, signal changed, or older than 7 days ──
+  const rationaleAge    = signalData?.rationale_updated_at
+    ? (Date.now() - new Date(signalData.rationale_updated_at).getTime()) / 3_600_000
     : Infinity
+  const signalChanged   = signalData?.signal !== signalData?.rationale_signal
+  const needsRationale  = signalData?.signal && (
+    !signalData.rationale || signalChanged || rationaleAge > 168
+  )
 
-  if (signalData?.signal && (!signalData.rationale || rationaleAge > 24)) {
+  if (needsRationale) {
     try {
       const rationale = await generateSignalRationale(
         ticker,
         details?.name ?? assetRow?.name ?? ticker,
-        signalData.signal,
-        (signalData as any).price_usd ?? null,
-        (signalData as any).change_pct ?? null,
-        (events ?? []),
+        signalData!.signal!,
+        signalData!.price_usd ?? null,
+        signalData!.change_pct ?? null,
+        events ?? [],
       )
-      if (rationale) {
+      if (rationale && signalData) {
         await (db.from('asset_signals') as any)
-          .update({ rationale, updated_at: new Date().toISOString() })
+          .update({
+            rationale,
+            rationale_signal:     signalData.signal,
+            rationale_updated_at: new Date().toISOString(),
+          })
           .eq('ticker', ticker)
-        signalData = { ...signalData, rationale }
+        signalData = { ...signalData, rationale, rationale_signal: signalData.signal }
       }
     } catch { /* rationale generation failed silently */ }
   }
 
-  // Join theme_tickers rows with themeMap — no nested DB join needed
+  // ── Derived values ────────────────────────────────────────────────────────
   const themes: ThemeRow[] = (themeTickerRows ?? [])
     .map(row => {
       const t = themeMap.get(row.theme_id)
@@ -272,12 +309,13 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     })
     .filter(Boolean) as ThemeRow[]
 
-  const name         = details?.name ?? assetRow?.name ?? ticker
-  const isWatched    = !!watchlistRow
+  const name          = details?.name ?? assetRow?.name ?? ticker
+  const isWatched     = !!watchlistRow
   const isInPortfolio = !!portfolioRow
-  const recentEvents = events ?? []
-  const changeUp     = (price?.change_pct ?? 0) >= 0
+  const recentEvents  = events ?? []
+  const changeUp      = (price?.change_pct ?? 0) >= 0
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div>
       <Link href="/dashboard/assets" style={{ fontSize: '0.75rem', color: 'rgba(200,169,110,0.5)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginBottom: '1.5rem' }}>
@@ -294,10 +332,10 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             {signalData?.signal && (
               <span style={{
                 fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
-                color: signalColor(signalData?.signal), background: `${signalColor(signalData?.signal)}18`,
+                color: signalColor(signalData.signal), background: `${signalColor(signalData.signal)}18`,
                 padding: '0.2rem 0.55rem', borderRadius: 4,
               }}>
-                {signalData?.signal}
+                {signalData.signal}
               </span>
             )}
           </div>
@@ -363,6 +401,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
           {details?.description && (
             <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
               <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>About</div>
@@ -382,13 +421,19 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
                 <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Signal Rationale</div>
-                {signalData?.score !== null && (
-                  <span style={{ fontSize: '0.72rem', color: signalColor(signalData?.signal), fontWeight: 600 }}>{signalData?.score}/100</span>
+                {signalData.score !== null && (
+                  <span style={{ fontSize: '0.72rem', color: signalColor(signalData.signal), fontWeight: 600 }}>
+                    {signalData.score}/100
+                  </span>
                 )}
               </div>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>{signalData?.rationale}</p>
-              {signalData?.updated_at && (
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>Updated {relTime(signalData?.updated_at)}</div>
+              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>
+                {signalData.rationale}
+              </p>
+              {signalData.rationale_updated_at && (
+                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>
+                  Updated {relTime(signalData.rationale_updated_at)}
+                </div>
               )}
             </div>
           )}
@@ -396,6 +441,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
         {/* Right column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
           {themes.length > 0 && (
             <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
               <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
@@ -446,6 +492,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               </div>
             </div>
           )}
+
         </div>
       </div>
     </div>
