@@ -1,13 +1,15 @@
-// src/app/api/cron/financials/route.ts
+// src/app/api/admin/sync-prices/route.ts
 /**
- * GET /api/cron/financials
+ * POST /api/admin/sync-prices
  *
- * Daily cron — syncs prices for bootstrap_priority=1 tickers only (~23 tickers).
- * 23 tickers ÷ 5 per batch × 13s = ~65s, well within 300s limit.
+ * Manual trigger — syncs prices for ALL 152 tickers.
+ * 152 tickers ÷ 5 per batch × 13s = ~400s — run locally or extend timeout.
+ * Use priority param to sync a subset:
+ *   ?priority=1  — ~23 tickers (~65s)
+ *   ?priority=2  — priority 1+2 (~100 tickers, ~260s)
+ *   ?priority=3  — all 152 tickers (~400s, may timeout on Vercel)
  *
- * Full 152-ticker sync available via POST /api/admin/sync-prices (manual only).
- *
- * Auth: CRON_SECRET bearer token
+ * Auth: ADMIN_SECRET header
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -26,26 +28,28 @@ function deriveSignalScore(pct: number): number {
   return Math.round(Math.min(100, Math.max(0, 50 + pct * 10)))
 }
 
-export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+export async function POST(req: NextRequest) {
+  const secret = req.headers.get('x-admin-secret')
+  if (secret !== process.env.ADMIN_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const db  = createServiceClient()
+  const priority = parseInt(req.nextUrl.searchParams.get('priority') ?? '2')
+  const db       = createServiceClient()
   const log: string[] = []
 
   try {
-    // Only priority-1 tickers daily (AAPL, MSFT, NVDA, BTC, ETH etc — ~23 tickers)
-    const { data: assets } = await db
+    const query = db
       .from('assets')
-      .select('ticker')
+      .select('ticker, bootstrap_priority')
       .eq('is_active', true)
-      .eq('bootstrap_priority', 1)
+      .lte('bootstrap_priority', priority)
+      .order('bootstrap_priority')
       .order('ticker')
 
+    const { data: assets } = await query
     const tickers = (assets ?? []).map((a: any) => a.ticker)
-    log.push(`Syncing prices for ${tickers.length} priority-1 tickers...`)
+    log.push(`Syncing prices for ${tickers.length} tickers (priority ≤ ${priority})...`)
 
     const prices     = await fetchPricesForTickers(tickers)
     const sparklines = await fetchSparklinesForTickers([...prices.keys()])
@@ -72,7 +76,7 @@ export async function GET(req: NextRequest) {
     log.push(`Done: ${prices.size} / ${tickers.length} prices synced`)
     return NextResponse.json({ ok: true, synced: prices.size, total: tickers.length, log })
   } catch (e) {
-    console.error('[cron/financials]', e)
+    console.error('[admin/sync-prices]', e)
     return NextResponse.json({ ok: false, error: String(e), log }, { status: 500 })
   }
 }
