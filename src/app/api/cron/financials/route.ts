@@ -2,21 +2,29 @@
 /**
  * GET /api/cron/financials
  *
- * Weekly cron — syncs company descriptions, market cap, exchange,
- * logo, and financial ratios from Polygon into the assets table.
+ * Weekly cron (Mondays 6am UTC) — two steps:
+ *  1. Sync prices + signals into asset_signals for ALL 152 tickers
+ *  2. Sync company descriptions, market cap etc into assets table (stocks/ETFs only)
  *
- * Processes tickers in bootstrap_priority order (1 first, 3 last).
- * Respects Polygon free tier: 5 req/min with 13s pause between batches.
- *
- * Schedule: add to vercel.json
- *   { "path": "/api/cron/financials", "schedule": "0 6 * * 1" }
- *   (Mondays at 6am UTC)
+ * Step 1 runs first so signals are always fresh even if step 2 rate-limits.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { syncTickerFinancials } from '@/lib/polygon-ticker'
+import { fetchPricesForTickers, fetchSparklinesForTickers } from '@/lib/polygon'
 
 export const maxDuration = 300
+
+function deriveSignal(pct: number): 'buy' | 'watch' | 'hold' | 'avoid' {
+  if (pct >= 2)   return 'buy'
+  if (pct >= 0.5) return 'watch'
+  if (pct >= -1)  return 'hold'
+  return 'avoid'
+}
+
+function deriveSignalScore(pct: number): number {
+  return Math.round(Math.min(100, Math.max(0, 50 + pct * 10)))
+}
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
@@ -28,27 +36,70 @@ export async function GET(req: NextRequest) {
   const log: string[] = []
 
   try {
-    // Fetch all active assets ordered by priority
-    const { data: assets } = await db
+    // ── Step 1: Price sync → asset_signals (all asset types) ─────────────────
+    log.push('Step 1: Syncing prices for all active tickers...')
+
+    const { data: allAssets } = await db
+      .from('assets')
+      .select('ticker')
+      .eq('is_active', true)
+
+    const allTickers = (allAssets ?? []).map((a: any) => a.ticker)
+    log.push(`Found ${allTickers.length} active tickers`)
+
+    if (allTickers.length > 0) {
+      try {
+        const prices     = await fetchPricesForTickers(allTickers)
+        const sparklines = await fetchSparklinesForTickers([...prices.keys()])
+
+        const rows = [...prices.keys()].map(t => {
+          const p    = prices.get(t)!
+          const bars = sparklines.get(t) ?? []
+          return {
+            ticker:     t,
+            price_usd:  p.price,
+            change_pct: p.change_pct,
+            signal:     deriveSignal(p.change_pct),
+            score:      deriveSignalScore(p.change_pct),
+            sparkline:  bars.map((b: any) => b.c),
+            updated_at: new Date().toISOString(),
+          }
+        })
+
+        if (rows.length > 0) {
+          await (db.from('asset_signals') as any)
+            .upsert(rows, { onConflict: 'ticker' })
+        }
+
+        log.push(`Prices synced: ${prices.size} / ${allTickers.length} tickers`)
+      } catch (e) {
+        log.push(`Price sync failed: ${String(e)}`)
+      }
+    }
+
+    // ── Step 2: Financials → assets table (stocks + ETFs only) ───────────────
+    log.push('Step 2: Syncing financials (descriptions, market cap etc)...')
+
+    const { data: stockEtfAssets } = await db
       .from('assets')
       .select('ticker, asset_type, bootstrap_priority')
       .eq('is_active', true)
-      .in('asset_type', ['stock', 'etf'])  // only stock/ETF have Polygon reference data
+      .in('asset_type', ['stock', 'etf'])
       .order('bootstrap_priority', { ascending: true })
       .order('ticker')
 
-    if (!assets?.length) {
-      return NextResponse.json({ ok: true, log: ['No active stock/ETF assets found'] })
+    if (!stockEtfAssets?.length) {
+      log.push('No active stock/ETF assets found for financials sync')
+      return NextResponse.json({ ok: true, log })
     }
 
-    const tickers = assets.map((a: any) => a.ticker)
-    log.push(`Syncing financials for ${tickers.length} tickers`)
+    const tickers = stockEtfAssets.map((a: any) => a.ticker)
+    log.push(`Syncing financials for ${tickers.length} stock/ETF tickers`)
 
     const { synced, failed } = await syncTickerFinancials(db, tickers)
-
-    log.push(`Synced: ${synced} · Failed: ${failed.length}`)
+    log.push(`Financials synced: ${synced} · Failed: ${failed.length}`)
     if (failed.length > 0) {
-      log.push(`Failed tickers: ${failed.slice(0, 10).join(', ')}${failed.length > 10 ? '...' : ''}`)
+      log.push(`Failed: ${failed.slice(0, 10).join(', ')}${failed.length > 10 ? '...' : ''}`)
     }
 
     return NextResponse.json({ ok: true, synced, failed: failed.length, log })
