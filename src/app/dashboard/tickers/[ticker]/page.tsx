@@ -50,7 +50,7 @@ async function generateSignalRationale(
       ? `Current price: $${price.toFixed(2)}, change: ${changePct !== null ? (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%' : 'N/A'}`
       : 'Price data unavailable'
 
-    const prompt = `You are a professional investment analyst. Write a detailed signal rationale for ${name} (${ticker}).
+    const prompt = `You are a professional investment analyst. Write a concise signal rationale for ${name} (${ticker}).
 
 Signal: ${signal.toUpperCase()}
 ${priceContext}
@@ -58,7 +58,7 @@ ${priceContext}
 Recent news events:
 ${eventContext || 'No recent events found.'}
 
-Write a full paragraph (4-6 sentences) explaining:
+Write a paragraph (2-3 sentences) explaining:
 1. Why this ticker currently has a ${signal} signal
 2. What the recent price action and news suggest about near-term outlook
 3. Key risks or catalysts investors should watch
