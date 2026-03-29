@@ -58,28 +58,32 @@ export async function fetchFMPProfile(ticker: string): Promise<FMPProfile | null
     const r    = Array.isArray(json) ? json[0] : json
     if (!r?.symbol) return null
 
+    // Parse 52w range from "169.21-288.62" format
+    const rangeParts = r.range?.split('-') ?? []
+    const week52Low  = safe(rangeParts[0])
+    const week52High = safe(rangeParts[rangeParts.length - 1])
+
+    // Annualise dividend yield: (lastDividend * 4) / price * 100
+    const divYield = r.lastDividend && r.price
+      ? parseFloat(((r.lastDividend * 4 / r.price) * 100).toFixed(4))
+      : null
+
     return {
       ticker:         ticker,
-      pe_ratio:       safe(r.pe),
-      pb_ratio:       safe(r.priceToBookRatio),
-      eps:            safe(r.eps),
+      pe_ratio:       safe(r.pe) ?? null,           // not in stable profile, fetched separately
+      pb_ratio:       null,                          // not in stable profile
+      eps:            safe(r.eps) ?? null,           // not in stable profile
       beta:           safe(r.beta),
-      dividend_yield: safe(r.lastDiv) && safe(r.price)
-                        ? safe(((r.lastDiv * 4) / r.price) * 100)  // annualised %
-                        : safe(r.dividendYield ?? r.lastDiv),
-      week_52_high:   safe(r.range?.split('-')?.[1]) ?? safe(r['52WeekHigh']),
-      week_52_low:    safe(r.range?.split('-')?.[0]) ?? safe(r['52WeekLow']),
-      revenue:        safe(r.revenue),
-      profit_margin:  safe(r.netProfitMargin) ?? (
-                        safe(r.revenue) && safe(r.netIncome)
-                          ? (r.netIncome / r.revenue) * 100
-                          : null
-                      ),
+      dividend_yield: divYield,
+      week_52_high:   week52High,
+      week_52_low:    week52Low,
+      revenue:        null,                          // not in stable profile
+      profit_margin:  null,                          // not in stable profile
       analyst_target: safe(r.targetPrice) ?? null,
       analyst_rating: r.rating ?? null,
       description:    r.description ?? null,
-      market_cap:     safe(r.mktCap),
-      exchange:       r.exchange ?? r.exchangeShortName ?? null,
+      market_cap:     safe(r.marketCap),
+      exchange:       r.exchange ?? r.exchangeFullName ?? null,
       logo_url:       r.image ?? null,
       employees:      safe(r.fullTimeEmployees),
     }
@@ -115,28 +119,29 @@ export async function fetchFMPProfiles(
       for (const r of rows) {
         if (!r?.symbol) continue
         const t = r.symbol.toUpperCase()
+        const rParts  = r.range?.split('-') ?? []
+        const r52Low  = safe(rParts[0])
+        const r52High = safe(rParts[rParts.length - 1])
+        const rDiv    = r.lastDividend && r.price
+          ? parseFloat(((r.lastDividend * 4 / r.price) * 100).toFixed(4))
+          : null
+
         result.set(t, {
           ticker:         t,
-          pe_ratio:       safe(r.pe),
-          pb_ratio:       safe(r.priceToBookRatio),
-          eps:            safe(r.eps),
+          pe_ratio:       safe(r.pe) ?? null,
+          pb_ratio:       null,
+          eps:            safe(r.eps) ?? null,
           beta:           safe(r.beta),
-          dividend_yield: safe(r.lastDiv) && safe(r.price)
-                            ? parseFloat(((r.lastDiv * 4 / r.price) * 100).toFixed(4))
-                            : safe(r.dividendYield),
-          week_52_high:   safe(r['52WeekHigh']) ?? safe(r.range?.split('-')?.[1]),
-          week_52_low:    safe(r['52WeekLow'])  ?? safe(r.range?.split('-')?.[0]),
-          revenue:        safe(r.revenue),
-          profit_margin:  safe(r.netProfitMargin) ?? (
-                            r.revenue && r.netIncome
-                              ? parseFloat(((r.netIncome / r.revenue) * 100).toFixed(4))
-                              : null
-                          ),
+          dividend_yield: rDiv,
+          week_52_high:   r52High,
+          week_52_low:    r52Low,
+          revenue:        null,
+          profit_margin:  null,
           analyst_target: safe(r.targetPrice) ?? null,
           analyst_rating: r.rating ?? null,
           description:    r.description ?? null,
-          market_cap:     safe(r.mktCap),
-          exchange:       r.exchangeShortName ?? r.exchange ?? null,
+          market_cap:     safe(r.marketCap),
+          exchange:       r.exchange ?? r.exchangeFullName ?? null,
           logo_url:       r.image ?? null,
           employees:      safe(r.fullTimeEmployees),
         })
@@ -147,6 +152,34 @@ export async function fetchFMPProfiles(
   }
 
   return result
+}
+
+// ─── TTM Ratios (PE, PB, EPS, Revenue, Profit Margin) ───────────────────────
+// These come from a separate endpoint: /stable/ratios-ttm
+
+export async function fetchFMPRatios(ticker: string): Promise<{
+  pe_ratio:      number | null
+  pb_ratio:      number | null
+  eps:           number | null
+  revenue:       number | null
+  profit_margin: number | null
+} | null> {
+  try {
+    const url  = `${BASE}/ratios-ttm?symbol=${ticker}&apikey=${fmpKey()}`
+    const res  = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+    if (!res.ok) return null
+    const json = await res.json()
+    const r    = Array.isArray(json) ? json[0] : json
+    if (!r) return null
+
+    return {
+      pe_ratio:      safe(r.peRatioTTM),
+      pb_ratio:      safe(r.priceToBookRatioTTM),
+      eps:           safe(r.epsTTM),
+      revenue:       safe(r.revenueTTM) ?? safe(r.revenuePerShareTTM),
+      profit_margin: safe(r.netProfitMarginTTM),
+    }
+  } catch { return null }
 }
 
 // ─── Write profiles to assets table ──────────────────────────────────────────
@@ -161,20 +194,30 @@ export async function syncFMPToAssets(
 
   for (const [ticker, p] of profiles) {
     try {
+      // Also fetch TTM ratios for PE, PB, EPS, Revenue, Profit Margin
+      const ratios = await fetchFMPRatios(ticker)
+
       const update: Record<string, any> = {
         financials_updated_at: new Date().toISOString(),
       }
 
       // Only set fields that have real values
-      if (p.pe_ratio       != null) update.pe_ratio        = p.pe_ratio
-      if (p.pb_ratio       != null) update.pb_ratio        = p.pb_ratio
-      if (p.eps            != null) update.eps             = p.eps
+      // Profile fields
+      const pe    = ratios?.pe_ratio      ?? p.pe_ratio
+      const pb    = ratios?.pb_ratio      ?? p.pb_ratio
+      const eps   = ratios?.eps           ?? p.eps
+      const rev   = ratios?.revenue       ?? p.revenue
+      const margin= ratios?.profit_margin ?? p.profit_margin
+
+      if (pe     != null) update.pe_ratio        = pe
+      if (pb     != null) update.pb_ratio        = pb
+      if (eps    != null) update.eps             = eps
       if (p.beta           != null) update.beta            = p.beta
       if (p.dividend_yield != null) update.dividend_yield  = p.dividend_yield
       if (p.week_52_high   != null) update.week_52_high    = p.week_52_high
       if (p.week_52_low    != null) update.week_52_low     = p.week_52_low
-      if (p.revenue        != null) update.revenue         = p.revenue
-      if (p.profit_margin  != null) update.profit_margin   = p.profit_margin
+      if (rev    != null) update.revenue         = rev
+      if (margin != null) update.profit_margin   = margin
       if (p.analyst_target != null) update.analyst_target  = p.analyst_target
       if (p.analyst_rating != null) update.analyst_rating  = p.analyst_rating
       if (p.description    != null) update.description     = p.description
