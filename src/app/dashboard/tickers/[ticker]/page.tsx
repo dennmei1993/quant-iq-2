@@ -244,6 +244,108 @@ Be specific, factual, and use plain language that a non-professional investor ca
   }
 }
 
+// ─── Signal trigger analysis ──────────────────────────────────────────────────
+
+type TriggerInfo = {
+  nextSignal:   string
+  fGap:         number | null   // points F needs to gain
+  tGap:         number | null   // points T needs to gain
+  path:         'technical' | 'fundamental' | 'both'
+  explanation:  string[]        // plain English bullets
+}
+
+function analyseSignalTrigger(
+  signal:    string | null,
+  f:         number | null,
+  t:         number | null,
+  fComp:     Record<string, number> | null,
+  tComp:     Record<string, number> | null,
+): TriggerInfo | null {
+  if (!signal || f == null || t == null) return null
+  if (signal === 'buy') return null  // already at top
+
+  // Determine next signal and what's needed
+  type Threshold = { fMin: number; tMin: number; label: string }
+  const targets: Threshold[] = [
+    { fMin: 65, tMin: 60, label: 'buy'   },
+    { fMin: 65, tMin: 40, label: 'watch' },
+    { fMin: 40, tMin: 60, label: 'watch' },
+  ]
+
+  // Find the nearest reachable next signal
+  let nearest: { label: string; fGap: number; tGap: number } | null = null
+  for (const t_ of targets) {
+    if (t_.label === signal) continue  // skip same level
+    // Skip if target is lower than current
+    const signalOrder = ['avoid', 'hold', 'watch', 'buy']
+    if (signalOrder.indexOf(t_.label) <= signalOrder.indexOf(signal)) continue
+
+    const fGap = Math.max(0, t_.fMin - f)
+    const tGap = Math.max(0, t_.tMin - t)
+    const totalGap = fGap + tGap
+    if (!nearest || totalGap < nearest.fGap + nearest.tGap) {
+      nearest = { label: t_.label, fGap, tGap }
+    }
+  }
+
+  if (!nearest) return null
+
+  const path: TriggerInfo['path'] =
+    nearest.fGap > 0 && nearest.tGap > 0 ? 'both'
+    : nearest.tGap > 0 ? 'technical'
+    : 'fundamental'
+
+  // Build plain English explanation
+  const explanation: string[] = []
+
+  if (nearest.tGap > 0 && tComp) {
+    const trend   = tComp.trend        ?? 50
+    const mom     = tComp.momentum     ?? 50
+    const rs      = tComp.rel_strength ?? 50
+    const vol     = tComp.volatility   ?? 50
+
+    if (trend < 55)
+      explanation.push(`Price trending below MA5/MA20 — needs sustained move above 20-day average`)
+    if (mom < 45)
+      explanation.push(`RSI momentum weak — watch for reversal above 40 RSI`)
+    if (rs < 45)
+      explanation.push(`Underperforming SPY over 30 days — needs relative strength recovery`)
+    if (vol > 65)
+      explanation.push(`High volatility reducing score — stabdlising price action would help`)
+  }
+
+  if (nearest.fGap > 0 && fComp) {
+    const valuation = fComp.valuation     ?? 50
+    const analyst   = fComp.analyst ?? fComp.consensus ?? 50
+    const theme     = fComp.theme         ?? 50
+    const macro     = fComp.macro         ?? 50
+    const profit    = fComp.profitability ?? 50
+
+    if (valuation < 45)
+      explanation.push(`Valuation elevated vs sector — a price pullback or earnings beat would improve this`)
+    if (analyst < 60)
+      explanation.push(`Analyst consensus weak — watch for upgrades or price target revisions`)
+    if (theme < 50)
+      explanation.push(`Not prominently featured in active themes — new theme tailwinds would boost score`)
+    if (macro < 45)
+      explanation.push(`Macro environment unfavourable for this sector — watch Fed/inflation data`)
+    if (profit < 50)
+      explanation.push(`Profitability score low — next earnings report is a key catalyst`)
+  }
+
+  if (explanation.length === 0) {
+    explanation.push(`${nearest.fGap > 0 ? `Fundamental needs +${nearest.fGap} pts. ` : ''}${nearest.tGap > 0 ? `Technical needs +${nearest.tGap} pts.` : ''}`.trim())
+  }
+
+  return {
+    nextSignal:  nearest.label,
+    fGap:        nearest.fGap > 0 ? nearest.fGap : null,
+    tGap:        nearest.tGap > 0 ? nearest.tGap : null,
+    path,
+    explanation,
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function TickerPage({ params }: { params: Promise<{ ticker: string }> }) {
@@ -501,7 +603,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               ['Revenue',      assetRow?.revenue        != null ? formatMarketCap(assetRow.revenue)        : '—'],
               ['Profit Margin',assetRow?.profit_margin  != null ? `${assetRow.profit_margin.toFixed(1)}%`  : '—'],
               ['Target Price', assetRow?.analyst_target != null ? `$${assetRow.analyst_target.toFixed(2)}` : '—'],
-              ['CONSENSUS',      assetRow?.analyst_rating != null ? assetRow.analyst_rating                  : '—'],
+              ['Analyst',      assetRow?.analyst_rating != null ? assetRow.analyst_rating                  : '—'],
             ].filter(([, val]) => val !== '—').slice(0, 10).map(([label, val]) => (
               <div key={label as string}>
                 <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
@@ -556,32 +658,164 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                   {/* Component breakdown */}
                   {signalData.f_components && (
                     <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                      {Object.entries(signalData.f_components).map(([k, v]) => (
-                        <span key={k} style={{
-                          fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3,
-                          background: 'rgba(122,180,232,0.08)', color: 'rgba(122,180,232,0.6)',
-                          border: '1px solid rgba(122,180,232,0.15)',
-                        }}>
-                          {k}: {Math.round(v as number)}
-                        </span>
-                      ))}
+                      {Object.entries(signalData.f_components).map(([k, v]) => {
+                        const fLabels: Record<string, string> = {
+                          valuation:     'Valuation',
+                          profitability: 'Profitability',
+                          analyst:       'Consensus',
+                          consensus:     'Consensus',
+                          theme:         'Theme',
+                          macro:         'Macro',
+                        }
+                        return (
+                          <span key={k} style={{
+                            fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3,
+                            background: 'rgba(122,180,232,0.08)', color: 'rgba(122,180,232,0.6)',
+                            border: '1px solid rgba(122,180,232,0.15)',
+                          }}>
+                            {fLabels[k] ?? k}: {Math.round(v as number)}
+                          </span>
+                        )
+                      })}
                     </div>
                   )}
                   {signalData.t_components && (
                     <div style={{ marginTop: '0.3rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                      {Object.entries(signalData.t_components).map(([k, v]) => (
-                        <span key={k} style={{
-                          fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3,
-                          background: 'rgba(78,202,153,0.08)', color: 'rgba(78,202,153,0.6)',
-                          border: '1px solid rgba(78,202,153,0.15)',
-                        }}>
-                          {k.replace('_', ' ')}: {Math.round(v as number)}
-                        </span>
-                      ))}
+                      {Object.entries(signalData.t_components).map(([k, v]) => {
+                        const tLabels: Record<string, string> = {
+                          trend:        'Trend',
+                          momentum:     'Momentum',
+                          rel_strength: 'Rel Strength',
+                          volatility:   'Volatility',
+                        }
+                        return (
+                          <span key={k} style={{
+                            fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3,
+                            background: 'rgba(78,202,153,0.08)', color: 'rgba(78,202,153,0.6)',
+                            border: '1px solid rgba(78,202,153,0.15)',
+                          }}>
+                            {tLabels[k] ?? k.replace('_', ' ')}: {Math.round(v as number)}
+                          </span>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
               )}
+
+              {/* Signal trigger */}
+              {(() => {
+                const trigger = analyseSignalTrigger(
+                  signalData.signal,
+                  signalData.fundamental_score ?? null,
+                  signalData.technical_score   ?? null,
+                  signalData.f_components      as Record<string, number> | null,
+                  signalData.t_components      as Record<string, number> | null,
+                )
+                if (!trigger) return null
+                const nextColor = ({ buy: '#4eca99', watch: '#e09845', hold: 'rgba(232,226,217,0.4)', avoid: '#e87070' } as Record<string,string>)[trigger.nextSignal] ?? 'var(--gold)'
+                return (
+                  <div style={{
+                    margin: '0.9rem 0', padding: '0.8rem 1rem',
+                    background: `${nextColor}08`,
+                    border: `1px solid ${nextColor}22`,
+                    borderRadius: 7,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        Upgrade path →
+                      </span>
+                      <span style={{
+                        fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
+                        color: nextColor, background: `${nextColor}18`,
+                        padding: '0.1rem 0.45rem', borderRadius: 3, letterSpacing: '0.06em',
+                      }}>
+                        {trigger.nextSignal}
+                      </span>
+                      <div style={{ flex: 1 }} />
+                      {trigger.fGap != null && (
+                        <span style={{ fontSize: '0.62rem', color: 'rgba(122,180,232,0.6)', fontFamily: 'monospace' }}>
+                          F +{trigger.fGap}
+                        </span>
+                      )}
+                      {trigger.tGap != null && (
+                        <span style={{ fontSize: '0.62rem', color: 'rgba(78,202,153,0.6)', fontFamily: 'monospace' }}>
+                          T +{trigger.tGap}
+                        </span>
+                      )}
+                    </div>
+                    <ul style={{ margin: 0, padding: '0 0 0 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {trigger.explanation.map((e, i) => (
+                        <li key={i} style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.45)', lineHeight: 1.5 }}>
+                          {e}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              })()}
+
+              {/* Signal trigger */}
+              {(() => {
+                const trigger = analyseSignalTrigger(
+                  signalData.signal,
+                  signalData.fundamental_score ?? null,
+                  signalData.technical_score   ?? null,
+                  signalData.f_components      as any,
+                  signalData.t_components      as any,
+                )
+                if (!trigger) return null
+                const signalColors: Record<string, string> = {
+                  buy: '#4eca99', watch: '#e0c97a', hold: 'rgba(232,226,217,0.4)', avoid: '#e87070'
+                }
+                return (
+                  <div style={{ marginBottom: '0.9rem', padding: '0.7rem 0.85rem', background: 'rgba(255,255,255,0.03)', borderRadius: 7, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        Path to
+                      </span>
+                      <span style={{
+                        fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
+                        letterSpacing: '0.08em', padding: '0.1rem 0.45rem', borderRadius: 3,
+                        color: signalColors[trigger.nextSignal],
+                        background: `${signalColors[trigger.nextSignal]}18`,
+                        border: `1px solid ${signalColors[trigger.nextSignal]}33`,
+                      }}>
+                        {trigger.nextSignal}
+                      </span>
+                    </div>
+                    {/* Gap indicators */}
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: trigger.explanation.length > 0 ? '0.6rem' : 0 }}>
+                      {trigger.fGap != null && (
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(122,180,232,0.7)', background: 'rgba(122,180,232,0.08)', padding: '0.2rem 0.5rem', borderRadius: 4, border: '1px solid rgba(122,180,232,0.15)' }}>
+                          Fundamental +{trigger.fGap} needed
+                        </div>
+                      )}
+                      {trigger.tGap != null && (
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(78,202,153,0.7)', background: 'rgba(78,202,153,0.08)', padding: '0.2rem 0.5rem', borderRadius: 4, border: '1px solid rgba(78,202,153,0.15)' }}>
+                          Technical +{trigger.tGap} needed
+                        </div>
+                      )}
+                      {trigger.fGap == null && trigger.tGap == null && (
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.3)' }}>
+                          Signal upgrade pending next price sync
+                        </div>
+                      )}
+                    </div>
+                    {/* Plain English explanations */}
+                    {trigger.explanation.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        {trigger.explanation.map((e, i) => (
+                          <div key={i} style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
+                            <span style={{ color: 'rgba(232,226,217,0.2)', fontSize: '0.65rem', marginTop: '0.05rem', flexShrink: 0 }}>›</span>
+                            <span style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.45)', lineHeight: 1.5 }}>{e}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Rationale */}
               {signalData.rationale && (
