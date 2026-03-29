@@ -37,7 +37,7 @@ export type SignalLabel   = 'buy' | 'watch' | 'hold' | 'avoid'
 export interface FundamentalComponents {
   valuation:    number   // 0-100
   profitability:number   // 0-100
-  analyst:      number   // 0-100
+  consensus:      number   // 0-100
   theme:        number   // 0-100
   macro:        number   // 0-100
 }
@@ -162,21 +162,21 @@ function scoreMacro(macroScore: number, sectorMacro: number): number {
 export function scoreFundamental(input: ScoringInput): { score: number; components: FundamentalComponents } {
   const valuation     = scoreValuation(input.pe_ratio, input.sector_pe)
   const profitability = scoreProfitability(input.profit_margin, input.eps, input.eps_prev)
-  const analyst       = scoreAnalyst(input.analyst_rating)
+  const consensus       = scoreAnalyst(input.analyst_rating)
   const theme         = scoreTheme(input.theme_conviction)
   const macro         = scoreMacro(input.macro_score, input.sector_macro)
 
   const score = Math.round(
     valuation     * 0.20 +
     profitability * 0.20 +
-    analyst       * 0.20 +
+    consensus       * 0.20 +
     theme         * 0.20 +
     macro         * 0.20
   )
 
   return {
     score: Math.max(0, Math.min(100, score)),
-    components: { valuation, profitability, analyst, theme, macro },
+    components: { valuation, profitability, consensus, theme, macro },
   }
 }
 
