@@ -25,6 +25,10 @@ type SignalRow = {
   price_usd:           number | null
   change_pct:          number | null
   sparkline:           number[] | null
+  fundamental_score:   number | null
+  technical_score:     number | null
+  f_components:        { valuation: number; profitability: number; analyst: number; theme: number; macro: number } | null
+  t_components:        { trend: number; momentum: number; rel_strength: number; volatility: number } | null
   rationale:           string | null
   rationale_signal:    string | null
   rationale_updated_at:string | null
@@ -213,7 +217,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
     query<SignalRow>(
       db.from('asset_signals')
-        .select('signal, score, price_usd, change_pct, sparkline, rationale, rationale_signal, rationale_updated_at, updated_at')
+        .select('signal, score, price_usd, change_pct, sparkline, fundamental_score, technical_score, f_components, t_components, rationale, rationale_signal, rationale_updated_at, updated_at')
         .eq('ticker', ticker)
         .single()
     ),
@@ -271,7 +275,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       if (syncRes.ok) {
         const fresh = await query<SignalRow>(
           db.from('asset_signals')
-            .select('signal, score, price_usd, change_pct, sparkline, rationale, rationale_signal, rationale_updated_at, updated_at')
+            .select('signal, score, price_usd, change_pct, sparkline, fundamental_score, technical_score, f_components, t_components, rationale, rationale_signal, rationale_updated_at, updated_at')
             .eq('ticker', ticker)
             .single()
         )
@@ -422,7 +426,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 1.5rem' }}>
             {[
-              //['Open',         price.open       != null ? `$${price.open.toFixed(2)}`        : '—'],
+              ['Open',         price.open       != null ? `$${price.open.toFixed(2)}`        : '—'],
               ['Volume',       formatVolume(price.volume)],
               ['Mkt Cap',      formatMarketCap((assetRow?.market_cap ?? details?.market_cap) ?? null)],
               ['52W High',     assetRow?.week_52_high  != null ? `$${assetRow.week_52_high.toFixed(2)}`  : '—'],
@@ -465,23 +469,73 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             </div>
           )}
 
-          {signalData?.rationale && (
+          {signalData?.signal && (
             <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
-                <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Signal Rationale</div>
-                {signalData.score !== null && (
-                  <span style={{ fontSize: '0.72rem', color: signalColor(signalData.signal), fontWeight: 600 }}>
-                    {signalData.score}/100
-                  </span>
-                )}
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>
-                {signalData.rationale}
-              </p>
-              {signalData.rationale_updated_at && (
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>
-                  Updated {relTime(signalData.rationale_updated_at)}
+              {/* Score bars */}
+              {(signalData.fundamental_score != null || signalData.technical_score != null) && (
+                <div style={{ marginBottom: '0.9rem' }}>
+                  <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>Signal Scores</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {[
+                      { label: 'Fundamental', score: signalData.fundamental_score, color: '#7ab4e8' },
+                      { label: 'Technical',   score: signalData.technical_score,   color: '#4eca99' },
+                    ].map(({ label, score, color }) => score != null && (
+                      <div key={label}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                          <span style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.4)' }}>{label}</span>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 600, color, fontFamily: 'monospace' }}>{score}/100</span>
+                        </div>
+                        <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+                          <div style={{ width: `${score}%`, height: '100%', background: color, borderRadius: 2, opacity: 0.8, transition: 'width 0.3s' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Component breakdown */}
+                  {signalData.f_components && (
+                    <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                      {Object.entries(signalData.f_components).map(([k, v]) => (
+                        <span key={k} style={{
+                          fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3,
+                          background: 'rgba(122,180,232,0.08)', color: 'rgba(122,180,232,0.6)',
+                          border: '1px solid rgba(122,180,232,0.15)',
+                        }}>
+                          {k}: {Math.round(v as number)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {signalData.t_components && (
+                    <div style={{ marginTop: '0.3rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                      {Object.entries(signalData.t_components).map(([k, v]) => (
+                        <span key={k} style={{
+                          fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3,
+                          background: 'rgba(78,202,153,0.08)', color: 'rgba(78,202,153,0.6)',
+                          border: '1px solid rgba(78,202,153,0.15)',
+                        }}>
+                          {k.replace('_', ' ')}: {Math.round(v as number)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {/* Rationale */}
+              {signalData.rationale && (
+                <>
+                  <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+                    Signal Rationale
+                  </div>
+                  <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>
+                    {signalData.rationale}
+                  </p>
+                  {signalData.rationale_updated_at && (
+                    <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>
+                      Updated {relTime(signalData.rationale_updated_at)}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
