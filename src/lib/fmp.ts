@@ -238,8 +238,7 @@ export async function syncFMPToAssets(
         .eq('ticker', ticker)
 
       synced++
-    } catch {
-      failed.push(ticker)
+    } catch (e) { console.error(`[fmp] sync error ${ticker}:`, e); failed.push(ticker)
     }
   }
 
