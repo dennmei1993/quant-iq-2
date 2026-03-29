@@ -501,7 +501,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               ['Revenue',      assetRow?.revenue        != null ? formatMarketCap(assetRow.revenue)        : '—'],
               ['Profit Margin',assetRow?.profit_margin  != null ? `${assetRow.profit_margin.toFixed(1)}%`  : '—'],
               ['Target Price', assetRow?.analyst_target != null ? `$${assetRow.analyst_target.toFixed(2)}` : '—'],
-              ['Analyst',      assetRow?.analyst_rating != null ? assetRow.analyst_rating                  : '—'],
+              ['CONSENSUS',      assetRow?.analyst_rating != null ? assetRow.analyst_rating                  : '—'],
             ].filter(([, val]) => val !== '—').slice(0, 10).map(([label, val]) => (
               <div key={label as string}>
                 <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
