@@ -109,21 +109,80 @@ function relTime(iso: string) {
 
 function Sparkline({ bars }: { bars: { close: number }[] }) {
   if (bars.length < 2) return null
+
   const closes = bars.map(b => b.close)
-  const min    = Math.min(...closes)
-  const max    = Math.max(...closes)
-  const range  = max - min || 1
-  const w = 200, h = 48, pad = 4
-  const pts = closes.map((c, i) => {
-    const x = pad + (i / (closes.length - 1)) * (w - 2 * pad)
-    const y = pad + (1 - (c - min) / range) * (h - 2 * pad)
-    return `${x},${y}`
-  }).join(' ')
-  const color = closes[closes.length - 1] >= closes[0] ? '#4eca99' : '#e87070'
+  const w = 240, h = 64, pad = 6
+
+  // Include MA values in min/max so lines stay within bounds
+  const ma = (arr: number[], period: number): (number | null)[] =>
+    arr.map((_, i) => i < period - 1
+      ? null
+      : arr.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period
+    )
+
+  const ma5Values  = ma(closes, 5)
+  const ma20Values = ma(closes, 20)
+
+  const allValues  = [
+    ...closes,
+    ...ma5Values.filter((v): v is number => v !== null),
+    ...ma20Values.filter((v): v is number => v !== null),
+  ]
+  const min   = Math.min(...allValues)
+  const max   = Math.max(...allValues)
+  const range = max - min || 1
+
+  const toX = (i: number) => pad + (i / (closes.length - 1)) * (w - 2 * pad)
+  const toY = (v: number) => pad + (1 - (v - min) / range) * (h - 2 * pad)
+
+  // Price line points
+  const pricePts = closes.map((c, i) => `${toX(i)},${toY(c)}`).join(' ')
+
+  // MA line points — only where values exist
+  const maPoints = (values: (number | null)[]) =>
+    values.reduce<string[]>((acc, v, i) => {
+      if (v !== null) acc.push(`${toX(i)},${toY(v)}`)
+      return acc
+    }, []).join(' ')
+
+  const ma5Pts  = maPoints(ma5Values)
+  const ma20Pts = maPoints(ma20Values)
+
+  const priceColor = closes[closes.length - 1] >= closes[0] ? '#4eca99' : '#e87070'
+
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      {/* Price line */}
+      <polyline points={pricePts} fill="none" stroke={priceColor} strokeWidth="1.5"
+        strokeLinejoin="round" strokeLinecap="round" opacity="0.9" />
+      {/* MA5 line — gold */}
+      {ma5Pts && (
+        <polyline points={ma5Pts} fill="none" stroke="#c8a96e" strokeWidth="1"
+          strokeLinejoin="round" strokeDasharray="2,2" opacity="0.7" />
+      )}
+      {/* MA20 line — blue */}
+      {ma20Pts && (
+        <polyline points={ma20Pts} fill="none" stroke="#7ab4e8" strokeWidth="1"
+          strokeLinejoin="round" strokeDasharray="4,2" opacity="0.7" />
+      )}
     </svg>
+  )
+}
+
+function SparklineLegend() {
+  return (
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.3rem' }}>
+      {[
+        { color: '#4eca99', dash: false, label: 'Price' },
+        { color: '#c8a96e', dash: true,  label: 'MA5'   },
+        { color: '#7ab4e8', dash: true,  label: 'MA20'  },
+      ].map(({ color, label }) => (
+        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          <div style={{ width: 16, height: 2, background: color, borderRadius: 1, opacity: 0.7 }} />
+          <span style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.3)' }}>{label}</span>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -418,9 +477,12 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
           </div>
 
           {sparklineBars.length > 2 && (
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <Sparkline bars={sparklineBars} />
-              <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.2)', marginLeft: '0.5rem' }}>30d</span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <Sparkline bars={sparklineBars} />
+                <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.2)', marginLeft: '0.5rem' }}>30d</span>
+              </div>
+              <SparklineLegend />
             </div>
           )}
 
