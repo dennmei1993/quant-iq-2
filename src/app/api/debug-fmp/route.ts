@@ -1,12 +1,9 @@
 ﻿import { NextResponse } from "next/server"
 export async function GET() {
   const key = process.env.FMP_API_KEY ?? "MISSING"
-  const url = `https://financialmodelingprep.com/stable/profile/AAPL?apikey=${key}`
-  try {
-    const res = await fetch(url)
-    const text = await res.text()
-    return NextResponse.json({ status: res.status, key_set: key !== "MISSING", key_preview: key.slice(0,6), body: text.slice(0, 300) })
-  } catch (e) {
-    return NextResponse.json({ error: String(e) })
-  }
+  const [p, r] = await Promise.all([
+    fetch(`https://financialmodelingprep.com/stable/profile/AAPL?apikey=${key}`).then(r => r.json()).catch(e => ({ error: String(e) })),
+    fetch(`https://financialmodelingprep.com/stable/ratios-ttm/AAPL?apikey=${key}`).then(r => r.json()).catch(e => ({ error: String(e) })),
+  ])
+  return NextResponse.json({ profile: p, ratios: r })
 }
