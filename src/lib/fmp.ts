@@ -56,7 +56,7 @@ export async function fetchFMPProfile(ticker: string): Promise<FMPProfile | null
 
     const json = await res.json()
     const r    = Array.isArray(json) ? json[0] : json
-    if (!r?.symbol) return null
+    if (!r?.symbol && !r?.companyName) return null
 
     // Parse 52w range from "169.21-288.62" format
     const rangeParts = r.range?.split('-') ?? []
@@ -163,6 +163,7 @@ export async function fetchFMPRatios(ticker: string): Promise<{
   eps:           number | null
   revenue:       number | null
   profit_margin: number | null
+  dividend_yield:number | null
 } | null> {
   try {
     const url  = `${BASE}/ratios-ttm?symbol=${ticker}&apikey=${fmpKey()}`
@@ -173,11 +174,16 @@ export async function fetchFMPRatios(ticker: string): Promise<{
     if (!r) return null
 
     return {
-      pe_ratio:      safe(r.peRatioTTM),
+      pe_ratio:      safe(r.priceToEarningsRatioTTM),
       pb_ratio:      safe(r.priceToBookRatioTTM),
-      eps:           safe(r.epsTTM),
-      revenue:       safe(r.revenueTTM) ?? safe(r.revenuePerShareTTM),
-      profit_margin: safe(r.netProfitMarginTTM),
+      eps:           safe(r.netIncomePerShareTTM),
+      revenue:       safe(r.revenuePerShareTTM),
+      profit_margin: r.netProfitMarginTTM != null
+                       ? parseFloat((r.netProfitMarginTTM * 100).toFixed(2))
+                       : null,
+      dividend_yield: r.dividendYieldTTM != null
+                        ? parseFloat((r.dividendYieldTTM * 100).toFixed(4))
+                        : null,
     }
   } catch { return null }
 }
@@ -202,7 +208,7 @@ export async function syncFMPToAssets(
       }
 
       // Only set fields that have real values
-      // Profile fields
+      // Prefer ratios TTM over profile values
       const pe    = ratios?.pe_ratio      ?? p.pe_ratio
       const pb    = ratios?.pb_ratio      ?? p.pb_ratio
       const eps   = ratios?.eps           ?? p.eps
@@ -214,6 +220,8 @@ export async function syncFMPToAssets(
       if (eps    != null) update.eps             = eps
       if (p.beta           != null) update.beta            = p.beta
       if (p.dividend_yield != null) update.dividend_yield  = p.dividend_yield
+      // Override with TTM dividend yield from ratios if available (more accurate)
+      if ((ratios as any)?.dividend_yield != null) update.dividend_yield = (ratios as any).dividend_yield
       if (p.week_52_high   != null) update.week_52_high    = p.week_52_high
       if (p.week_52_low    != null) update.week_52_low     = p.week_52_low
       if (rev    != null) update.revenue         = rev
