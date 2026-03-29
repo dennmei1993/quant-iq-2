@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createServiceClient } from '@/lib/supabase/server'
-import { fetchPricesForTickers } from '@/lib/polygon'
+import { fetchPricesForTickers, fetchSparklinesForTickers } from '@/lib/polygon'
 import { batchScoreSignals } from '@/lib/signal-scorer'
 
 export const maxDuration = 300
@@ -60,7 +60,12 @@ export async function POST(req: NextRequest) {
   log.push(`Syncing ${tickers.length} ticker(s)...`)
 
   try {
-    const prices = await fetchPricesForTickers(tickers)
+    const prices     = await fetchPricesForTickers(tickers)
+    // Fetch sparklines for single-ticker requests (ticker page auto-sync)
+    // Skip for bulk syncs to avoid timeout
+    const sparklines = tickers.length <= 5
+      ? await fetchSparklinesForTickers([...prices.keys()])
+      : new Map()
     log.push(`Prices fetched: ${prices.size} / ${tickers.length}`)
 
     // Fetch supporting data for composite scoring
@@ -104,14 +109,16 @@ export async function POST(req: NextRequest) {
     })
 
     const rows = [...prices.keys()].map(t => {
-      const p   = prices.get(t)!
-      const sig = scored.get(t)
+      const p    = prices.get(t)!
+      const sig  = scored.get(t)
+      const bars = sparklines.get(t) ?? []
       return {
         ticker:     t,
         price_usd:  p.price,
         change_pct: p.change_pct,
         signal:     sig?.signal ?? 'hold',
         score:      sig?.score  ?? 50,
+        ...(bars.length > 0 && { sparkline: bars.map((b: any) => b.c) }),
         updated_at: new Date().toISOString(),
       }
     })
