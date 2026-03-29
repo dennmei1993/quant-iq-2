@@ -185,7 +185,7 @@ export async function fetchFMPRatios(ticker: string): Promise<{
                         ? parseFloat((r.dividendYieldTTM * 100).toFixed(4))
                         : null,
     }
-  } catch { return null }
+  } catch (e) { console.error(`[fmp] fetch error:`, e); return null }
 }
 
 // â”€â”€â”€ Write profiles to assets table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
