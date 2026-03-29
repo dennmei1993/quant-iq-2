@@ -7,7 +7,6 @@ import { createServiceClient } from '@/lib/supabase/server'
 import {
   fetchTickerDetails,
   fetchTickerPrice,
-  fetchTickerBars,
   formatMarketCap,
   formatVolume,
 } from '@/lib/polygon-ticker'
@@ -25,6 +24,7 @@ type SignalRow = {
   score:               number | null
   price_usd:           number | null
   change_pct:          number | null
+  sparkline:           number[] | null
   rationale:           string | null
   rationale_signal:    string | null
   rationale_updated_at:string | null
@@ -196,11 +196,11 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   const themeMap       = new Map(activeThemes.map(t => [t.id, t]))
 
   // ── Parallel data fetches ─────────────────────────────────────────────────
-  const [signal, themeTickerRows, events, assetRow, watchlistRow, portfolioRow, details, price, bars] = await Promise.all([
+  const [signal, themeTickerRows, events, assetRow, watchlistRow, portfolioRow, details, price] = await Promise.all([
 
     query<SignalRow>(
       db.from('asset_signals')
-        .select('signal, score, price_usd, change_pct, rationale, rationale_signal, rationale_updated_at, updated_at')
+        .select('signal, score, price_usd, change_pct, sparkline, rationale, rationale_signal, rationale_updated_at, updated_at')
         .eq('ticker', ticker)
         .single()
     ),
@@ -242,7 +242,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
     fetchTickerDetails(ticker),
     fetchTickerPrice(ticker),
-    fetchTickerBars(ticker, 30),
   ])
 
   if (!assetRow && !details) return notFound()
@@ -259,7 +258,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       if (syncRes.ok) {
         const fresh = await query<SignalRow>(
           db.from('asset_signals')
-            .select('signal, score, price_usd, change_pct, rationale, rationale_signal, rationale_updated_at, updated_at')
+            .select('signal, score, price_usd, change_pct, sparkline, rationale, rationale_signal, rationale_updated_at, updated_at')
             .eq('ticker', ticker)
             .single()
         )
@@ -314,6 +313,8 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   const isInPortfolio = !!portfolioRow
   const recentEvents  = events ?? []
   const changeUp      = (price?.change_pct ?? 0) >= 0
+  // Use stored sparkline from asset_signals — avoids extra Polygon call
+  const sparklineBars = (signalData?.sparkline ?? []).map(c => ({ close: c }))
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -373,9 +374,9 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             )}
           </div>
 
-          {bars.length > 2 && (
+          {sparklineBars.length > 2 && (
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <Sparkline bars={bars} />
+              <Sparkline bars={sparklineBars} />
               <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.2)', marginLeft: '0.5rem' }}>30d</span>
             </div>
           )}
