@@ -257,7 +257,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
   // ── Auto-sync: fetch price if signal missing ──────────────────────────────
   let signalData: SignalRow | null = signal
-  if (!signalData?.signal) {
+  if (!signalData?.signal || !signalData?.sparkline?.length) {
     try {
       const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
       const syncRes = await fetch(`${base}/api/admin/sync-prices?tickers=${ticker}`, {
