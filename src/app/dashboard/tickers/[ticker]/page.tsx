@@ -422,7 +422,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 1.5rem' }}>
             {[
-              ['Open',         price.open       != null ? `$${price.open.toFixed(2)}`        : '—'],
+              //['Open',         price.open       != null ? `$${price.open.toFixed(2)}`        : '—'],
               ['Volume',       formatVolume(price.volume)],
               ['Mkt Cap',      formatMarketCap((assetRow?.market_cap ?? details?.market_cap) ?? null)],
               ['52W High',     assetRow?.week_52_high  != null ? `$${assetRow.week_52_high.toFixed(2)}`  : '—'],
