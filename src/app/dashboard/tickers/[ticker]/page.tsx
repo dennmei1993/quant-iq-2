@@ -50,19 +50,23 @@ type EventRow = {
 }
 
 type AssetRow = {
-  ticker:         string
-  name:           string
-  asset_type:     string
-  sector:         string | null
-  pe_ratio:       number | null
-  eps:            number | null
-  dividend_yield: number | null
-  week_52_high:   number | null
-  week_52_low:    number | null
-  beta:           number | null
-  market_cap:     number | null
-  revenue:        number | null
-  profit_margin:  number | null
+  ticker:          string
+  name:            string
+  asset_type:      string
+  sector:          string | null
+  pe_ratio:        number | null
+  pb_ratio:        number | null
+  eps:             number | null
+  dividend_yield:  number | null
+  week_52_high:    number | null
+  week_52_low:     number | null
+  beta:            number | null
+  market_cap:      number | null
+  revenue:         number | null
+  profit_margin:   number | null
+  analyst_target:  number | null
+  analyst_rating:  string | null
+  financials_updated_at: string | null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -234,7 +238,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     ),
 
     query<AssetRow>(
-      db.from('assets').select('ticker, name, asset_type, sector, pe_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin').eq('ticker', ticker).single()
+      db.from('assets').select('ticker, name, asset_type, sector, pe_ratio, pb_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin, analyst_target, analyst_rating, financials_updated_at').eq('ticker', ticker).single()
     ),
 
     userId
@@ -274,6 +278,32 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         if (fresh) signalData = fresh
       }
     } catch { /* sync failed silently */ }
+  }
+
+  // ── FMP auto-sync: fetch financials if missing or older than 7 days ────────
+  const financialsAge = assetRow?.financials_updated_at
+    ? (Date.now() - new Date(assetRow.financials_updated_at).getTime()) / 3_600_000
+    : Infinity
+  const needsFinancials = assetRow?.asset_type !== 'crypto' &&
+    assetRow?.asset_type !== 'commodity' &&
+    (!assetRow?.pe_ratio || financialsAge > 168)
+
+  if (needsFinancials) {
+    try {
+      const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
+      await fetch(`${base}/api/admin/sync-fmp?tickers=${ticker}`, {
+        method:  'POST',
+        headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '' },
+      })
+      // Re-fetch assetRow with fresh financials — reassign via mutable ref
+      const freshAsset = await query<AssetRow>(
+        db.from('assets')
+          .select('ticker, name, asset_type, sector, pe_ratio, pb_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin, analyst_target, analyst_rating, financials_updated_at')
+          .eq('ticker', ticker)
+          .single()
+      )
+      if (freshAsset) Object.assign(assetRow ?? {}, freshAsset)
+    } catch { /* FMP sync failed silently */ }
   }
 
   // ── Rationale: generate if missing, signal changed, or older than 7 days ──
@@ -399,10 +429,13 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               ['52W Low',      assetRow?.week_52_low   != null ? `$${assetRow.week_52_low.toFixed(2)}`   : '—'],
               ['P/E (TTM)',    assetRow?.pe_ratio      != null ? assetRow.pe_ratio.toFixed(1)             : '—'],
               ['EPS',          assetRow?.eps           != null ? `$${assetRow.eps.toFixed(2)}`            : '—'],
-              ['Beta',         assetRow?.beta          != null ? assetRow.beta.toFixed(2)                 : '—'],
-              ['Div Yield',    assetRow?.dividend_yield != null ? `${(assetRow.dividend_yield * 100).toFixed(2)}%` : '—'],
-              ['Revenue',      assetRow?.revenue       != null ? formatMarketCap(assetRow.revenue)        : '—'],
-              ['Profit Margin',assetRow?.profit_margin != null ? `${(assetRow.profit_margin * 100).toFixed(1)}%`  : '—'],
+              ['P/B Ratio',    assetRow?.pb_ratio       != null ? assetRow.pb_ratio.toFixed(2)             : '—'],
+              ['Beta',         assetRow?.beta           != null ? assetRow.beta.toFixed(2)                : '—'],
+              ['Div Yield',    assetRow?.dividend_yield != null ? `${assetRow.dividend_yield.toFixed(2)}%`  : '—'],
+              ['Revenue',      assetRow?.revenue        != null ? formatMarketCap(assetRow.revenue)        : '—'],
+              ['Profit Margin',assetRow?.profit_margin  != null ? `${assetRow.profit_margin.toFixed(1)}%`  : '—'],
+              ['Target Price', assetRow?.analyst_target != null ? `$${assetRow.analyst_target.toFixed(2)}` : '—'],
+              ['Analyst',      assetRow?.analyst_rating != null ? assetRow.analyst_rating                  : '—'],
             ].filter(([, val]) => val !== '—').slice(0, 10).map(([label, val]) => (
               <div key={label as string}>
                 <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>

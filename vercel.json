@@ -3,12 +3,14 @@
     { "path": "/api/cron/ingest",     "schedule": "0 8 * * *"  },
     { "path": "/api/cron/macro",      "schedule": "0 9 * * *"  },
     { "path": "/api/cron/themes",     "schedule": "0 10 * * *" },
-    { "path": "/api/cron/financials", "schedule": "0 6 * * 1"  }
+    { "path": "/api/cron/financials", "schedule": "0 6 * * 1"  },
+    { "path": "/api/cron/fmp",        "schedule": "0 5 * * 0"  }
   ],
   "functions": {
     "src/app/api/cron/ingest/route.ts":     { "maxDuration": 300 },
     "src/app/api/cron/themes/route.ts":     { "maxDuration": 300 },
     "src/app/api/cron/macro/route.ts":      { "maxDuration": 300 },
-    "src/app/api/cron/financials/route.ts": { "maxDuration": 300 }
+    "src/app/api/cron/financials/route.ts": { "maxDuration": 300 },
+    "src/app/api/cron/fmp/route.ts":        { "maxDuration": 60  }
   }
 }
