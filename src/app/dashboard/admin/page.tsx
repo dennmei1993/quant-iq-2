@@ -86,7 +86,7 @@ function ActionCard({
           onClick={handleRun}
           disabled={running || disabled}
           style={{
-            padding: '0.5rem 1.1rem', borderRadius: 6,
+            padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none',
             background: running ? 'rgba(200,169,110,0.15)' : `${buttonColor}22`,
             color: running ? 'rgba(232,226,217,0.3)' : buttonColor,
             fontSize: '0.8rem', fontWeight: 600, cursor: running ? 'wait' : 'pointer',
@@ -232,6 +232,14 @@ export default function AdminPage() {
     return res.json()
   }
 
+  async function syncFMP(priority: number): Promise<JobResult> {
+    const res = await fetch(`/api/admin/sync-fmp?priority=${priority}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    return res.json()
+  }
+
   return (
     <div>
       <h1 style={{ color: 'var(--cream)', fontFamily: 'serif', fontSize: '1.8rem', marginBottom: '0.4rem' }}>
@@ -264,6 +272,29 @@ export default function AdminPage() {
             buttonLabel="▶ Run"
             buttonColor="#8de0bf"
             onRun={() => syncPrices(2)}
+          />
+        </div>
+      </div>
+
+      {/* FMP Financials sync */}
+      <div style={{ marginBottom: '1rem' }}>
+        <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>
+          FMP Financials Sync
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <ActionCard
+            title="FMP Priority 1 — Core stocks"
+            description="~14 tickers · PE, EPS, P/B, dividend, analyst rating · ~10s"
+            buttonLabel="▶ Run"
+            buttonColor="#7ab4e8"
+            onRun={() => syncFMP(1)}
+          />
+          <ActionCard
+            title="FMP Priority 1+2 — All stocks"
+            description="~80 stocks · skips ETFs/crypto/commodities · ~30s"
+            buttonLabel="▶ Run"
+            buttonColor="#7ab4e8"
+            onRun={() => syncFMP(2)}
           />
         </div>
       </div>
