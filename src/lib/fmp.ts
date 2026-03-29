@@ -9,7 +9,7 @@
  *   Analyst price target, Analyst rating
  */
 
-const BASE = 'https://financialmodelingprep.com/api/v3'
+const BASE = 'https://financialmodelingprep.com/stable'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,7 +50,7 @@ function safe(val: any): number | null {
 
 export async function fetchFMPProfile(ticker: string): Promise<FMPProfile | null> {
   try {
-    const url = `${BASE}/profile/${ticker}?apikey=${fmpKey()}`
+    const url = `${BASE}/profile?symbol=${ticker}&apikey=${fmpKey()}`
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
     if (!res.ok) return null
 
@@ -105,7 +105,7 @@ export async function fetchFMPProfiles(
     const joined  = batch.join(',')
 
     try {
-      const url = `${BASE}/profile/${joined}?apikey=${fmpKey()}`
+      const url = `${BASE}/profile?symbols=${joined}&apikey=${fmpKey()}`
       const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
       if (!res.ok) continue
 
