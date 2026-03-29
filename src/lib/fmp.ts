@@ -1,7 +1,7 @@
-// src/lib/fmp.ts
+﻿// src/lib/fmp.ts
 /**
  * Financial Modeling Prep (FMP) API helpers.
- * Starter plan: 300 req/min — no batching delays needed.
+ * Starter plan: 300 req/min â€” no batching delays needed.
  *
  * Fetches per ticker (single API call to /profile endpoint):
  *   P/E TTM, P/B, EPS TTM, Beta, Dividend Yield,
@@ -11,7 +11,7 @@
 
 const BASE = 'https://financialmodelingprep.com/stable'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface FMPProfile {
   ticker:             string
@@ -33,7 +33,7 @@ export interface FMPProfile {
   employees:          number | null
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function fmpKey(): string {
   const key = process.env.FMP_API_KEY
@@ -46,11 +46,11 @@ function safe(val: any): number | null {
   return isNaN(n) ? null : n
 }
 
-// ─── Single ticker profile ────────────────────────────────────────────────────
+// â”€â”€â”€ Single ticker profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchFMPProfile(ticker: string): Promise<FMPProfile | null> {
   try {
-    const url = `${BASE}/profile?symbol=${ticker}&apikey=${fmpKey()}`
+    const url = `${BASE}/profile/${ticker}?apikey=${fmpKey()}`
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
     if (!res.ok) return null
 
@@ -93,7 +93,7 @@ export async function fetchFMPProfile(ticker: string): Promise<FMPProfile | null
   }
 }
 
-// ─── Batch fetch (Starter: 300 req/min — no delays needed) ───────────────────
+// â”€â”€â”€ Batch fetch (Starter: 300 req/min â€” no delays needed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchFMPProfiles(
   tickers: string[]
@@ -109,7 +109,7 @@ export async function fetchFMPProfiles(
     const joined  = batch.join(',')
 
     try {
-      const url = `${BASE}/profile?symbols=${joined}&apikey=${fmpKey()}`
+      const url = `${BASE}/profile/${joined}?apikey=${fmpKey()}`
       const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
       if (!res.ok) continue
 
@@ -154,7 +154,7 @@ export async function fetchFMPProfiles(
   return result
 }
 
-// ─── TTM Ratios (PE, PB, EPS, Revenue, Profit Margin) ───────────────────────
+// â”€â”€â”€ TTM Ratios (PE, PB, EPS, Revenue, Profit Margin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // These come from a separate endpoint: /stable/ratios-ttm
 
 export async function fetchFMPRatios(ticker: string): Promise<{
@@ -166,7 +166,7 @@ export async function fetchFMPRatios(ticker: string): Promise<{
   dividend_yield:number | null
 } | null> {
   try {
-    const url  = `${BASE}/ratios-ttm?symbol=${ticker}&apikey=${fmpKey()}`
+    const url  = `${BASE}/ratios-ttm/${ticker}?apikey=${fmpKey()}`
     const res  = await fetch(url, { signal: AbortSignal.timeout(10_000) })
     if (!res.ok) return null
     const json = await res.json()
@@ -188,7 +188,7 @@ export async function fetchFMPRatios(ticker: string): Promise<{
   } catch { return null }
 }
 
-// ─── Write profiles to assets table ──────────────────────────────────────────
+// â”€â”€â”€ Write profiles to assets table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function syncFMPToAssets(
   db:       any,
