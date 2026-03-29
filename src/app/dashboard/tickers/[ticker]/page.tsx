@@ -50,10 +50,19 @@ type EventRow = {
 }
 
 type AssetRow = {
-  ticker:     string
-  name:       string
-  asset_type: string
-  sector:     string | null
+  ticker:         string
+  name:           string
+  asset_type:     string
+  sector:         string | null
+  pe_ratio:       number | null
+  eps:            number | null
+  dividend_yield: number | null
+  week_52_high:   number | null
+  week_52_low:    number | null
+  beta:           number | null
+  market_cap:     number | null
+  revenue:        number | null
+  profit_margin:  number | null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -225,7 +234,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     ),
 
     query<AssetRow>(
-      db.from('assets').select('ticker, name, asset_type, sector').eq('ticker', ticker).single()
+      db.from('assets').select('ticker, name, asset_type, sector, pe_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin').eq('ticker', ticker).single()
     ),
 
     userId
@@ -248,7 +257,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
   // ── Auto-sync: fetch price if signal missing ──────────────────────────────
   let signalData: SignalRow | null = signal
-  if (!signalData?.signal || !signalData?.sparkline?.length) {
+  if (!signalData?.signal) {
     try {
       const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
       const syncRes = await fetch(`${base}/api/admin/sync-prices?tickers=${ticker}`, {
@@ -383,14 +392,19 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 1.5rem' }}>
             {[
-              ['Open',      `$${price.open?.toFixed(2) ?? '—'}`],
-              ['High',      `$${price.high?.toFixed(2) ?? '—'}`],
-              ['Low',       `$${price.low?.toFixed(2)  ?? '—'}`],
-              ['Volume',    formatVolume(price.volume)],
-              ['Mkt Cap',   formatMarketCap(details?.market_cap ?? null)],
-              ['Employees', details?.employees ? details.employees.toLocaleString() : '—'],
-            ].map(([label, val]) => (
-              <div key={label}>
+              ['Open',         price.open       != null ? `$${price.open.toFixed(2)}`        : '—'],
+              ['Volume',       formatVolume(price.volume)],
+              ['Mkt Cap',      formatMarketCap((assetRow?.market_cap ?? details?.market_cap) ?? null)],
+              ['52W High',     assetRow?.week_52_high  != null ? `$${assetRow.week_52_high.toFixed(2)}`  : '—'],
+              ['52W Low',      assetRow?.week_52_low   != null ? `$${assetRow.week_52_low.toFixed(2)}`   : '—'],
+              ['P/E (TTM)',    assetRow?.pe_ratio      != null ? assetRow.pe_ratio.toFixed(1)             : '—'],
+              ['EPS',          assetRow?.eps           != null ? `$${assetRow.eps.toFixed(2)}`            : '—'],
+              ['Beta',         assetRow?.beta          != null ? assetRow.beta.toFixed(2)                 : '—'],
+              ['Div Yield',    assetRow?.dividend_yield != null ? `${(assetRow.dividend_yield * 100).toFixed(2)}%` : '—'],
+              ['Revenue',      assetRow?.revenue       != null ? formatMarketCap(assetRow.revenue)        : '—'],
+              ['Profit Margin',assetRow?.profit_margin != null ? `${(assetRow.profit_margin * 100).toFixed(1)}%`  : '—'],
+            ].filter(([, val]) => val !== '—').slice(0, 10).map(([label, val]) => (
+              <div key={label as string}>
                 <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
                 <div style={{ fontSize: '0.82rem', color: 'var(--cream)', fontFamily: 'monospace' }}>{val}</div>
               </div>
