@@ -1,8 +1,8 @@
-// src/app/dashboard/admin/page.tsx
+﻿// src/app/dashboard/admin/page.tsx
 'use client'
 import { useEffect, useState } from 'react'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type Coverage = {
   total:      number
@@ -20,7 +20,7 @@ type JobResult = {
   scored?: number
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function StatusDot({ ok }: { ok: boolean | null }) {
   const color = ok === null ? 'rgba(232,226,217,0.2)' : ok ? '#4eca99' : '#e87070'
@@ -42,7 +42,7 @@ function LogPanel({ log }: { log: string[] }) {
   )
 }
 
-// ─── Action card ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Action card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ActionCard({
   title, description, buttonLabel, buttonColor = 'var(--gold)',
@@ -86,15 +86,14 @@ function ActionCard({
           onClick={handleRun}
           disabled={running || disabled}
           style={{
-            padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none',
-            background: running ? 'rgba(200,169,110,0.15)' : `${buttonColor}22`,
+            padding: '0.5rem 1.1rem', borderRadius: 6,             background: running ? 'rgba(200,169,110,0.15)' : `${buttonColor}22`,
             color: running ? 'rgba(232,226,217,0.3)' : buttonColor,
             fontSize: '0.8rem', fontWeight: 600, cursor: running ? 'wait' : 'pointer',
             whiteSpace: 'nowrap', flexShrink: 0, marginLeft: '1rem',
             border: `1px solid ${buttonColor}44`,
           }}
         >
-          {running ? '⟳ Running…' : buttonLabel}
+          {running ? 'âŸ³ Runningâ€¦' : buttonLabel}
         </button>
       </div>
 
@@ -120,7 +119,7 @@ function ActionCard({
   )
 }
 
-// ─── Coverage panel ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Coverage panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function CoveragePanel() {
   const [coverage, setCoverage] = useState<Coverage | null>(null)
@@ -142,7 +141,7 @@ function CoveragePanel() {
   if (loading) return (
     <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
       <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>Signal Coverage</div>
-      <div style={{ color: 'rgba(232,226,217,0.25)', fontSize: '0.8rem' }}>Loading…</div>
+      <div style={{ color: 'rgba(232,226,217,0.25)', fontSize: '0.8rem' }}>Loadingâ€¦</div>
     </div>
   )
 
@@ -154,7 +153,7 @@ function CoveragePanel() {
     <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
         <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Signal Coverage</div>
-        <button onClick={load} style={{ fontSize: '0.65rem', color: 'rgba(200,169,110,0.5)', background: 'none', border: 'none', cursor: 'pointer' }}>↻ Refresh</button>
+        <button onClick={load} style={{ fontSize: '0.65rem', color: 'rgba(200,169,110,0.5)', background: 'none', border: 'none', cursor: 'pointer' }}>â†» Refresh</button>
       </div>
 
       {/* Overall bar */}
@@ -209,10 +208,10 @@ function CoveragePanel() {
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function AdminPage() {
-  const CRON    = process.env.NEXT_PUBLIC_CRON_SECRET   // won't work — handled via API
+  const CRON    = process.env.NEXT_PUBLIC_CRON_SECRET   // won't work â€” handled via API
   const ADMIN   = process.env.NEXT_PUBLIC_ADMIN_SECRET  // same
 
   async function runCron(path: string): Promise<JobResult> {
@@ -240,6 +239,15 @@ export default function AdminPage() {
     return res.json()
   }
 
+  async function runFinancials(): Promise<JobResult> {
+    const res = await fetch('/api/admin/run-cron', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ cron: 'financials' }),
+    })
+    return res.json()
+  }
+
   return (
     <div>
       <h1 style={{ color: 'var(--cream)', fontFamily: 'serif', fontSize: '1.8rem', marginBottom: '0.4rem' }}>
@@ -261,15 +269,15 @@ export default function AdminPage() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <ActionCard
-            title="Sync Priority 1 — Core tickers"
-            description="~17 tickers (AAPL, BTC, SPY etc) · ~65s"
-            buttonLabel="▶ Run"
+            title="Sync Priority 1 â€” Core tickers"
+            description="~17 tickers (AAPL, BTC, SPY etc) Â· ~65s"
+            buttonLabel="â–¶ Run"
             onRun={() => syncPrices(1)}
           />
           <ActionCard
-            title="Sync Priority 1+2 — Extended"
-            description="~133 tickers · ~260s · may timeout on Vercel"
-            buttonLabel="▶ Run"
+            title="Sync Priority 1+2 â€” Extended"
+            description="~133 tickers Â· ~260s Â· may timeout on Vercel"
+            buttonLabel="â–¶ Run"
             buttonColor="#8de0bf"
             onRun={() => syncPrices(2)}
           />
@@ -283,16 +291,16 @@ export default function AdminPage() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <ActionCard
-            title="FMP Priority 1 — Core stocks"
-            description="~14 tickers · PE, EPS, P/B, dividend, analyst rating · ~10s"
-            buttonLabel="▶ Run"
+            title="FMP Priority 1 â€” Core stocks"
+            description="~14 tickers Â· PE, EPS, P/B, dividend, analyst rating Â· ~10s"
+            buttonLabel="â–¶ Run"
             buttonColor="#7ab4e8"
             onRun={() => syncFMP(1)}
           />
           <ActionCard
-            title="FMP Priority 1+2 — All stocks"
-            description="~80 stocks · skips ETFs/crypto/commodities · ~30s"
-            buttonLabel="▶ Run"
+            title="FMP Priority 1+2 â€” All stocks"
+            description="~80 stocks Â· skips ETFs/crypto/commodities Â· ~30s"
+            buttonLabel="â–¶ Run"
             buttonColor="#7ab4e8"
             onRun={() => syncFMP(2)}
           />
@@ -307,21 +315,28 @@ export default function AdminPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <ActionCard
             title="Ingest"
-            description="Fetch RSS feeds → Claude classification → alerts · ~127s"
-            buttonLabel="▶ Run"
+            description="Fetch RSS feeds â†’ Claude classification â†’ alerts Â· ~127s"
+            buttonLabel="â–¶ Run"
             onRun={() => runCron('ingest')}
           />
           <ActionCard
             title="Macro Scoring"
-            description="Score 6 macro aspects from recent events · ~30s"
-            buttonLabel="▶ Run"
+            description="Score 6 macro aspects from recent events Â· ~30s"
+            buttonLabel="â–¶ Run"
             onRun={() => runCron('macro')}
           />
           <ActionCard
             title="Themes"
-            description="Generate / refresh active investment themes · ~60s"
-            buttonLabel="▶ Run"
+            description="Generate / refresh active investment themes Â· ~60s"
+            buttonLabel="â–¶ Run"
             onRun={() => runCron('themes')}
+          />
+          <ActionCard
+            title="Signal Scoring"
+            description="Re-score all priority-1 tickers using fundamental + technical model Â· ~65s"
+            buttonLabel="â–¶ Run"
+            buttonColor="#c4a3e0"
+            onRun={() => runFinancials()}
           />
         </div>
       </div>

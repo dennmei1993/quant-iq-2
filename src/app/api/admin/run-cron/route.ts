@@ -10,9 +10,10 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 
 const CRON_PATHS: Record<string, string> = {
-  ingest: '/api/cron/ingest',
-  macro:  '/api/cron/macro',
-  themes: '/api/cron/themes',
+  ingest:     '/api/cron/ingest',
+  macro:      '/api/cron/macro',
+  themes:     '/api/cron/themes',
+  financials: '/api/cron/financials',
 }
 
 export async function POST(req: NextRequest) {
