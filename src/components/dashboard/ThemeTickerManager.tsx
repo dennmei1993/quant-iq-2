@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 // src/components/dashboard/ThemeTickerManager.tsx
 // Inline ticker search and management within a theme card.
 // Allows adding tickers with optional weight/rationale, and removing existing ones.
@@ -44,6 +44,7 @@ export default function ThemeTickerManager({
   const [searching,  setSearching]  = useState(false)
   const [adding,     setAdding]     = useState<string | null>(null)
   const [removing,   setRemoving]   = useState<string | null>(null)
+  const [assetType,  setAssetType]  = useState<'all' | 'stock' | 'etf'>('all')
   const [weight,     setWeight]     = useState(0.5)
   const [rationale,  setRationale]  = useState('')
   const [error,      setError]      = useState('')
@@ -59,9 +60,10 @@ export default function ThemeTickerManager({
     if (q.length < 1) { setResults([]); return }
     setSearching(true)
     try {
-      const res  = await fetch(`/api/assets/search?q=${encodeURIComponent(q)}&limit=6`)
+      const type = assetType !== 'all' ? `&asset_type=${assetType}` : ''
+      const res  = await fetch(`/api/assets/search?q=${encodeURIComponent(q)}&limit=6${type}`)
       const data = await res.json()
-      setResults(data.assets ?? [])
+      setResults(data.results ?? [])
     } catch { setResults([]) }
     finally { setSearching(false) }
   }, [])
@@ -69,7 +71,7 @@ export default function ThemeTickerManager({
   useEffect(() => {
     const t = setTimeout(() => search(query), 200)
     return () => clearTimeout(t)
-  }, [query, search])
+  }, [query, assetType, search])
 
   async function handleAdd(ticker: string, name: string) {
     setAdding(ticker)
@@ -133,10 +135,10 @@ export default function ThemeTickerManager({
 
   return (
     <div>
-      {/* â”€â”€ Ticker list â”€â”€ */}
+      {/* ── Ticker list ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
         <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-          Associated Assets Â· {tickers.length} tickers
+          Associated Assets · {tickers.length} tickers
         </div>
         <button
           onClick={() => { setShowSearch(!showSearch); setError('') }}
@@ -145,13 +147,13 @@ export default function ThemeTickerManager({
             background: 'none', border: 'none', cursor: 'pointer', padding: '0.1rem 0.3rem',
           }}
         >
-          {showSearch ? 'âœ• Cancel' : '+ Add Ticker'}
+          {showSearch ? '✕ Cancel' : '+ Add Ticker'}
         </button>
       </div>
 
       {tickers.length === 0 && !showSearch && (
         <p style={{ fontSize: '0.75rem', color: 'rgba(232,226,217,0.18)', fontStyle: 'italic', margin: 0 }}>
-          No tickers mapped yet â€” click Add Ticker to get started.
+          No tickers mapped yet — click Add Ticker to get started.
         </p>
       )}
 
@@ -171,7 +173,7 @@ export default function ThemeTickerManager({
           </a>
 
           <span style={{ fontSize: '0.71rem', color: 'rgba(232,226,217,0.4)', lineHeight: 1.4 }}>
-            {tw.rationale ?? 'â€”'}
+            {tw.rationale ?? '—'}
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -201,12 +203,12 @@ export default function ThemeTickerManager({
               fontSize: '0.8rem', padding: 0, lineHeight: 1,
             }}
           >
-            {removing === tw.ticker ? 'â€¦' : 'âœ•'}
+            {removing === tw.ticker ? '…' : '✕'}
           </button>
         </div>
       ))}
 
-      {/* â”€â”€ Inline search panel â”€â”€ */}
+      {/* ── Inline search panel ── */}
       {showSearch && (
         <div style={{
           marginTop: '0.75rem',
@@ -214,12 +216,31 @@ export default function ThemeTickerManager({
           border: '1px solid rgba(200,169,110,0.2)',
           borderRadius: 8, padding: '0.9rem 1rem',
         }}>
+          {/* Asset type filter */}
+          <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.5rem' }}>
+            {(['all', 'stock', 'etf'] as const).map(type => (
+              <button
+                key={type}
+                onClick={() => setAssetType(type)}
+                style={{
+                  fontSize: '0.62rem', fontWeight: 600, textTransform: 'uppercase',
+                  padding: '0.25rem 0.6rem', borderRadius: 4, cursor: 'pointer',
+                  border: `1px solid ${assetType === type ? 'rgba(200,169,110,0.5)' : 'rgba(232,226,217,0.1)'}`,
+                  background: assetType === type ? 'rgba(200,169,110,0.12)' : 'transparent',
+                  color: assetType === type ? 'var(--gold)' : 'rgba(232,226,217,0.35)',
+                }}
+              >
+                {type === 'all' ? 'All' : type === 'stock' ? 'Stocks' : 'ETFs'}
+              </button>
+            ))}
+          </div>
+
           {/* Search input */}
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search ticker or company nameâ€¦"
+            placeholder="Search ticker or company name…"
             style={{
               width: '100%', boxSizing: 'border-box',
               background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(232,226,217,0.1)',
@@ -264,7 +285,7 @@ export default function ThemeTickerManager({
                         cursor: adding === r.ticker ? 'wait' : 'pointer',
                       }}
                     >
-                      {adding === r.ticker ? 'â€¦' : alreadyAdded ? 'Update' : '+ Add'}
+                      {adding === r.ticker ? '…' : alreadyAdded ? 'Update' : '+ Add'}
                     </button>
                   </div>
                 )
