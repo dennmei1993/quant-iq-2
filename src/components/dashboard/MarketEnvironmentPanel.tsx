@@ -6,11 +6,13 @@
 import { useEffect, useState } from 'react'
 
 type Quote = {
-  ticker:     string
+  symbol:     string
   label:      string
   price:      number | null
   change:     number | null
   change_pct: number | null
+  dayHigh:    number | null
+  dayLow:     number | null
 }
 
 type MacroScore = { aspect: string; score: number }
@@ -74,30 +76,50 @@ export default function MarketEnvironmentPanel({ macroScores }: { macroScores: M
               }} />
             ))
           : quotes.map(q => {
-              const up    = (q.change_pct ?? 0) >= 0
-              const color = up ? 'var(--signal-bull)' : 'var(--signal-bear)'
-              const isVix = q.ticker === 'VIXY'
+              const isVix   = q.symbol === '^VIX'
+              // VIX: higher = more fear = bad → invert color logic
+              const up      = isVix
+                ? (q.change_pct ?? 0) <= 0
+                : (q.change_pct ?? 0) >= 0
+              const rawUp   = (q.change_pct ?? 0) >= 0
+              const color   = up ? 'var(--signal-bull)' : 'var(--signal-bear)'
+              // Format price — VIX has no $ sign
+              const priceStr = q.price != null
+                ? isVix ? q.price.toFixed(2) : q.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '—'
               return (
-                <div key={q.ticker} style={{
+                <div key={q.symbol} style={{
                   background: 'var(--navy2)', border: '1px solid var(--dash-border)',
                   borderRadius: 8, padding: '0.9rem 1.1rem',
                 }}>
-                  <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
-                    {q.label}{isVix ? ' proxy' : ''}
-                  </div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--cream)', fontFamily: 'monospace', lineHeight: 1 }}>
-                    {q.price != null ? `$${q.price.toFixed(2)}` : '—'}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.3rem' }}>
-                    <span style={{ fontSize: '0.72rem', color, fontWeight: 500 }}>
-                      {q.change_pct != null ? `${up ? '+' : ''}${q.change_pct.toFixed(2)}%` : '—'}
-                    </span>
-                    {q.change != null && (
-                      <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', fontFamily: 'monospace' }}>
-                        {up ? '+' : ''}{q.change.toFixed(2)}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
+                    <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      {q.label}
+                    </div>
+                    {isVix && (
+                      <span style={{ fontSize: '0.55rem', color: up ? 'rgba(78,202,153,0.5)' : 'rgba(232,112,112,0.5)' }}>
+                        {up ? 'Low Fear' : 'High Fear'}
                       </span>
                     )}
                   </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--cream)', fontFamily: 'monospace', lineHeight: 1, marginBottom: '0.3rem' }}>
+                    {isVix ? '' : ''}{priceStr}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem' }}>
+                    <span style={{ fontSize: '0.72rem', color, fontWeight: 500 }}>
+                      {q.change_pct != null ? `${rawUp ? '+' : ''}${q.change_pct.toFixed(2)}%` : '—'}
+                    </span>
+                    {q.change != null && (
+                      <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', fontFamily: 'monospace' }}>
+                        {rawUp ? '+' : ''}{q.change.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  {q.dayHigh != null && q.dayLow != null && (
+                    <div style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.2)', fontFamily: 'monospace' }}>
+                      H {q.dayHigh.toLocaleString('en-US', { maximumFractionDigits: 2 })} · L {q.dayLow.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                    </div>
+                  )}
                 </div>
               )
             })
