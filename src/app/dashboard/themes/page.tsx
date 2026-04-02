@@ -1,6 +1,6 @@
 // src/app/dashboard/themes/page.tsx
-import Link from 'next/link'
 import { createServiceClient } from "@/lib/supabase/server";
+import ThemeTickerManager from '@/components/dashboard/ThemeTickerManager'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -42,17 +42,6 @@ const MOMENTUM_COLOR: Record<string, string> = {
 }
 const TF_LABEL: Record<string, string> = { '1m': '1 Month', '3m': '3 Months', '6m': '6 Months' }
 
-function weightColor(w: number) {
-  if (w >= 0.7) return 'var(--signal-bull)'
-  if (w >= 0.4) return 'var(--signal-neut)'
-  return 'rgba(232,226,217,0.35)'
-}
-function weightLabel(w: number) {
-  if (w >= 0.8) return 'Primary'
-  if (w >= 0.6) return 'Strong'
-  if (w >= 0.4) return 'Moderate'
-  return 'Peripheral'
-}
 function relTime(iso: string | null) {
   if (!iso) return ''
   const hrs = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
@@ -146,59 +135,12 @@ function ThemeCard({ theme, variant }: { theme: Theme; variant: 'watchlist' | 'd
         )}
       </div>
 
-      {/* Ticker weights */}
+      {/* Interactive ticker manager */}
       <div style={{ padding: '0.9rem 1.5rem' }}>
-        <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.65rem' }}>
-          Associated Assets · {theme.ticker_weights.length} tickers
-        </div>
-
-        {theme.ticker_weights.length === 0 ? (
-          <p style={{ fontSize: '0.75rem', color: 'rgba(232,226,217,0.18)', fontStyle: 'italic', margin: 0 }}>No tickers mapped yet.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            {theme.ticker_weights.map(tw => (
-              <div key={tw.ticker} style={{
-                display: 'grid', gridTemplateColumns: '72px 1fr 110px 76px',
-                alignItems: 'center', gap: '0.7rem',
-                padding: '0.5rem 0.7rem',
-                background: 'rgba(255,255,255,0.02)', borderRadius: 5,
-                border: '1px solid rgba(255,255,255,0.035)',
-              }}>
-                {/* ── Clickable ticker ── */}
-                <Link
-                  href={`/dashboard/tickers/${tw.ticker}`}
-                  style={{
-                    fontSize: '0.83rem', fontWeight: 700, color: 'var(--gold)',
-                    fontFamily: 'monospace', textDecoration: 'none',
-                  }}
-                >
-                  {tw.ticker}
-                </Link>
-
-                <span style={{ fontSize: '0.71rem', color: 'rgba(232,226,217,0.4)', lineHeight: 1.4 }}>
-                  {tw.rationale ?? '—'}
-                </span>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
-                    <div style={{ width: `${tw.final_weight * 100}%`, height: '100%', background: weightColor(tw.final_weight), borderRadius: 2 }} />
-                  </div>
-                  <span style={{ fontSize: '0.63rem', color: weightColor(tw.final_weight), minWidth: '2.2rem', textAlign: 'right', fontWeight: 600 }}>
-                    {(tw.final_weight * 100).toFixed(0)}%
-                  </span>
-                </div>
-
-                <span style={{
-                  fontSize: '0.58rem', fontWeight: 500, textAlign: 'center',
-                  background: `${weightColor(tw.final_weight)}18`, color: weightColor(tw.final_weight),
-                  padding: '0.12rem 0.35rem', borderRadius: 3,
-                }}>
-                  {weightLabel(tw.final_weight)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <ThemeTickerManager
+          themeId={theme.id}
+          initialTickers={theme.ticker_weights}
+        />
       </div>
     </div>
   )
@@ -231,9 +173,9 @@ export default async function ThemesPage() {
     weightsByTheme.get(theme_id)!.push(rest)
   }
 
-  const themes: Theme[] = allThemes.map(t => ({ ...t, ticker_weights: weightsByTheme.get(t.id) ?? [] }))
-  const watchlistThemes = themes.filter(t => t.theme_type === 'watchlist')
-  const dynamicThemes   = themes.filter(t => t.theme_type === 'dynamic')
+  const themes: Theme[]         = allThemes.map(t => ({ ...t, ticker_weights: weightsByTheme.get(t.id) ?? [] }))
+  const watchlistThemes         = themes.filter(t => t.theme_type === 'watchlist')
+  const dynamicThemes           = themes.filter(t => t.theme_type === 'dynamic')
 
   return (
     <div>
@@ -243,9 +185,13 @@ export default async function ThemesPage() {
       </p>
 
       <div style={{ marginBottom: '3rem' }}>
-        <SectionHeader title="Watchlist Themes" subtitle="Persistent structural themes — always tracked regardless of daily news" count={watchlistThemes.length} />
+        <SectionHeader
+          title="Watchlist Themes"
+          subtitle="Persistent structural themes — always tracked regardless of daily news"
+          count={watchlistThemes.length}
+        />
         {watchlistThemes.length === 0 ? (
-          <div style={{ color: 'rgba(232,226,217,0.2)', fontSize: '0.82rem', padding: '2rem 0' }}>No watchlist themes yet — run migration 010 to seed starters.</div>
+          <div style={{ color: 'rgba(232,226,217,0.2)', fontSize: '0.82rem', padding: '2rem 0' }}>No watchlist themes yet.</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(520px, 1fr))', gap: '1.2rem' }}>
             {watchlistThemes.map(t => <ThemeCard key={t.id} theme={t} variant="watchlist" />)}
@@ -254,7 +200,11 @@ export default async function ThemesPage() {
       </div>
 
       <div>
-        <SectionHeader title="Market Themes" subtitle="AI-generated from recent high-impact events · updated daily" count={dynamicThemes.length} />
+        <SectionHeader
+          title="Market Themes"
+          subtitle="AI-generated from recent high-impact events · updated daily"
+          count={dynamicThemes.length}
+        />
         {dynamicThemes.length === 0 ? (
           <div style={{ color: 'rgba(232,226,217,0.2)', fontSize: '0.82rem', padding: '2rem 0' }}>No market themes yet — run the themes cron to generate.</div>
         ) : (
