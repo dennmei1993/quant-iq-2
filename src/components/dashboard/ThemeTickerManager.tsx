@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 // src/components/dashboard/ThemeTickerManager.tsx
 // Inline ticker search and management within a theme card.
 // Allows adding tickers with optional weight/rationale, and removing existing ones.
@@ -13,8 +13,9 @@ type TickerWeight = {
 }
 
 type SearchResult = {
-  ticker: string
-  name:   string
+  ticker:     string
+  name:       string
+  asset_type: string
 }
 
 function weightColor(w: number) {
@@ -44,7 +45,7 @@ export default function ThemeTickerManager({
   const [searching,  setSearching]  = useState(false)
   const [adding,     setAdding]     = useState<string | null>(null)
   const [removing,   setRemoving]   = useState<string | null>(null)
-  const [assetType,  setAssetType]  = useState<'all' | 'stock' | 'etf'>('all')
+  const [assetType,  setAssetType]  = useState<'all' | 'stock' | 'etf' | 'crypto'>('all')
   const [weight,     setWeight]     = useState(0.5)
   const [rationale,  setRationale]  = useState('')
   const [error,      setError]      = useState('')
@@ -63,10 +64,10 @@ export default function ThemeTickerManager({
       const type = assetType !== 'all' ? `&asset_type=${assetType}` : ''
       const res  = await fetch(`/api/assets/search?q=${encodeURIComponent(q)}&limit=6${type}`)
       const data = await res.json()
-      setResults(data.assets ?? [])
+      setResults(data.results ?? [])
     } catch { setResults([]) }
     finally { setSearching(false) }
-  }, [assetType])
+  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => search(query), 200)
@@ -133,12 +134,22 @@ export default function ThemeTickerManager({
     }
   }
 
+  async function handleWatchlist(ticker: string) {
+    try {
+      await fetch('/api/watchlist/ticker', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ ticker }),
+      })
+    } catch { /* silent */ }
+  }
+
   return (
     <div>
-      {/* â”€â”€ Ticker list â”€â”€ */}
+      {/* ── Ticker list ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
         <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-          Associated Assets Â· {tickers.length} tickers
+          Associated Assets · {tickers.length} tickers
         </div>
         <button
           onClick={() => { setShowSearch(!showSearch); setError('') }}
@@ -147,13 +158,13 @@ export default function ThemeTickerManager({
             background: 'none', border: 'none', cursor: 'pointer', padding: '0.1rem 0.3rem',
           }}
         >
-          {showSearch ? 'âœ• Cancel' : '+ Add Ticker'}
+          {showSearch ? '✕ Cancel' : '+ Add Ticker'}
         </button>
       </div>
 
       {tickers.length === 0 && !showSearch && (
         <p style={{ fontSize: '0.75rem', color: 'rgba(232,226,217,0.18)', fontStyle: 'italic', margin: 0 }}>
-          No tickers mapped yet â€” click Add Ticker to get started.
+          No tickers mapped yet — click Add Ticker to get started.
         </p>
       )}
 
@@ -173,7 +184,7 @@ export default function ThemeTickerManager({
           </a>
 
           <span style={{ fontSize: '0.71rem', color: 'rgba(232,226,217,0.4)', lineHeight: 1.4 }}>
-            {tw.rationale ?? 'â€”'}
+            {tw.rationale ?? '—'}
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -203,12 +214,12 @@ export default function ThemeTickerManager({
               fontSize: '0.8rem', padding: 0, lineHeight: 1,
             }}
           >
-            {removing === tw.ticker ? 'â€¦' : 'âœ•'}
+            {removing === tw.ticker ? '…' : '✕'}
           </button>
         </div>
       ))}
 
-      {/* â”€â”€ Inline search panel â”€â”€ */}
+      {/* ── Inline search panel ── */}
       {showSearch && (
         <div style={{
           marginTop: '0.75rem',
@@ -218,7 +229,7 @@ export default function ThemeTickerManager({
         }}>
           {/* Asset type filter */}
           <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.5rem' }}>
-            {(['all', 'stock', 'etf'] as const).map(type => (
+            {(['all', 'stock', 'etf', 'crypto'] as const).map(type => (
               <button
                 key={type}
                 onClick={() => setAssetType(type)}
@@ -230,7 +241,7 @@ export default function ThemeTickerManager({
                   color: assetType === type ? 'var(--gold)' : 'rgba(232,226,217,0.35)',
                 }}
               >
-                {type === 'all' ? 'All' : type === 'stock' ? 'Stocks' : 'ETFs'}
+                {type === 'all' ? 'All' : type === 'stock' ? 'Stocks' : type === 'etf' ? 'ETFs' : 'Crypto'}
               </button>
             ))}
           </div>
@@ -240,7 +251,7 @@ export default function ThemeTickerManager({
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search ticker or company nameâ€¦"
+            placeholder="Search ticker or company name…"
             style={{
               width: '100%', boxSizing: 'border-box',
               background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(232,226,217,0.1)',
@@ -259,34 +270,76 @@ export default function ThemeTickerManager({
                   <div
                     key={r.ticker}
                     style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '0.45rem 0.6rem', borderRadius: 5,
+                      padding: '0.5rem 0.6rem', borderRadius: 5,
                       background: 'rgba(255,255,255,0.03)',
                       border: '1px solid rgba(255,255,255,0.04)',
                     }}
                   >
-                    <div>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'monospace' }}>
-                        {r.ticker}
-                      </span>
-                      <span style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.4)', marginLeft: '0.5rem' }}>
-                        {r.name}
-                      </span>
+                    {/* Ticker info */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <div>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'monospace' }}>
+                          {r.ticker}
+                        </span>
+                        <span style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.35)', marginLeft: '0.5rem' }}>
+                          {r.name}
+                        </span>
+                        {r.asset_type && (
+                          <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)', marginLeft: '0.4rem',
+                            background: 'rgba(255,255,255,0.04)', padding: '0.05rem 0.3rem', borderRadius: 3 }}>
+                            {r.asset_type}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleAdd(r.ticker, r.name)}
-                      disabled={adding === r.ticker}
-                      style={{
-                        fontSize: '0.65rem', fontWeight: 600,
-                        color: alreadyAdded ? 'rgba(200,169,110,0.5)' : 'rgba(78,202,153,0.8)',
-                        background: alreadyAdded ? 'rgba(200,169,110,0.08)' : 'rgba(78,202,153,0.08)',
-                        border: `1px solid ${alreadyAdded ? 'rgba(200,169,110,0.2)' : 'rgba(78,202,153,0.2)'}`,
-                        borderRadius: 4, padding: '0.2rem 0.55rem',
-                        cursor: adding === r.ticker ? 'wait' : 'pointer',
-                      }}
-                    >
-                      {adding === r.ticker ? 'â€¦' : alreadyAdded ? 'Update' : '+ Add'}
-                    </button>
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                      {/* Open ticker page */}
+                      <a
+                        href={`/dashboard/tickers/${r.ticker}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontSize: '0.6rem', fontWeight: 500,
+                          color: 'rgba(232,226,217,0.4)',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 4, padding: '0.18rem 0.5rem',
+                          textDecoration: 'none', cursor: 'pointer',
+                        }}
+                      >
+                        ↗ Open
+                      </a>
+                      {/* Add to Watchlist */}
+                      <button
+                        onClick={() => handleWatchlist(r.ticker)}
+                        style={{
+                          fontSize: '0.6rem', fontWeight: 500,
+                          color: 'rgba(200,169,110,0.6)',
+                          background: 'rgba(200,169,110,0.06)',
+                          border: '1px solid rgba(200,169,110,0.15)',
+                          borderRadius: 4, padding: '0.18rem 0.5rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        + Watchlist
+                      </button>
+                      {/* Add to Theme */}
+                      <button
+                        onClick={() => handleAdd(r.ticker, r.name)}
+                        disabled={adding === r.ticker}
+                        style={{
+                          fontSize: '0.6rem', fontWeight: 600,
+                          color: alreadyAdded ? 'rgba(200,169,110,0.5)' : 'rgba(78,202,153,0.8)',
+                          background: alreadyAdded ? 'rgba(200,169,110,0.08)' : 'rgba(78,202,153,0.08)',
+                          border: `1px solid ${alreadyAdded ? 'rgba(200,169,110,0.2)' : 'rgba(78,202,153,0.2)'}`,
+                          borderRadius: 4, padding: '0.18rem 0.5rem',
+                          cursor: adding === r.ticker ? 'wait' : 'pointer',
+                        }}
+                      >
+                        {adding === r.ticker ? '…' : alreadyAdded ? '✓ Update Theme' : '+ Add to Theme'}
+                      </button>
+                    </div>
                   </div>
                 )
               })}
