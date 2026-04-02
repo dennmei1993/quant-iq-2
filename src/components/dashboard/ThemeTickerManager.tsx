@@ -297,8 +297,8 @@ export default function ThemeTickerManager({
                       {/* Open ticker page */}
                       <a
                         href={`/dashboard/tickers/${r.ticker}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        
+                        
                         style={{
                           fontSize: '0.6rem', fontWeight: 500,
                           color: 'rgba(232,226,217,0.4)',
