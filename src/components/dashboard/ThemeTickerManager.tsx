@@ -49,6 +49,7 @@ export default function ThemeTickerManager({
   const [weight,     setWeight]     = useState(0.5)
   const [rationale,  setRationale]  = useState('')
   const [error,      setError]      = useState('')
+  const [watchlisted, setWatchlisted] = useState<Set<string>>(new Set())
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Auto-focus search input when opened
@@ -136,11 +137,12 @@ export default function ThemeTickerManager({
 
   async function handleWatchlist(ticker: string) {
     try {
-      await fetch('/api/watchlist/ticker', {
+      const res = await fetch('/api/watchlist/ticker', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ ticker }),
       })
+      if (res.ok) setWatchlisted(prev => new Set([...prev, ticker]))
     } catch { /* silent */ }
   }
 
@@ -322,7 +324,7 @@ export default function ThemeTickerManager({
                           cursor: 'pointer',
                         }}
                       >
-                        + Watchlist
+                        {watchlisted.has(r.ticker) ? '✓ Watchlist' : '+ Watchlist'}
                       </button>
                       {/* Add to Theme */}
                       <button
