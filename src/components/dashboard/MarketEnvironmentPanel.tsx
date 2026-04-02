@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 type Quote = {
   symbol:     string
   label:      string
+  sublabel:   string
   price:      number | null
   change:     number | null
   change_pct: number | null
@@ -93,8 +94,13 @@ export default function MarketEnvironmentPanel({ macroScores }: { macroScores: M
                   borderRadius: 8, padding: '0.9rem 1.1rem',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
-                    <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                      {q.label}
+                    <div>
+                      <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.5)', fontWeight: 600, letterSpacing: '0.04em', marginBottom: '0.1rem' }}>
+                        {q.label}
+                      </div>
+                      <div style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>
+                        {q.sublabel}
+                      </div>
                     </div>
                     {isVix && (
                       <span style={{ fontSize: '0.55rem', color: up ? 'rgba(78,202,153,0.5)' : 'rgba(232,112,112,0.5)' }}>

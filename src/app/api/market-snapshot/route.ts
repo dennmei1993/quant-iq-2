@@ -1,60 +1,61 @@
 // src/app/api/market-snapshot/route.ts
 /**
  * GET /api/market-snapshot
- * Returns live index quotes from FMP stable/quote endpoint.
- * Uses real indexes: S&P 500, Dow Jones, NASDAQ, VIX.
- * Cached for 5 minutes.
+ * Returns market quotes using Polygon prev-close (free tier).
+ * Uses ETF proxies labelled as their underlying indexes.
+ * Cached 5 minutes.
  */
 import { NextResponse } from 'next/server'
 
-const FMP_BASE = 'https://financialmodelingprep.com/stable'
+const POLY = 'https://api.polygon.io'
 
 type Quote = {
-  symbol:      string
-  label:       string
-  price:       number | null
-  change:      number | null
-  change_pct:  number | null
-  dayHigh:     number | null
-  dayLow:      number | null
+  symbol:     string
+  label:      string
+  sublabel:   string   // e.g. "via SPY"
+  price:      number | null
+  change:     number | null
+  change_pct: number | null
+  dayHigh:    number | null
+  dayLow:     number | null
 }
 
-const INDEXES = [
-  { symbol: '^GSPC', label: 'S&P 500'   },
-  { symbol: '^DJI',  label: 'Dow Jones'  },
-  { symbol: '^IXIC', label: 'NASDAQ'     },
-  { symbol: '^VIX',  label: 'VIX'        },
+const TICKERS = [
+  { ticker: 'SPY',  label: 'S&P 500',    sublabel: 'via SPY',  isVix: false },
+  { ticker: 'QQQ',  label: 'NASDAQ 100', sublabel: 'via QQQ',  isVix: false },
+  { ticker: 'DIA',  label: 'Dow Jones',  sublabel: 'via DIA',  isVix: false },
+  { ticker: 'VXX',  label: 'VIX',        sublabel: 'via VXX',  isVix: true  },
 ]
 
-export async function GET() {
+async function getPrevClose(ticker: string): Promise<any | null> {
   try {
-    const key     = process.env.FMP_API_KEY ?? ''
-    const symbols = INDEXES.map(i => i.symbol).join(',')
-    const url     = `${FMP_BASE}/batch-quote?symbols=${encodeURIComponent(symbols)}&apikey=${key}`
+    const key = process.env.POLYGON_API_KEY ?? ''
+    const res = await fetch(
+      `${POLY}/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${key}`,
+      { next: { revalidate: 300 } }
+    )
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.results?.[0] ?? null
+  } catch { return null }
+}
 
-    const res  = await fetch(url, { next: { revalidate: 300 } })
-    if (!res.ok) throw new Error(`FMP error: ${res.status}`)
+export async function GET() {
+  const results = await Promise.all(TICKERS.map(t => getPrevClose(t.ticker)))
 
-    const json: any[] = await res.json()
+  const quotes: Quote[] = TICKERS.map((t, i) => {
+    const r = results[i]
+    return {
+      symbol:     t.ticker,
+      label:      t.label,
+      sublabel:   t.sublabel,
+      price:      r?.c  ?? null,
+      change:     r?.c != null && r?.o != null ? r.c - r.o : null,
+      change_pct: r?.c != null && r?.o != null ? ((r.c - r.o) / r.o) * 100 : null,
+      dayHigh:    r?.h  ?? null,
+      dayLow:     r?.l  ?? null,
+    }
+  })
 
-    const quotes: Quote[] = INDEXES.map(idx => {
-      const r = json.find((q: any) =>
-        q.symbol === idx.symbol || q.symbol === idx.symbol.replace('^', '')
-      )
-      return {
-        symbol:     idx.symbol,
-        label:      idx.label,
-        price:      r?.price          ?? null,
-        change:     r?.change         ?? null,
-        change_pct: r?.changePercentage ?? null,
-        dayHigh:    r?.dayHigh        ?? null,
-        dayLow:     r?.dayLow         ?? null,
-      }
-    })
-
-    return NextResponse.json({ quotes, timestamp: new Date().toISOString() })
-  } catch (e) {
-    console.error('[market-snapshot]', e)
-    return NextResponse.json({ quotes: [], error: String(e), timestamp: new Date().toISOString() })
-  }
+  return NextResponse.json({ quotes, timestamp: new Date().toISOString() })
 }
