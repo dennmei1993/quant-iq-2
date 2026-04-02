@@ -66,7 +66,7 @@ export default function ThemeTickerManager({
       setResults(data.assets ?? [])
     } catch { setResults([]) }
     finally { setSearching(false) }
-  }, [])
+  }, [assetType])
 
   useEffect(() => {
     const t = setTimeout(() => search(query), 200)
