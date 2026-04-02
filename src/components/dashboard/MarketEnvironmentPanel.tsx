@@ -137,75 +137,73 @@ export default function MarketEnvironmentPanel({ macroScores }: { macroScores: M
         </div>
       )}
 
-      {/* ── Macro Aspect Heatmap ── */}
+      {/* ── Macro Heatmap ── compact one-line per aspect + overall heat ── */}
       <div style={{
         background: 'var(--navy2)', border: '1px solid var(--dash-border)',
-        borderRadius: 10, padding: '1.2rem 1.4rem',
+        borderRadius: 10, padding: '0.9rem 1.2rem',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Macro Environment
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+          <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Macro Heat
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            {[['Bearish', '#e87070'], ['Neutral', '#e09845'], ['Bullish', '#4eca99']].map(([l, c]) => (
-              <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />
-                <span style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.3)' }}>{l}</span>
+          {/* Overall heat gauge */}
+          {(() => {
+            const avg   = macroScores.length
+              ? macroScores.reduce((a, m) => a + m.score, 0) / macroScores.length
+              : 0
+            const color = scoreToColor(avg)
+            const pct   = scoreToBar(avg)
+            const label = avg >= 2 ? 'Bullish' : avg >= 0 ? 'Neutral' : avg >= -2 ? 'Cautious' : 'Bearish'
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ width: 80, height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.1)' }} />
+                  {avg >= 0
+                    ? <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: `${(avg / 10) * 50}%`, background: color, borderRadius: '0 3px 3px 0', opacity: 0.85 }} />
+                    : <div style={{ position: 'absolute', right: '50%', top: 0, bottom: 0, width: `${(Math.abs(avg) / 10) * 50}%`, background: color, borderRadius: '3px 0 0 3px', opacity: 0.85 }} />
+                  }
+                </div>
+                <span style={{ fontSize: '0.65rem', fontWeight: 600, color }}>{label}</span>
+                <span style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.3)', fontFamily: 'monospace' }}>
+                  {avg > 0 ? '+' : ''}{avg.toFixed(1)}
+                </span>
               </div>
-            ))}
-          </div>
+            )
+          })()}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        {/* Compact aspect pills — one row */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {macroScores
             .sort((a, b) => b.score - a.score)
             .map(m => {
               const meta  = ASPECT_META[m.aspect]
               const color = scoreToColor(m.score)
-              const bar   = scoreToBar(m.score)
-              const context = m.score > 0
-                ? meta?.bullish
-                : m.score < 0
-                  ? meta?.bearish
-                  : 'Neutral conditions'
-
+              const context = m.score > 0 ? meta?.bullish : m.score < 0 ? meta?.bearish : 'Neutral'
               return (
-                <div key={m.aspect}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.85rem' }}>{meta?.icon}</span>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--cream)', fontWeight: 500 }}>
-                        {meta?.label ?? m.aspect}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.35)', fontStyle: 'italic' }}>
-                        {context}
-                      </span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color, fontFamily: 'monospace', minWidth: '2.5rem', textAlign: 'right' }}>
-                        {m.score > 0 ? '+' : ''}{m.score.toFixed(1)}
-                      </span>
-                    </div>
-                  </div>
-                  {/* Bar — center is neutral (50%) */}
-                  <div style={{ position: 'relative', height: 5, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }}>
-                    {/* Centre line */}
-                    <div style={{
-                      position: 'absolute', left: '50%', top: 0, bottom: 0,
-                      width: 1, background: 'rgba(255,255,255,0.1)',
-                    }} />
-                    {/* Score bar */}
+                <div
+                  key={m.aspect}
+                  title={context}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                    background: `${color}10`, border: `1px solid ${color}28`,
+                    borderRadius: 6, padding: '0.3rem 0.6rem',
+                    cursor: 'default',
+                  }}
+                >
+                  <span style={{ fontSize: '0.75rem' }}>{meta?.icon}</span>
+                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.55)', fontWeight: 500 }}>
+                    {meta?.label ?? m.aspect}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color, fontFamily: 'monospace' }}>
+                    {m.score > 0 ? '+' : ''}{m.score.toFixed(1)}
+                  </span>
+                  {/* Mini bar */}
+                  <div style={{ width: 24, height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.1)' }} />
                     {m.score >= 0
-                      ? <div style={{
-                          position: 'absolute', left: '50%', top: 0, bottom: 0,
-                          width: `${(m.score / 10) * 50}%`,
-                          background: color, borderRadius: '0 3px 3px 0', opacity: 0.8,
-                        }} />
-                      : <div style={{
-                          position: 'absolute', right: `${50}%`, top: 0, bottom: 0,
-                          width: `${(Math.abs(m.score) / 10) * 50}%`,
-                          background: color, borderRadius: '3px 0 0 3px', opacity: 0.8,
-                        }} />
+                      ? <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: `${(m.score / 10) * 50}%`, background: color, borderRadius: '0 2px 2px 0', opacity: 0.8 }} />
+                      : <div style={{ position: 'absolute', right: '50%', top: 0, bottom: 0, width: `${(Math.abs(m.score) / 10) * 50}%`, background: color, borderRadius: '2px 0 0 2px', opacity: 0.8 }} />
                     }
                   </div>
                 </div>
