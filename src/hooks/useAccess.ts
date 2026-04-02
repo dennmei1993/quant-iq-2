@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
+import { createClient } from '@/lib/supabase/client'
 import { canAccess, type Feature, type UserTier } from '@/lib/access-control'
 
 interface UseAccessReturn {

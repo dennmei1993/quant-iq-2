@@ -1,35 +1,25 @@
 {
-  "name": "quant-iq",
+  "name": "quant-iq-data-engine",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "supabase db push",
-    "db:reset": "supabase db reset",
-    "db:types": "supabase gen types typescript --local > lib/database.types.ts",
-    "cron:ingest": "curl -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/ingest",
-    "cron:themes": "curl -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/themes"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.39.0",
-    "@supabase/ssr": "0.5.2",
-    "@supabase/supabase-js": "^2.99.3",
-    "next": "16.2.1",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "rss-parser": "^3.13.0",
-    "supabase": "^2.84.4",
-    "zod": "3.23.8"
+    "@anthropic-ai/sdk": "^0.82.0",
+    "@supabase/ssr": "^0.10.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "next": "^16.2.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
   },
   "devDependencies": {
-    "@types/node": "22.13.10",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.0",
-    "eslint": "^10.1.0",
-    "eslint-config-next": "^0.2.4",
-    "typescript": "5.8.2"
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "typescript": "^5.5.0"
   }
 }

@@ -10,9 +10,10 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { ticker: string } }
+  { params }: { params: Promise<{ ticker: string }> }
 ) {
-  const ticker = params.ticker.toUpperCase()
+  const { ticker: rawTicker } = await params
+  const ticker = rawTicker.toUpperCase()
 
   try {
     const supabase = createServiceClient()

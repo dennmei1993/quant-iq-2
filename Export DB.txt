@@ -1,0 +1,1 @@
+PowerShell -ExecutionPolicy Bypass -File .\export-db.ps1 -SupabaseUrl "https://uodgthfhflojqkppyifp.supabase.co" -ServiceRoleKey "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvZGd0aGZoZmxvanFrcHB5aWZwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTAyMjU1NSwiZXhwIjoyMDkwNTk4NTU1fQ.hmKFEn-QNfi-66hCFCc1Khy2Tb0QzHGaBxhth0oSsbM"

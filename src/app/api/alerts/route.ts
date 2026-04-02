@@ -3,6 +3,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
 
+type Alert = {
+  id:         string
+  user_id:    string
+  type:       string
+  title:      string
+  body:       string | null
+  ticker:     string | null
+  is_read:    boolean
+  created_at: string
+}
+
 export async function GET() {
   try {
     const { supabase, user } = await requireUser();
@@ -14,8 +25,9 @@ export async function GET() {
       .limit(20);
     if (error) throw error;
 
-    const unread_count = (data ?? []).filter(a => !a.is_read).length;
-    return NextResponse.json({ alerts: data ?? [], unread_count });
+    const alerts = (data ?? []) as Alert[]
+    const unread_count = alerts.filter(a => !a.is_read).length;
+    return NextResponse.json({ alerts, unread_count });
   } catch (e) {
     const { body, status } = errorResponse(e);
     return NextResponse.json(body, { status });
@@ -31,11 +43,11 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "ids[] is required" }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("alerts")
       .update({ is_read: true })
       .in("id", ids)
-      .eq("user_id", user.id); // RLS belt-and-braces
+      .eq("user_id", user.id);
 
     if (error) throw error;
     return NextResponse.json({ ok: true, updated: ids.length });
