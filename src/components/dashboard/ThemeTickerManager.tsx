@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 // src/components/dashboard/ThemeTickerManager.tsx
 // Manages tickers within a theme card.
 // - Lists existing theme tickers with weight/rationale
@@ -9,7 +9,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type TickerWeight = {
   ticker:       string
@@ -24,7 +24,7 @@ type AssetResult = {
   asset_type: string
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function weightColor(w: number) {
   if (w >= 0.7) return 'var(--signal-bull)'
@@ -39,7 +39,7 @@ function weightLabel(w: number) {
   return 'Peripheral'
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ThemeTickerManager({
   themeId,
@@ -68,7 +68,7 @@ export default function ThemeTickerManager({
     if (showAdd) setTimeout(() => addInputRef.current?.focus(), 50)
   }, [showAdd])
 
-  // ── Filter existing tickers ──────────────────────────────────────────────
+  // â”€â”€ Filter existing tickers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const displayedTickers = showAll ? tickers : tickers.slice(0, 6)
   const filteredTickers = filterQuery.length > 0
     ? displayedTickers.filter(t =>
@@ -77,7 +77,7 @@ export default function ThemeTickerManager({
       )
     : displayedTickers
 
-  // ── Global asset search (debounced) ─────────────────────────────────────
+  // â”€â”€ Global asset search (debounced) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const searchAssets = useCallback(async (q: string) => {
     if (q.length < 1) { setAddResults([]); return }
     try {
@@ -93,7 +93,7 @@ export default function ThemeTickerManager({
     return () => clearTimeout(t)
   }, [addQuery, assetType, searchAssets])
 
-  // ── Add ticker to theme ───────────────────────────────────────────────────
+  // â”€â”€ Add ticker to theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function handleAdd(ticker: string) {
     setAdding(ticker)
     setError('')
@@ -133,7 +133,7 @@ export default function ThemeTickerManager({
     }
   }
 
-  // ── Remove ticker from theme ──────────────────────────────────────────────
+  // â”€â”€ Remove ticker from theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function handleRemove(ticker: string) {
     setRemoving(ticker)
     setError('')
@@ -153,7 +153,7 @@ export default function ThemeTickerManager({
     }
   }
 
-  // ── Add to watchlist ──────────────────────────────────────────────────────
+  // â”€â”€ Add to watchlist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function handleWatchlist(ticker: string) {
     try {
       const res = await fetch('/api/watchlist/ticker', {
@@ -165,15 +165,15 @@ export default function ThemeTickerManager({
     } catch { /* silent */ }
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   return (
     <div>
 
-      {/* ── Header: label + filter + add button ── */}
+      {/* â”€â”€ Header: label + filter + add button â”€â”€ */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', gap: '0.5rem' }}>
         <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0 }}>
-          Associated Assets · {tickers.length}
+          Associated Assets Â· {tickers.length}
         </div>
 
         {/* Add new ticker button */}
@@ -185,18 +185,18 @@ export default function ThemeTickerManager({
             background: 'none', border: 'none', cursor: 'pointer', padding: '0.1rem 0.3rem',
           }}
         >
-          {showAdd ? '✕ Cancel' : '+ Add'}
+          {showAdd ? 'âœ• Cancel' : '+ Add'}
         </button>
       </div>
 
-      {/* ── Empty state ── */}
+      {/* â”€â”€ Empty state â”€â”€ */}
       {tickers.length === 0 && !showAdd && (
         <p style={{ fontSize: '0.75rem', color: 'rgba(232,226,217,0.18)', fontStyle: 'italic', margin: 0 }}>
-          No tickers mapped yet — click + Add to get started.
+          No tickers mapped yet â€” click + Add to get started.
         </p>
       )}
 
-      {/* ── Existing ticker rows ── */}
+      {/* â”€â”€ Existing ticker rows â”€â”€ */}
       {filteredTickers.map(tw => (
         <div key={tw.ticker} style={{
           display: 'grid', gridTemplateColumns: '64px 1fr 100px 68px 24px',
@@ -206,7 +206,7 @@ export default function ThemeTickerManager({
           border: '1px solid rgba(255,255,255,0.03)',
         }}>
 
-          {/* Ticker — opens detail page */}
+          {/* Ticker â€” opens detail page */}
           <a
             href={`/dashboard/tickers/${tw.ticker}`}
             style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'monospace', textDecoration: 'none' }}
@@ -216,7 +216,7 @@ export default function ThemeTickerManager({
 
           {/* Rationale */}
           <span style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.38)', lineHeight: 1.4 }}>
-            {tw.rationale ?? '—'}
+            {tw.rationale ?? 'â€”'}
           </span>
 
           {/* Weight bar */}
@@ -249,7 +249,7 @@ export default function ThemeTickerManager({
               fontSize: '0.75rem', padding: 0, lineHeight: 1,
             }}
           >
-            {removing === tw.ticker ? '…' : '✕'}
+            {removing === tw.ticker ? 'â€¦' : 'âœ•'}
           </button>
         </div>
       ))}
@@ -270,11 +270,11 @@ export default function ThemeTickerManager({
             padding: '0.3rem 0', display: 'block', marginTop: '0.2rem',
           }}
         >
-          {showAll ? `↑ Show less` : `↓ Show all ${tickers.length} tickers`}
+          {showAll ? `â†‘ Show less` : `â†“ Show all ${tickers.length} tickers`}
         </button>
       )}
 
-      {/* ── Add new ticker panel ── */}
+      {/* â”€â”€ Add new ticker panel â”€â”€ */}
       {showAdd && (
         <div style={{
           marginTop: '0.75rem',
@@ -307,7 +307,7 @@ export default function ThemeTickerManager({
             ref={addInputRef}
             value={addQuery}
             onChange={e => setAddQuery(e.target.value)}
-            placeholder="Search ticker or company name…"
+            placeholder="Search ticker or company nameâ€¦"
             style={{
               width: '100%', boxSizing: 'border-box',
               background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(232,226,217,0.1)',
@@ -360,7 +360,7 @@ export default function ThemeTickerManager({
                           borderRadius: 4, padding: '0.15rem 0.45rem', cursor: 'pointer',
                         }}
                       >
-                        {watchlisted.has(r.ticker) ? '✓ Watchlist' : '+ Watchlist'}
+                        {watchlisted.has(r.ticker) ? 'âœ“ Watchlist' : '+ Watchlist'}
                       </button>
                       {/* Add to theme */}
                       <button
@@ -375,7 +375,7 @@ export default function ThemeTickerManager({
                           cursor: adding === r.ticker ? 'wait' : 'pointer',
                         }}
                       >
-                        {adding === r.ticker ? '…' : inTheme ? '↻ Update' : '+ Theme'}
+                        {adding === r.ticker ? 'â€¦' : inTheme ? 'â†» Update' : '+ Theme'}
                       </button>
                     </div>
                   </div>
