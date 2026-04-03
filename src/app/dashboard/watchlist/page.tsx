@@ -210,7 +210,7 @@ export default async function WatchlistPage() {
   if (existingNeedRationale.length > 0) {
     await Promise.all(existingNeedRationale.map(async s => {
       try {
-        const prompt = `Write 1-2 sentences explaining why ${s.ticker} currently has a ${s.signal?.toUpperCase()} signal. Price change: ${s.change_pct != null ? (s.change_pct >= 0 ? '+' : '') + Number(s.change_pct).toFixed(2) + '%' : 'N/A'}. Score: ${s.score}/100. Be short, concise and factual.`
+        const prompt = `Write 1-2 sentences explaining why ${s.ticker} currently has a ${s.signal?.toUpperCase()} signal. Price change: ${s.change_pct != null ? (s.change_pct >= 0 ? '+' : '') + Number(s.change_pct).toFixed(2) + '%' : 'N/A'}. Score: ${s.score}/100. In reply, DO NOT mention ticker and current signal.Be short, concise and factual.`
         const res = await fetch('https://api.anthropic.com/v1/messages', {
           method:  'POST',
           headers: {
