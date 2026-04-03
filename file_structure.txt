@@ -1,0 +1,198 @@
+﻿File Structure
+Generated : 2026-04-03 16:48:56
+Root      : D:\WorkingSpace\V3\quant-iq
+Excluded  : node_modules, .git, .next, dist, build, .turbo
+
+quant-iq/
+|-- .vercel
+|   |-- project.json
+|   +-- README.txt
+|-- public
+|-- src
+|   |-- app
+|   |   |-- (marketing)
+|   |   |   |-- layout.tsx
+|   |   |   +-- page.tsx
+|   |   |-- api
+|   |   |   |-- admin
+|   |   |   |   |-- coverage
+|   |   |   |   |   +-- route.ts
+|   |   |   |   |-- run-cron
+|   |   |   |   |   +-- route.ts
+|   |   |   |   |-- sync-fmp
+|   |   |   |   |   +-- route.ts
+|   |   |   |   +-- sync-prices
+|   |   |   |       +-- route.ts
+|   |   |   |-- advisory
+|   |   |   |   +-- route.ts
+|   |   |   |-- alerts
+|   |   |   |   +-- route.ts
+|   |   |   |-- assets
+|   |   |   |   |-- search
+|   |   |   |   |   +-- route.ts
+|   |   |   |   +-- route.ts
+|   |   |   |-- auth
+|   |   |   |   +-- signout
+|   |   |   |       +-- route.ts
+|   |   |   |-- cron
+|   |   |   |   |-- financials
+|   |   |   |   |-- fmp
+|   |   |   |   |   +-- route.ts
+|   |   |   |   |-- ingest
+|   |   |   |   |   |-- alerts.ts
+|   |   |   |   |   +-- route.ts
+|   |   |   |   |-- macro
+|   |   |   |   |   +-- route.ts
+|   |   |   |   +-- themes
+|   |   |   |       +-- route.ts
+|   |   |   |-- debug-fmp
+|   |   |   |   +-- route.ts
+|   |   |   |-- events
+|   |   |   |   +-- route.ts
+|   |   |   |-- macro
+|   |   |   |   +-- route.ts
+|   |   |   |-- market-snapshot
+|   |   |   |   +-- route.ts
+|   |   |   |-- portfolio
+|   |   |   |   +-- route.ts
+|   |   |   |-- profile
+|   |   |   |   +-- route.ts
+|   |   |   |-- rss
+|   |   |   |   |-- feeds
+|   |   |   |   |   +-- route.ts
+|   |   |   |   +-- route.ts
+|   |   |   |-- test
+|   |   |   |   +-- route.ts
+|   |   |   |-- themes
+|   |   |   |   |-- tickers
+|   |   |   |   |   +-- route.ts
+|   |   |   |   +-- route.ts
+|   |   |   |-- tickers
+|   |   |   |   +-- [ticker]
+|   |   |   +-- watchlist
+|   |   |       +-- ticker
+|   |   |           +-- route.ts
+|   |   |-- auth
+|   |   |   |-- callback
+|   |   |   |   +-- route.ts
+|   |   |   |-- login
+|   |   |   |   +-- page.tsx
+|   |   |   |-- signup
+|   |   |   |   +-- page.tsx
+|   |   |   +-- auth.module.css
+|   |   |-- dashboard
+|   |   |   |-- admin
+|   |   |   |   +-- page.tsx
+|   |   |   |-- alerts
+|   |   |   |   |-- alerts.module.css
+|   |   |   |   +-- page.tsx
+|   |   |   |-- assets
+|   |   |   |   |-- assets.module.css
+|   |   |   |   +-- page.tsx
+|   |   |   |-- events
+|   |   |   |   |-- events.module.css
+|   |   |   |   +-- page.tsx
+|   |   |   |-- portfolio
+|   |   |   |   |-- page.tsx
+|   |   |   |   +-- portfolio.module.css
+|   |   |   |-- profile
+|   |   |   |   +-- page.tsx
+|   |   |   |-- themes
+|   |   |   |   |-- page.tsx
+|   |   |   |   +-- themes.module.css
+|   |   |   |-- tickers
+|   |   |   |   +-- [ticker]
+|   |   |   |-- watchlist
+|   |   |   |   +-- page.tsx
+|   |   |   |-- dashboard.module.css
+|   |   |   |-- layout.tsx
+|   |   |   +-- page.tsx
+|   |   |-- globals.css
+|   |   +-- layout.tsx
+|   |-- components
+|   |   |-- dashboard
+|   |   |   |-- DashboardShell.module.css
+|   |   |   |-- DashboardShell.tsx
+|   |   |   |-- KpiCard.tsx
+|   |   |   |-- MacroHeatPanel.module.css
+|   |   |   |-- MacroHeatPanel.tsx
+|   |   |   |-- MarketEnvironmentPanel.tsx
+|   |   |   |-- PortfolioButton.tsx
+|   |   |   |-- RemoveWatchlistButton.tsx
+|   |   |   |-- RssSubscribe.module.css
+|   |   |   |-- RssSubscribe.tsx
+|   |   |   |-- SyncPriceButton.tsx
+|   |   |   |-- ThemeTickerManager.tsx
+|   |   |   |-- ThesisButton.tsx
+|   |   |   |-- ui.module.css
+|   |   |   |-- WatchlistButton.tsx
+|   |   |   +-- widgets.tsx
+|   |   |-- gates
+|   |   |   +-- FeatureGate.tsx
+|   |   |-- landing
+|   |   |   |-- CodeGate.tsx
+|   |   |   |-- landing.module.css
+|   |   |   +-- LandingPage.tsx
+|   |   +-- ui
+|   |-- hooks
+|   |   +-- useAccess.ts
+|   |-- lib
+|   |   |-- supabase
+|   |   |   |-- client.ts
+|   |   |   +-- server.ts
+|   |   |-- access-control.ts
+|   |   |-- ai.ts
+|   |   |-- alerts.ts
+|   |   |-- anchor.ts
+|   |   |-- fmp.ts
+|   |   |-- ingest.ts
+|   |   |-- macro.ts
+|   |   |-- polygon.ts
+|   |   |-- polygon-ticker.ts
+|   |   |-- risk.ts
+|   |   |-- rss-parser.ts
+|   |   |-- rss-sources.ts
+|   |   |-- signal-scorer.ts
+|   |   |-- supabase.ts
+|   |   |-- theme-tickers.ts
+|   |   +-- watchlist-alerts.ts
+|   |-- types
+|   |   +-- supabase.ts
+|   |-- proxy - Copy.ts
+|   +-- proxy.ts
+|-- supabase
+|   |-- .temp
+|   |   |-- cli-latest
+|   |   |-- gotrue-version
+|   |   |-- pooler-url
+|   |   |-- postgres-version
+|   |   |-- project-ref
+|   |   |-- rest-version
+|   |   |-- storage-migration
+|   |   +-- storage-version
+|   +-- migrations
+|       |-- 001_initial_schema.sql
+|       +-- 001_schema.sql
+|-- .env.local
+|-- .gitignore
+|-- .npmrc
+|-- client.bat
+|-- css.bat
+|-- db.ts
+|-- Export DB.txt
+|-- Export-FileStructure.ps1
+|-- file_structure.txt
+|-- fix-impact-level.ps1
+|-- next.config.js
+|-- next-env.d.ts
+|-- package.json
+|-- package-lock.json
+|-- PRODUCT_VISION.md
+|-- quant-iq-cron-local.bat
+|-- quant-iq-cron-Vercel.bat
+|-- README.md
+|-- restore-db.ps1
+|-- skills-lock.json
+|-- structure.txt
+|-- tsconfig.json
++-- vercel.json
