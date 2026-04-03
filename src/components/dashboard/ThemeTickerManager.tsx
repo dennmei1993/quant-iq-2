@@ -60,6 +60,7 @@ export default function ThemeTickerManager({
   const [removing,    setRemoving]    = useState<string | null>(null)
   const [watchlisted, setWatchlisted] = useState<Set<string>>(new Set())
   const [error,       setError]       = useState('')
+  const [showAll,     setShowAll]     = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
 
   // Focus add-ticker input when panel opens
@@ -68,12 +69,13 @@ export default function ThemeTickerManager({
   }, [showAdd])
 
   // ── Filter existing tickers ──────────────────────────────────────────────
+  const displayedTickers = showAll ? tickers : tickers.slice(0, 6)
   const filteredTickers = filterQuery.length > 0
-    ? tickers.filter(t =>
+    ? displayedTickers.filter(t =>
         t.ticker.toUpperCase().includes(filterQuery.toUpperCase()) ||
         (t.rationale ?? '').toLowerCase().includes(filterQuery.toLowerCase())
       )
-    : tickers
+    : displayedTickers
 
   // ── Global asset search (debounced) ─────────────────────────────────────
   const searchAssets = useCallback(async (q: string) => {
@@ -174,21 +176,6 @@ export default function ThemeTickerManager({
           Associated Assets · {tickers.length}
         </div>
 
-        {/* Filter existing tickers */}
-        {tickers.length > 0 && (
-          <input
-            value={filterQuery}
-            onChange={e => setFilterQuery(e.target.value)}
-            placeholder="Filter…"
-            style={{
-              flex: 1, maxWidth: 120,
-              background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(232,226,217,0.08)',
-              borderRadius: 4, padding: '0.2rem 0.5rem',
-              color: 'var(--cream)', fontSize: '0.7rem', outline: 'none',
-            }}
-          />
-        )}
-
         {/* Add new ticker button */}
         <button
           onClick={() => { setShowAdd(!showAdd); setError('') }}
@@ -271,6 +258,20 @@ export default function ThemeTickerManager({
         <div style={{ fontSize: '0.7rem', color: 'rgba(232,226,217,0.2)', padding: '0.4rem 0' }}>
           No tickers match "{filterQuery}"
         </div>
+      )}
+
+      {/* Show All / Show Less toggle */}
+      {tickers.length > 6 && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          style={{
+            fontSize: '0.62rem', color: 'rgba(200,169,110,0.5)',
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '0.3rem 0', display: 'block', marginTop: '0.2rem',
+          }}
+        >
+          {showAll ? `↑ Show less` : `↓ Show all ${tickers.length} tickers`}
+        </button>
       )}
 
       {/* ── Add new ticker panel ── */}
