@@ -246,7 +246,11 @@ export async function GET(req: NextRequest) {
   // ── 4. Update asset signals ───────────────────────────────────────────────
   try {
     const assets = await query<AssetRow[]>(
-      db.from("assets").select("ticker, name, asset_type, sector")
+      db.from("assets")
+        .select("ticker, name, asset_type, sector")
+        .eq("is_active", true)
+        .eq("bootstrap_priority", 1)
+        .limit(100)
     )
 
     if (assets?.length) {

@@ -49,6 +49,7 @@ function DashboardSidebar({ user }: { user: { email: string; fullName: string | 
           { href: "/dashboard/watchlist", label: "Watchlist"      },
           { href: "/dashboard/portfolio", label: "Portfolio"      },
           { href: "/dashboard/alerts",    label: "Alerts"         },
+          { href: "/dashboard/profile", label: "⚙ Profile" },
           { href: "/dashboard/admin", label: "Admin" }
         ].map(({ href, label }, i) => (
           <div key={href}>

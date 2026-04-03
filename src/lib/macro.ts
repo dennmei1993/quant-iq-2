@@ -21,7 +21,7 @@ export type MacroAspect = 'fed' | 'inflation' | 'labour' | 'growth' | 'geopoliti
 export interface MacroScore {
   aspect:      MacroAspect
   score:       number        // -10 to +10
-  direction:   'improving' | 'deteriorating' | 'stable'
+  direction:   'bullish' | 'bearish' | 'neutral'
   commentary:  string
   event_count: number
   scored_at:   string
@@ -173,12 +173,11 @@ export function computeMacroScore(events: ScoringEvent[]): number {
  */
 export function computeDirection(
   score: number
-): 'improving' | 'deteriorating' | 'stable' {
-  if (score >= 1.5)  return 'improving'
-  if (score <= -1.5) return 'deteriorating'
-  return 'stable'
+): 'bullish' | 'bearish' | 'neutral' {
+  if (score >= 1.5)  return 'bullish'
+  if (score <= -1.5) return 'bearish'
+  return 'neutral'
 }
-
 // ─── Claude commentary ────────────────────────────────────────────────────────
 
 /**
