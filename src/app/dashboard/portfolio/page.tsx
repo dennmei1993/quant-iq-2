@@ -107,10 +107,18 @@ function formatPct(v: number): string {
 // CapitalSummaryBar
 // ----------------------------------------------------------------------------
 
-function CapitalSummaryBar({ metrics }: { metrics: PortfolioCapitalMetrics }) {
-  const investedPct = metrics.total_capital > 0
+function CapitalSummaryBar({
+  metrics,
+  cashFloorPct = 0,
+}: {
+  metrics:      PortfolioCapitalMetrics;
+  cashFloorPct?: number;
+}) {
+  const investedPct    = metrics.total_capital > 0
     ? (metrics.invested / metrics.total_capital) * 100 : 0;
-  const gainColor = metrics.capital_gain >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
+  const gainColor      = metrics.capital_gain >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
+  const cashFloorAmt   = metrics.total_capital * (cashFloorPct / 100);
+  const belowFloor     = cashFloorPct > 0 && metrics.cash_available < cashFloorAmt;
 
   return (
     <div style={{
@@ -161,6 +169,20 @@ function CapitalSummaryBar({ metrics }: { metrics: PortfolioCapitalMetrics }) {
       </div>
 
       {/* Invested progress bar */}
+      {belowFloor && (
+        <div style={{
+          background: "rgba(252,92,101,0.08)", border: "1px solid rgba(252,92,101,0.25)",
+          borderRadius: 6, padding: "0.4rem 0.75rem",
+          display: "flex", alignItems: "center", gap: "0.5rem",
+        }}>
+          <span style={{ color: "#fc5c65", fontSize: "0.75rem", fontWeight: 600 }}>⚠ Below min cash reserve</span>
+          <span style={{ color: "rgba(232,226,217,0.4)", fontSize: "0.72rem" }}>
+            Your min cash floor is {cashFloorPct}% (${cashFloorAmt.toLocaleString(undefined, { maximumFractionDigits: 0 })}).
+            Cash available is {formatCurrency(metrics.cash_available)}.
+            This was set by your holdings — the system will respect this floor when auto-building.
+          </span>
+        </div>
+      )}
       {metrics.total_capital > 0 && (
         <div>
           <div style={{
@@ -317,6 +339,19 @@ function PreferencePanel({
               <button key={n} disabled={saving === "target_holdings"} onClick={() => save("target_holdings", n)}
                 style={pillStyle(portfolio.target_holdings === n, saving === "target_holdings")}>
                 {n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Min cash reserve */}
+        <div>
+          <div style={labelStyle}>Min cash reserve</div>
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            {[0, 5, 10, 15, 20].map(n => (
+              <button key={n} disabled={saving === "cash_pct"} onClick={() => save("cash_pct", n)}
+                style={pillStyle(portfolio.cash_pct === n, saving === "cash_pct")}>
+                {n}%
               </button>
             ))}
           </div>
@@ -749,8 +784,10 @@ export default function PortfolioPage() {
   const [ticker,      setTicker]      = useState("");
   const [quantity,    setQuantity]    = useState("");
   const [avgCost,     setAvgCost]     = useState("");
-  const [adding,      setAdding]      = useState(false);
-  const [generating,  setGenerating]  = useState(false);
+  const [adding,        setAdding]        = useState(false);
+  const [generating,    setGenerating]    = useState(false);
+  const [aiBuilding,    setAiBuilding]    = useState(false);
+  const [aiResult,      setAiResult]      = useState<{ rationale: string; warnings: string[] } | null>(null);
   const [formError,   setFormError]   = useState("");
   const [tickerError, setTickerError] = useState("");
 
@@ -857,6 +894,27 @@ export default function PortfolioPage() {
     setGenerating(false);
   }
 
+  async function buildPortfolioWithAI() {
+    if (!selectedId) return;
+    setAiBuilding(true);
+    setAiResult(null);
+    try {
+      const res = await fetch("/api/portfolio/generate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ portfolio_id: selectedId }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setFormError(data.error ?? "Failed to generate portfolio"); return; }
+      setAiResult({ rationale: data.rationale, warnings: data.warnings ?? [] });
+      await loadPortfolioData(selectedId);
+    } catch {
+      setFormError("Failed to generate portfolio");
+    } finally {
+      setAiBuilding(false);
+    }
+  }
+
   // Compute capital metrics from current holdings + live prices
   const selectedPortfolio = portfolios.find(p => p.id === selectedId) ?? null;
   const capitalMetrics: PortfolioCapitalMetrics | null = selectedPortfolio
@@ -916,7 +974,7 @@ export default function PortfolioPage() {
 
           {/* Capital summary — only shown when total_capital is set */}
           {capitalMetrics && selectedPortfolio.total_capital > 0 && (
-            <CapitalSummaryBar metrics={capitalMetrics} />
+            <CapitalSummaryBar metrics={capitalMetrics} cashFloorPct={selectedPortfolio.cash_pct} />
           )}
 
           {/* Tab switcher */}
@@ -933,6 +991,63 @@ export default function PortfolioPage() {
           {activeTab === "holdings" && (
             <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "1.5rem" }}>
               <div>
+
+                {/* AI portfolio builder */}
+                <div style={{ marginBottom: "1.2rem", display: "flex", flexDirection: "column", gap: "0.7rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <button
+                      onClick={buildPortfolioWithAI}
+                      disabled={aiBuilding || !selectedPortfolio?.total_capital}
+                      style={{
+                        padding: "0.55rem 1.1rem",
+                        background: aiBuilding ? "rgba(200,169,110,0.1)" : "rgba(200,169,110,0.15)",
+                        border: "1px solid rgba(200,169,110,0.35)",
+                        color: "var(--gold)", borderRadius: 7, fontSize: "0.82rem",
+                        fontWeight: 600, cursor: aiBuilding || !selectedPortfolio?.total_capital ? "not-allowed" : "pointer",
+                        opacity: !selectedPortfolio?.total_capital ? 0.4 : 1,
+                        display: "flex", alignItems: "center", gap: "0.5rem", transition: "all 0.15s",
+                      }}
+                    >
+                      <span>{aiBuilding ? "⟳ Building…" : "✦ Build portfolio for me"}</span>
+                    </button>
+                    {!selectedPortfolio?.total_capital && (
+                      <span style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.3)" }}>
+                        Set a total capital amount first
+                      </span>
+                    )}
+                  </div>
+
+                  {/* AI result panel */}
+                  {aiResult && (
+                    <div style={{
+                      background: "rgba(200,169,110,0.05)", border: "1px solid rgba(200,169,110,0.2)",
+                      borderRadius: 8, padding: "0.9rem 1.1rem", display: "flex", flexDirection: "column", gap: "0.5rem",
+                    }}>
+                      <div style={{ fontSize: "0.65rem", color: "rgba(200,169,110,0.5)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                        AI portfolio rationale
+                      </div>
+                      <p style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.7)", lineHeight: 1.6, margin: 0 }}>
+                        {aiResult.rationale}
+                      </p>
+                      {aiResult.warnings.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", marginTop: "0.25rem" }}>
+                          {aiResult.warnings.map((w, i) => (
+                            <div key={i} style={{ fontSize: "0.72rem", color: "rgba(252,180,41,0.7)", display: "flex", gap: "0.4rem" }}>
+                              <span>⚠</span><span>{w}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => setAiResult(null)}
+                        style={{ alignSelf: "flex-end", background: "none", border: "none", color: "rgba(232,226,217,0.2)", cursor: "pointer", fontSize: "0.72rem" }}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <form onSubmit={addHolding} style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 8, padding: "1rem 1.2rem", marginBottom: "1.2rem" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 0.9fr auto", gap: "0.6rem", alignItems: "flex-start" }}>
                     <TickerAutocomplete value={ticker} onChange={v => { setTicker(v); setTickerError(""); }} onSelect={a => { setTicker(a.ticker); setTickerError(""); }} error={tickerError} />
