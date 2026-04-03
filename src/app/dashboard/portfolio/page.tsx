@@ -784,6 +784,10 @@ export default function PortfolioPage() {
   const [ticker,      setTicker]      = useState("");
   const [quantity,    setQuantity]    = useState("");
   const [avgCost,     setAvgCost]     = useState("");
+  // editMap tracks pending inline edits keyed by holding id
+  // { quantity: string, avg_cost: string, dirty: boolean }
+  const [editMap,       setEditMap]       = useState<Record<string, { quantity: string; avg_cost: string; dirty: boolean }>>({});
+  const [committing,    setCommitting]    = useState(false);
   const [adding,        setAdding]        = useState(false);
   const [generating,    setGenerating]    = useState(false);
   const [aiBuilding,    setAiBuilding]    = useState(false);
@@ -829,8 +833,22 @@ export default function PortfolioPage() {
       fetch(`/api/portfolio?portfolio_id=${portfolioId}`).then(r => r.json()),
       fetch(`/api/advisory?portfolio_id=${portfolioId}`).then(r => r.json()),
     ]);
-    setHoldings(pRes.holdings ?? []);
+    const loaded: Holding[] = pRes.holdings ?? [];
+    setHoldings(loaded);
     setMemos(mRes.memos ?? []);
+    // Initialise editMap from DB values — not dirty
+    setEditMap(
+      Object.fromEntries(
+        loaded.map(h => [
+          h.id,
+          {
+            quantity: h.quantity != null ? String(h.quantity) : "",
+            avg_cost: h.avg_cost != null ? String(h.avg_cost) : "",
+            dirty:    false,
+          },
+        ])
+      )
+    );
   }, []);
 
   useEffect(() => {
@@ -902,6 +920,34 @@ export default function PortfolioPage() {
     setGenerating(false);
   }
 
+  function setEdit(id: string, field: "quantity" | "avg_cost", value: string) {
+    setEditMap(prev => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value, dirty: true },
+    }));
+  }
+
+  async function commitEdits() {
+    const dirty = Object.entries(editMap).filter(([, v]) => v.dirty);
+    if (!dirty.length) return;
+    setCommitting(true);
+    await Promise.all(
+      dirty.map(([id, vals]) =>
+        fetch(`/api/portfolio?holding_id=${id}`, {
+          method:  "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            quantity: vals.quantity !== "" ? Number(vals.quantity) : null,
+            avg_cost: vals.avg_cost !== "" ? Number(vals.avg_cost) : null,
+          }),
+        })
+      )
+    );
+    // Mark all clean and refresh from DB
+    if (selectedId) await loadPortfolioData(selectedId);
+    setCommitting(false);
+  }
+
   async function buildPortfolioWithAI() {
     if (!selectedId) return;
     setAiBuilding(true);
@@ -933,17 +979,24 @@ export default function PortfolioPage() {
 
   // Compute capital metrics from current holdings + live prices
   const selectedPortfolio = portfolios.find(p => p.id === selectedId) ?? null;
+  // Use editMap values for live capital preview while user edits
   const capitalMetrics: PortfolioCapitalMetrics | null = selectedPortfolio
     ? computeCapitalMetrics(
         selectedPortfolio.total_capital,
-        holdings.map(h => ({
-          ticker:    h.ticker,
-          quantity:  h.quantity,
-          avg_cost:  h.avg_cost,
-          price_usd: h.signal?.price_usd ?? null,
-        }))
+        holdings.map(h => {
+          const edit = editMap[h.id];
+          const qty  = edit?.quantity !== "" ? Number(edit?.quantity ?? h.quantity ?? 0) : (h.quantity ?? 0);
+          const cost = edit?.avg_cost !== "" ? Number(edit?.avg_cost ?? h.avg_cost ?? 0) : (h.avg_cost ?? 0);
+          return {
+            ticker:    h.ticker,
+            quantity:  qty,
+            avg_cost:  cost,
+            price_usd: h.signal?.price_usd ?? null,
+          };
+        })
       )
     : null;
+  const hasDirtyEdits = Object.values(editMap).some(v => v.dirty);
 
   // ── Render: loading ─────────────────────────────────────────────────────────
 
@@ -1149,54 +1202,170 @@ export default function PortfolioPage() {
                   {formError && <div style={{ color: "var(--signal-bear)", fontSize: "0.78rem", marginTop: "0.5rem" }}>{formError}</div>}
                 </form>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                  {holdings.map(h => {
-                    const sig   = h.signal;
-                    const sc    = sig?.signal ?? "hold";
-                    const scCol = SIG_COLOR[sc] ?? "rgba(232,226,217,0.3)";
-                    const chg   = sig?.change_pct;
-                    const mktVal = sig?.price_usd && h.quantity ? sig.price_usd * h.quantity : null;
-                    const costBasis = h.avg_cost && h.quantity ? h.avg_cost * h.quantity : null;
-                    const gain = mktVal && costBasis ? mktVal - costBasis : null;
-                    return (
-                      <div key={h.id} style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 8, padding: "0.85rem 1.1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <span style={{ fontWeight: 700, color: "var(--cream)" }}>{h.ticker}</span>
-                            <span style={{ fontSize: "0.65rem", color: scCol, background: `${scCol}18`, padding: "0.1rem 0.35rem", borderRadius: 10, textTransform: "uppercase" }}>{sc}</span>
-                          </div>
-                          <div style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.35)", marginTop: "0.15rem" }}>
-                            {h.name && <span style={{ marginRight: "0.4rem", opacity: 0.7 }}>{h.name}</span>}
-                            {h.quantity != null ? `${h.quantity} units` : ""}
-                            {h.avg_cost != null ? ` · avg $${h.avg_cost}` : ""}
-                            {mktVal != null ? ` · ${formatCurrency(mktVal)}` : ""}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                          {gain != null && (
-                            <span style={{ fontSize: "0.78rem", fontWeight: 600, color: gain >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
-                              {gain >= 0 ? "+" : ""}{formatCurrency(gain)}
-                            </span>
-                          )}
-                          {chg != null && (
-                            <span style={{ fontSize: "0.8rem", fontWeight: 600, color: chg >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
-                              {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
-                            </span>
-                          )}
-                          <button onClick={() => removeHolding(h.id)}
-                            style={{ background: "none", border: "none", color: "rgba(232,226,217,0.2)", cursor: "pointer", fontSize: "1rem", padding: "0 0.2rem" }}>
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {!holdings.length && (
-                    <div style={{ color: "rgba(232,226,217,0.2)", fontSize: "0.82rem", padding: "1rem 0" }}>
-                      No holdings yet. Add a ticker above.
+                {/* Commit bar */}
+                {hasDirtyEdits && (
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    background: "rgba(200,169,110,0.06)", border: "1px solid rgba(200,169,110,0.25)",
+                    borderRadius: 8, padding: "0.6rem 1rem", marginBottom: "0.75rem",
+                  }}>
+                    <span style={{ fontSize: "0.78rem", color: "rgba(200,169,110,0.7)" }}>
+                      You have unsaved changes — capital allocation is previewed below
+                    </span>
+                    <button
+                      onClick={commitEdits}
+                      disabled={committing}
+                      style={{
+                        padding: "0.4rem 1rem", background: "var(--gold)", color: "var(--navy)",
+                        fontWeight: 700, borderRadius: 6, border: "none", fontSize: "0.8rem",
+                        cursor: committing ? "not-allowed" : "pointer", opacity: committing ? 0.6 : 1,
+                      }}
+                    >
+                      {committing ? "Saving…" : "Commit changes"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Holdings table */}
+                {holdings.length > 0 ? (
+                  <div style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 8, overflow: "hidden" }}>
+                    {/* Table header */}
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 2rem",
+                      gap: "0.5rem",
+                      padding: "0.5rem 0.85rem",
+                      borderBottom: "1px solid var(--dash-border)",
+                      fontSize: "0.62rem", color: "rgba(232,226,217,0.3)",
+                      textTransform: "uppercase", letterSpacing: "0.07em",
+                    }}>
+                      <span>Ticker</span>
+                      <span style={{ textAlign: "right" }}>Qty</span>
+                      <span style={{ textAlign: "right" }}>Avg cost</span>
+                      <span style={{ textAlign: "right" }}>Live price</span>
+                      <span style={{ textAlign: "right" }}>Mkt value</span>
+                      <span style={{ textAlign: "right" }}>Gain/Loss</span>
+                      <span style={{ textAlign: "right" }}>Day chg</span>
+                      <span />
                     </div>
-                  )}
-                </div>
+
+                    {/* Table rows */}
+                    {holdings.map((h, idx) => {
+                      const edit     = editMap[h.id] ?? { quantity: "", avg_cost: "", dirty: false };
+                      const sig      = h.signal;
+                      const sc       = sig?.signal ?? "hold";
+                      const scCol    = SIG_COLOR[sc] ?? "rgba(232,226,217,0.3)";
+                      const livePrice = sig?.price_usd ?? null;
+                      const chg      = sig?.change_pct ?? null;
+
+                      const qty      = edit.quantity !== "" ? Number(edit.quantity) : (h.quantity ?? null);
+                      const cost     = edit.avg_cost !== "" ? Number(edit.avg_cost) : (h.avg_cost ?? null);
+                      const mktVal   = livePrice != null && qty != null ? livePrice * qty : null;
+                      const costBase = cost != null && qty != null ? cost * qty : null;
+                      const gain     = mktVal != null && costBase != null ? mktVal - costBase : null;
+
+                      const isDraft  = h.quantity == null && h.avg_cost == null;
+                      const isDirty  = edit.dirty;
+
+                      return (
+                        <div
+                          key={h.id}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 2rem",
+                            gap: "0.5rem",
+                            padding: "0.55rem 0.85rem",
+                            alignItems: "center",
+                            borderBottom: idx < holdings.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                            background: isDirty ? "rgba(200,169,110,0.03)" : isDraft ? "rgba(99,179,237,0.03)" : "transparent",
+                          }}
+                        >
+                          {/* Ticker + signal + name */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                              <span style={{ fontWeight: 700, color: "var(--cream)", fontSize: "0.85rem" }}>{h.ticker}</span>
+                              <span style={{ fontSize: "0.58rem", color: scCol, background: `${scCol}15`, padding: "0.05rem 0.3rem", borderRadius: 8, textTransform: "uppercase" }}>{sc}</span>
+                              {isDraft && <span style={{ fontSize: "0.58rem", color: "#63b3ed", background: "rgba(99,179,237,0.12)", padding: "0.05rem 0.3rem", borderRadius: 8 }}>draft</span>}
+                              {isDirty && <span style={{ fontSize: "0.58rem", color: "rgba(200,169,110,0.7)" }}>●</span>}
+                            </div>
+                            {h.name && <span style={{ fontSize: "0.65rem", color: "rgba(232,226,217,0.25)" }}>{h.name}</span>}
+                          </div>
+
+                          {/* Quantity — editable */}
+                          <div style={{ textAlign: "right" }}>
+                            <input
+                              type="number"
+                              value={edit.quantity}
+                              onChange={e => setEdit(h.id, "quantity", e.target.value)}
+                              placeholder="—"
+                              style={{
+                                width: "100%", textAlign: "right",
+                                background: "rgba(255,255,255,0.05)",
+                                border: `1px solid ${isDirty ? "rgba(200,169,110,0.35)" : "rgba(255,255,255,0.07)"}`,
+                                borderRadius: 4, color: "var(--cream)",
+                                fontSize: "0.8rem", outline: "none",
+                                padding: "0.25rem 0.4rem",
+                              }}
+                            />
+                          </div>
+
+                          {/* Avg cost — editable */}
+                          <div style={{ textAlign: "right" }}>
+                            <input
+                              type="number"
+                              value={edit.avg_cost}
+                              onChange={e => setEdit(h.id, "avg_cost", e.target.value)}
+                              placeholder="—"
+                              style={{
+                                width: "100%", textAlign: "right",
+                                background: "rgba(255,255,255,0.05)",
+                                border: `1px solid ${isDirty ? "rgba(200,169,110,0.35)" : "rgba(255,255,255,0.07)"}`,
+                                borderRadius: 4, color: "var(--cream)",
+                                fontSize: "0.8rem", outline: "none",
+                                padding: "0.25rem 0.4rem",
+                              }}
+                            />
+                          </div>
+
+                          {/* Live price — read only */}
+                          <div style={{ textAlign: "right", fontSize: "0.8rem", color: "rgba(232,226,217,0.6)" }}>
+                            {livePrice != null ? `$${livePrice.toFixed(2)}` : "—"}
+                          </div>
+
+                          {/* Market value */}
+                          <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--cream)" }}>
+                            {mktVal != null ? formatCurrency(mktVal) : "—"}
+                          </div>
+
+                          {/* Gain/loss */}
+                          <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: gain == null ? "rgba(232,226,217,0.25)" : gain >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
+                            {gain != null ? `${gain >= 0 ? "+" : ""}${formatCurrency(gain)}` : "—"}
+                          </div>
+
+                          {/* Day change */}
+                          <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: chg == null ? "rgba(232,226,217,0.25)" : chg >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
+                            {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : "—"}
+                          </div>
+
+                          {/* Delete */}
+                          <div style={{ textAlign: "right" }}>
+                            <button
+                              onClick={() => removeHolding(h.id)}
+                              style={{ background: "none", border: "none", color: "rgba(232,226,217,0.2)", cursor: "pointer", fontSize: "1rem", padding: 0, lineHeight: 1 }}
+                              title="Remove holding"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ color: "rgba(232,226,217,0.2)", fontSize: "0.82rem", padding: "1rem 0" }}>
+                    No holdings yet. Add a ticker above or use "Build portfolio for me".
+                  </div>
+                )}
               </div>
 
               <div>

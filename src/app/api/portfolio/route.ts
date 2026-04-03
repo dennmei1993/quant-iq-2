@@ -171,28 +171,55 @@ export async function POST(req: NextRequest) {
 }
 
 // ----------------------------------------------------------------------------
-// PATCH — update portfolio preferences
+// PATCH — update portfolio preferences OR update a holding (qty/avg_cost)
+//
+// ?holding_id=  → update holding quantity/avg_cost
+// (no param)    → update portfolio preferences
 // ----------------------------------------------------------------------------
 
 export async function PATCH(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
+    const holdingId = req.nextUrl.searchParams.get("holding_id");
+
+    // ── Update holding ────────────────────────────────────────────────────────
+    if (holdingId) {
+      const { quantity, avg_cost } = await req.json();
+
+      // Verify ownership via portfolio join
+      const { data: holding } = await supabase
+        .from("holdings")
+        .select("id, portfolios!inner(user_id)")
+        .eq("id", holdingId)
+        .single();
+
+      const owner = (holding?.portfolios as unknown as { user_id: string } | null)?.user_id;
+      if (!holding || owner !== user.id) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+
+      const { error } = await supabase
+        .from("holdings")
+        .update({
+          quantity: quantity != null ? Number(quantity) : null,
+          avg_cost: avg_cost != null ? Number(avg_cost) : null,
+        })
+        .eq("id", holdingId);
+
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── Update portfolio preferences ──────────────────────────────────────────
     const { portfolio_id, ...prefs } = await req.json();
 
     if (!portfolio_id) {
       return NextResponse.json({ error: "portfolio_id is required" }, { status: 400 });
     }
 
-    // Whitelist updatable preference fields — never allow user_id or id to be patched
     const ALLOWED = new Set([
-      "name",
-      "risk_appetite",
-      "benchmark",
-      "target_holdings",
-      "preferred_assets",
-      "cash_pct",
-      "investment_horizon",
-      "total_capital",
+      "name", "risk_appetite", "benchmark", "target_holdings",
+      "preferred_assets", "cash_pct", "investment_horizon", "total_capital",
     ]);
 
     const update = Object.fromEntries(
@@ -207,7 +234,7 @@ export async function PATCH(req: NextRequest) {
       .from("portfolios")
       .update(update)
       .eq("id", portfolio_id)
-      .eq("user_id", user.id); // ownership check
+      .eq("user_id", user.id);
 
     if (error) throw error;
     return NextResponse.json({ ok: true });
