@@ -1,4 +1,4 @@
-// src/app/dashboard/themes/page.tsx
+﻿// src/app/dashboard/themes/page.tsx
 import { createServiceClient } from "@/lib/supabase/server";
 import ThemeTickerManager from '@/components/dashboard/ThemeTickerManager'
 
@@ -10,6 +10,7 @@ type TickerWeight = {
   final_weight: number
   relevance:    number
   rationale:    string | null
+  asset_type:   string | null
 }
 
 type Theme = {
@@ -33,8 +34,8 @@ async function query<T>(q: any): Promise<T | null> {
 }
 
 const MOMENTUM_LABEL: Record<string, string> = {
-  strong_up: '↑↑ Strong', moderate_up: '↑ Moderate',
-  neutral: '→ Neutral', moderate_down: '↓ Moderate', strong_down: '↓↓ Strong',
+  strong_up: 'â†‘â†‘ Strong', moderate_up: 'â†‘ Moderate',
+  neutral: 'â†’ Neutral', moderate_down: 'â†“ Moderate', strong_down: 'â†“â†“ Strong',
 }
 const MOMENTUM_COLOR: Record<string, string> = {
   strong_up: 'var(--signal-bull)', moderate_up: '#8de0bf',
@@ -84,7 +85,7 @@ function ThemeCard({ theme, variant }: { theme: Theme; variant: 'watchlist' | 'd
               color: variant === 'watchlist' ? '#7ab4e8' : 'var(--gold)',
               padding: '0.18rem 0.5rem', borderRadius: 4,
             }}>
-              {variant === 'watchlist' ? '📌 Watchlist' : TF_LABEL[theme.timeframe] ?? theme.timeframe}
+              {variant === 'watchlist' ? 'ðŸ“Œ Watchlist' : TF_LABEL[theme.timeframe] ?? theme.timeframe}
             </span>
             {theme.label && theme.label !== 'WATCHLIST' && (
               <span style={{
@@ -98,7 +99,7 @@ function ThemeCard({ theme, variant }: { theme: Theme; variant: 'watchlist' | 'd
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
             {variant === 'dynamic' && (
               <span style={{ fontSize: '0.72rem', color: mColor, fontWeight: 500 }}>
-                {MOMENTUM_LABEL[theme.momentum ?? 'neutral'] ?? '→ Neutral'}
+                {MOMENTUM_LABEL[theme.momentum ?? 'neutral'] ?? 'â†’ Neutral'}
               </span>
             )}
             <div style={{ textAlign: 'right' }}>
@@ -126,7 +127,7 @@ function ThemeCard({ theme, variant }: { theme: Theme; variant: 'watchlist' | 'd
         {variant === 'dynamic' && (theme.anchor_reason || theme.anchored_since) && (
           <div style={{ display: 'flex', gap: '1.2rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
             {theme.anchor_reason && (
-              <span style={{ fontSize: '0.67rem', color: 'rgba(200,169,110,0.45)', fontStyle: 'italic' }}>⚓ {theme.anchor_reason}</span>
+              <span style={{ fontSize: '0.67rem', color: 'rgba(200,169,110,0.45)', fontStyle: 'italic' }}>âš“ {theme.anchor_reason}</span>
             )}
             {theme.anchored_since && (
               <span style={{ fontSize: '0.67rem', color: 'rgba(232,226,217,0.18)' }}>anchored {relTime(theme.anchored_since)}</span>
@@ -160,7 +161,7 @@ export default async function ThemesPage() {
   const tickerRows = themeIds.length > 0
     ? await query<(TickerWeight & { theme_id: string })[]>(
         supabase.from('theme_tickers')
-          .select('theme_id, ticker, final_weight, relevance, rationale')
+          .select('theme_id, ticker, final_weight, relevance, rationale, assets!inner(asset_type)')
           .in('theme_id', themeIds)
           .order('final_weight', { ascending: false })
       ) ?? []
@@ -168,9 +169,10 @@ export default async function ThemesPage() {
 
   const weightsByTheme = new Map<string, TickerWeight[]>()
   for (const row of tickerRows) {
-    const { theme_id, ...rest } = row
+    const { theme_id, assets, ...rest } = row as any
+    const entry = { ...rest, asset_type: (assets as any)?.asset_type ?? null }
     if (!weightsByTheme.has(theme_id)) weightsByTheme.set(theme_id, [])
-    weightsByTheme.get(theme_id)!.push(rest)
+    weightsByTheme.get(theme_id)!.push(entry)
   }
 
   const themes: Theme[]         = allThemes.map(t => ({ ...t, ticker_weights: weightsByTheme.get(t.id) ?? [] }))
@@ -187,7 +189,7 @@ export default async function ThemesPage() {
       <div style={{ marginBottom: '3rem' }}>
         <SectionHeader
           title="Watchlist Themes"
-          subtitle="Persistent structural themes — always tracked regardless of daily news"
+          subtitle="Persistent structural themes â€” always tracked regardless of daily news"
           count={watchlistThemes.length}
         />
         {watchlistThemes.length === 0 ? (
@@ -202,11 +204,11 @@ export default async function ThemesPage() {
       <div>
         <SectionHeader
           title="Market Themes"
-          subtitle="AI-generated from recent high-impact events · updated daily"
+          subtitle="AI-generated from recent high-impact events Â· updated daily"
           count={dynamicThemes.length}
         />
         {dynamicThemes.length === 0 ? (
-          <div style={{ color: 'rgba(232,226,217,0.2)', fontSize: '0.82rem', padding: '2rem 0' }}>No market themes yet — run the themes cron to generate.</div>
+          <div style={{ color: 'rgba(232,226,217,0.2)', fontSize: '0.82rem', padding: '2rem 0' }}>No market themes yet â€” run the themes cron to generate.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
             {dynamicThemes.map(t => <ThemeCard key={t.id} theme={t} variant="dynamic" />)}
