@@ -48,6 +48,7 @@ interface TickerAllocation {
 }
 
 type Step = 1 | 2 | 3;
+type BuildMode = "data" | "llm";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared style tokens — matches existing dashboard aesthetic
@@ -181,6 +182,74 @@ function Card({ children, highlight, style }: { children: React.ReactNode; highl
 // ─────────────────────────────────────────────────────────────────────────────
 // Step 1 — Strategy
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ModeToggle
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ModeToggle({ mode, onChange, dataReady, llmReady }: {
+  mode:      BuildMode;
+  onChange:  (m: BuildMode) => void;
+  dataReady: boolean;
+  llmReady:  boolean;
+}) {
+  const modes: { id: BuildMode; label: string; icon: string; desc: string }[] = [
+    {
+      id:    "data",
+      icon:  "◈",
+      label: "Data-driven",
+      desc:  "Ranks your mapped theme_tickers using signals + Claude for selection",
+    },
+    {
+      id:    "llm",
+      icon:  "✦",
+      label: "LLM-powered",
+      desc:  "Claude freely selects from the full asset universe with no pre-mapping constraint",
+    },
+  ];
+
+  return (
+    <div style={{ display: "flex", gap: "0.6rem", marginBottom: "1.5rem" }}>
+      {modes.map(m => (
+        <button
+          key={m.id}
+          onClick={() => onChange(m.id)}
+          style={{
+            flex: 1, textAlign: "left",
+            padding: "0.85rem 1.1rem",
+            background: mode === m.id ? "rgba(200,169,110,0.08)" : "rgba(255,255,255,0.03)",
+            border: `1.5px solid ${mode === m.id ? "rgba(200,169,110,0.45)" : T.border}`,
+            borderRadius: 9, cursor: "pointer", transition: "all 0.2s",
+            display: "flex", gap: "0.85rem", alignItems: "flex-start",
+          }}
+        >
+          <div style={{
+            fontSize: "1.2rem", color: mode === m.id ? T.gold : T.dim,
+            marginTop: "0.05rem", flexShrink: 0, transition: "color 0.2s",
+          }}>
+            {m.icon}
+          </div>
+          <div>
+            <div style={{
+              fontSize: "0.88rem", fontWeight: 700,
+              color: mode === m.id ? T.gold : "rgba(232,226,217,0.6)",
+              marginBottom: "0.2rem", display: "flex", alignItems: "center", gap: "0.5rem",
+            }}>
+              {m.label}
+              {m.id === "data" && dataReady && (
+                <span style={{ fontSize: "0.6rem", background: "rgba(78,202,153,0.15)", color: "#4eca99", border: "1px solid rgba(78,202,153,0.3)", borderRadius: 4, padding: "0.05rem 0.4rem" }}>ready</span>
+              )}
+              {m.id === "llm" && llmReady && (
+                <span style={{ fontSize: "0.6rem", background: "rgba(78,202,153,0.15)", color: "#4eca99", border: "1px solid rgba(78,202,153,0.3)", borderRadius: 4, padding: "0.05rem 0.4rem" }}>ready</span>
+              )}
+            </div>
+            <div style={{ fontSize: "0.72rem", color: T.dim, lineHeight: 1.4 }}>{m.desc}</div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function Step1Strategy({
   portfolio,
@@ -742,18 +811,37 @@ export default function PortfolioBuilderPage() {
   const searchParams = useSearchParams();
   const portfolioId  = searchParams.get("portfolio_id");
 
-  const [step,       setStep]       = useState<Step>(1);
-  const [portfolio,  setPortfolio]  = useState<any>(null);
-  const [strategy,   setStrategy]   = useState<Strategy | null>(null);
-  const [themes,     setThemes]     = useState<RecommendedTheme[]>([]);
-  const [tickers,    setTickers]    = useState<TickerAllocation[]>([]);
+  const [step,      setStep]     = useState<Step>(1);
+  const [mode,      setMode]     = useState<BuildMode>("data");
+  const [portfolio, setPortfolio] = useState<any>(null);
+  const [strategy,  setStrategy] = useState<Strategy | null>(null);
+  const [error,     setError]    = useState<string | null>(null);
+  const [done,      setDone]     = useState(false);
 
-  const [loadingStrategy,    setLoadingStrategy]    = useState(false);
-  const [loadingThemes,      setLoadingThemes]      = useState(false);
-  const [loadingAllocation,  setLoadingAllocation]  = useState(false);
-  const [committing,         setCommitting]         = useState(false);
-  const [error,              setError]              = useState<string | null>(null);
-  const [done,               setDone]               = useState(false);
+  // ── Per-mode state ────────────────────────────────────────────────────────
+  // Each mode tracks its own themes + tickers independently so both can be
+  // generated and compared before the user confirms one.
+
+  const [dataThemes,  setDataThemes]  = useState<RecommendedTheme[]>([]);
+  const [llmThemes,   setLlmThemes]   = useState<RecommendedTheme[]>([]);
+  const [dataTickers, setDataTickers] = useState<TickerAllocation[]>([]);
+  const [llmTickers,  setLlmTickers]  = useState<TickerAllocation[]>([]);
+
+  const [loadingStrategy,        setLoadingStrategy]        = useState(false);
+  const [loadingDataThemes,      setLoadingDataThemes]      = useState(false);
+  const [loadingLlmThemes,       setLoadingLlmThemes]       = useState(false);
+  const [loadingDataAllocation,  setLoadingDataAllocation]  = useState(false);
+  const [loadingLlmAllocation,   setLoadingLlmAllocation]   = useState(false);
+  const [committing,             setCommitting]             = useState(false);
+
+  // Active mode's data (aliases for current step render)
+  const themes    = mode === "data" ? dataThemes    : llmThemes;
+  const setThemes = mode === "data" ? setDataThemes : setLlmThemes;
+  const tickers   = mode === "data" ? dataTickers   : llmTickers;
+  const setTickers = mode === "data" ? setDataTickers : setLlmTickers;
+
+  const loadingThemes     = mode === "data" ? loadingDataThemes     : loadingLlmThemes;
+  const loadingAllocation = mode === "data" ? loadingDataAllocation : loadingLlmAllocation;
 
   // Load portfolio on mount
   useEffect(() => {
@@ -763,7 +851,7 @@ export default function PortfolioBuilderPage() {
       .then(d => setPortfolio(d.portfolio ?? null));
   }, [portfolioId]);
 
-  // ── Step 1: generate strategy ──────────────────────────────────────────────
+  // ── Step 1: generate strategy (shared across modes) ───────────────────────
   const generateStrategy = useCallback(async () => {
     setLoadingStrategy(true);
     setError(null);
@@ -783,62 +871,77 @@ export default function PortfolioBuilderPage() {
     }
   }, [portfolioId]);
 
-  // Auto-generate on load once portfolio is ready
   useEffect(() => {
     if (portfolio && !strategy && !loadingStrategy) generateStrategy();
   }, [portfolio]);
 
-  // ── Step 2: generate theme recommendations ─────────────────────────────────
-  const generateThemes = useCallback(async () => {
+  // ── Step 2: generate themes for active mode ───────────────────────────────
+  const generateThemes = useCallback(async (targetMode: BuildMode) => {
     if (!strategy) return;
-    setLoadingThemes(true);
+    const setLoading = targetMode === "data" ? setLoadingDataThemes : setLoadingLlmThemes;
+    const setResult  = targetMode === "data" ? setDataThemes        : setLlmThemes;
+    const endpoint   = targetMode === "data"
+      ? "/api/portfolio/builder/themes"
+      : "/api/portfolio/builder/themes-llm";
+
+    setLoading(true);
     setError(null);
     try {
-      const res  = await fetch("/api/portfolio/builder/themes", {
+      const res  = await fetch(endpoint, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ portfolio_id: portfolioId, strategy }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setThemes((data.themes as RecommendedTheme[]).map(t => ({ ...t, selected: true })));
+      setResult((data.themes as RecommendedTheme[]).map(t => ({ ...t, selected: true })));
+      setMode(targetMode);
       setStep(2);
     } catch (e: any) {
       setError(e.message ?? "Failed to load themes");
     } finally {
-      setLoadingThemes(false);
+      setLoading(false);
     }
   }, [portfolioId, strategy]);
 
-  // ── Step 3: generate ticker allocation ────────────────────────────────────
-  const generateAllocation = useCallback(async () => {
-    const selectedThemes = themes.filter(t => t.selected);
+  // ── Step 3: generate allocation for active mode ───────────────────────────
+  const generateAllocation = useCallback(async (targetMode: BuildMode) => {
+    const sourceThemes = targetMode === "data" ? dataThemes : llmThemes;
+    const selectedThemes = sourceThemes.filter(t => t.selected);
     if (!selectedThemes.length || !strategy) return;
-    setLoadingAllocation(true);
+
+    const setLoading = targetMode === "data" ? setLoadingDataAllocation : setLoadingLlmAllocation;
+    const setResult  = targetMode === "data" ? setDataTickers           : setLlmTickers;
+    const endpoint   = targetMode === "data"
+      ? "/api/portfolio/builder/allocate"
+      : "/api/portfolio/builder/allocate-llm";
+
+    setLoading(true);
     setError(null);
     try {
-      const res  = await fetch("/api/portfolio/builder/allocate", {
+      const res  = await fetch(endpoint, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ portfolio_id: portfolioId, strategy, themes: selectedThemes }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setTickers((data.tickers as TickerAllocation[]).map(t => ({
+      setResult((data.tickers as TickerAllocation[]).map(t => ({
         ...t,
         editWeight: String(t.weight),
         editSignal: t.signal,
         included:   true,
       })));
+      setMode(targetMode);
       setStep(3);
     } catch (e: any) {
       setError(e.message ?? "Failed to allocate tickers");
     } finally {
-      setLoadingAllocation(false);
+      setLoading(false);
     }
-  }, [portfolioId, strategy, themes]);
+  }, [portfolioId, strategy, dataThemes, llmThemes]);
 
-  // ── Confirm: save to DB ───────────────────────────────────────────────────
+  // ── Confirm: save active mode's tickers ──────────────────────────────────
   const confirm = useCallback(async () => {
     setCommitting(true);
     setError(null);
@@ -871,13 +974,15 @@ export default function PortfolioBuilderPage() {
   }, [portfolioId, tickers, strategy]);
 
   function updateTicker(ticker: string, field: keyof TickerAllocation, value: any) {
-    setTickers(prev => prev.map(t => t.ticker === ticker ? { ...t, [field]: value } : t));
+    const setter = mode === "data" ? setDataTickers : setLlmTickers;
+    setter(prev => prev.map(t => t.ticker === ticker ? { ...t, [field]: value } : t));
   }
 
   // ── Done screen ───────────────────────────────────────────────────────────
   if (done) {
-    const buys    = tickers.filter(t => t.included && t.editSignal === "BUY");
-    const watches = tickers.filter(t => t.included && t.editSignal === "WATCH");
+    const activeTickers = mode === "data" ? dataTickers : llmTickers;
+    const buys    = activeTickers.filter(t => t.included && t.editSignal === "BUY");
+    const watches = activeTickers.filter(t => t.included && t.editSignal === "WATCH");
     return (
       <div style={{ maxWidth: 540, margin: "4rem auto", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "1.2rem" }}>
         <div style={{ fontSize: "3rem" }}>✓</div>
@@ -925,34 +1030,111 @@ export default function PortfolioBuilderPage() {
         <Step1Strategy
           portfolio={portfolio}
           strategy={strategy}
-          loading={loadingStrategy || loadingThemes}
+          loading={loadingStrategy}
           onGenerate={generateStrategy}
           onUpdate={setStrategy}
-          onNext={generateThemes}
+          onNext={() => {
+            // Step 1 "Next" shows mode toggle then proceeds with selected mode
+            setStep(2);
+            // Auto-generate for data mode first (default)
+            if (dataThemes.length === 0 && !loadingDataThemes) generateThemes("data");
+          }}
         />
       )}
 
       {step === 2 && (
-        <Step2Themes
-          themes={themes}
-          loading={loadingThemes || loadingAllocation}
-          onToggle={id => setThemes(prev => prev.map(t => t.id === id ? { ...t, selected: !t.selected } : t))}
-          onBack={() => setStep(1)}
-          onNext={generateAllocation}
-        />
+        <>
+          <ModeToggle
+            mode={mode}
+            onChange={m => {
+              setMode(m);
+              // Auto-generate for newly selected mode if not yet loaded
+              if (m === "data"  && dataThemes.length === 0 && !loadingDataThemes)  generateThemes("data");
+              if (m === "llm"   && llmThemes.length  === 0 && !loadingLlmThemes)   generateThemes("llm");
+            }}
+            dataReady={dataThemes.length > 0}
+            llmReady={llmThemes.length > 0}
+          />
+          <Step2Themes
+            themes={themes}
+            loading={loadingThemes}
+            onToggle={id => setThemes(prev => prev.map(t => t.id === id ? { ...t, selected: !t.selected } : t))}
+            onBack={() => setStep(1)}
+            onNext={() => generateAllocation(mode)}
+          />
+          {/* Run both button */}
+          {(dataThemes.length > 0 || llmThemes.length > 0) && (
+            <div style={{ marginTop: "0.75rem", display: "flex", justifyContent: "center" }}>
+              <button
+                onClick={() => {
+                  if (dataThemes.length === 0 && !loadingDataThemes) generateThemes("data");
+                  if (llmThemes.length  === 0 && !loadingLlmThemes)  generateThemes("llm");
+                }}
+                disabled={loadingDataThemes || loadingLlmThemes}
+                style={{
+                  fontSize: "0.75rem", color: "rgba(232,226,217,0.35)",
+                  background: "none", border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 6, padding: "0.35rem 0.85rem", cursor: "pointer",
+                }}
+              >
+                {loadingDataThemes || loadingLlmThemes ? "Loading other mode…" : "Load both modes for comparison"}
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {step === 3 && (
-        <Step3Allocation
-          tickers={tickers}
-          loading={loadingAllocation}
-          committing={committing}
-          totalCapital={portfolio?.total_capital ?? 0}
-          cashReservePct={strategy?.cash_reserve_pct ?? portfolio?.cash_pct ?? 0}
-          onUpdate={updateTicker}
-          onBack={() => setStep(2)}
-          onConfirm={confirm}
-        />
+        <>
+          <ModeToggle
+            mode={mode}
+            onChange={m => {
+              setMode(m);
+              // Auto-generate allocation for newly selected mode if not yet loaded
+              const sourceThemes = m === "data" ? dataThemes : llmThemes;
+              const targetTickers = m === "data" ? dataTickers : llmTickers;
+              const loading = m === "data" ? loadingDataAllocation : loadingLlmAllocation;
+              if (sourceThemes.length > 0 && targetTickers.length === 0 && !loading) {
+                generateAllocation(m);
+              }
+            }}
+            dataReady={dataTickers.length > 0}
+            llmReady={llmTickers.length > 0}
+          />
+
+          {/* Side-by-side comparison banner when both are ready */}
+          {dataTickers.length > 0 && llmTickers.length > 0 && (
+            <div style={{
+              background: "rgba(99,179,237,0.05)", border: "1px solid rgba(99,179,237,0.2)",
+              borderRadius: 8, padding: "0.6rem 1rem", marginBottom: "1rem",
+              display: "flex", alignItems: "center", gap: "1rem",
+            }}>
+              <span style={{ fontSize: "0.72rem", color: "rgba(99,179,237,0.8)" }}>
+                ◈ Both modes ready — switch tabs above to compare, then confirm the one you prefer.
+              </span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: "0.5rem", fontSize: "0.7rem" }}>
+                <span style={{ color: "rgba(232,226,217,0.4)" }}>
+                  Data: {dataTickers.filter(t => t.included && t.editSignal === "BUY").length} BUY
+                </span>
+                <span style={{ color: "rgba(232,226,217,0.2)" }}>·</span>
+                <span style={{ color: "rgba(232,226,217,0.4)" }}>
+                  LLM: {llmTickers.filter(t => t.included && t.editSignal === "BUY").length} BUY
+                </span>
+              </div>
+            </div>
+          )}
+
+          <Step3Allocation
+            tickers={tickers}
+            loading={loadingAllocation}
+            committing={committing}
+            totalCapital={portfolio?.total_capital ?? 0}
+            cashReservePct={strategy?.cash_reserve_pct ?? portfolio?.cash_pct ?? 0}
+            onUpdate={updateTicker}
+            onBack={() => setStep(2)}
+            onConfirm={confirm}
+          />
+        </>
       )}
     </div>
   );
