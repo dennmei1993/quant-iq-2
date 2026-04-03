@@ -119,6 +119,7 @@ export default function ThemeTickerManager({
           final_weight: weight,
           relevance:    Math.round(weight * 100),
           rationale:    addRationale || null,
+          asset_type:   addResults.find(r => r.ticker === ticker)?.asset_type ?? null,
         }].sort((a, b) => b.final_weight - a.final_weight))
       }
 
