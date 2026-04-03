@@ -6,8 +6,8 @@
 // active themes, and available asset signals.
 //
 // BUY tickers  → inserted into holdings with quantity + avg_cost from live price
-// WATCH tickers → inserted into user_watchlist
-// AVOID tickers → inserted into user_watchlist (for awareness)
+// WATCH tickers → inserted into portfolio_watchlist (portfolio-scoped)
+// AVOID tickers → inserted into portfolio_watchlist (for awareness)
 //
 // Respects cash_pct as a minimum cash reserve floor when allocating weights.
 
@@ -117,8 +117,9 @@ export async function POST(req: NextRequest) {
         .eq("portfolio_id", portfolio_id),
 
       supabase
-        .from("user_watchlist")
+        .from("portfolio_watchlist")
         .select("ticker")
+        .eq("portfolio_id", portfolio_id)
         .eq("user_id", user.id),
     ]);
 
@@ -298,8 +299,8 @@ Respond ONLY with valid JSON, no markdown, no preamble:
       insertedHoldings = holdingRows.length;
     }
 
-    // ── Insert WATCH + AVOID into watchlist ───────────────────────────────────
-    // Deduplicate against existing watchlist entries
+    // ── Insert WATCH + AVOID into portfolio_watchlist ────────────────────────
+    // Deduplicate against existing portfolio watchlist entries
     const watchlistCandidates = [...watchTickers, ...avoidTickers].filter(
       h => !existingWatchlistTickers.has(h.ticker) &&
            !existingHoldingTickers.has(h.ticker)
@@ -308,14 +309,16 @@ Respond ONLY with valid JSON, no markdown, no preamble:
     let insertedWatchlist = 0;
     if (watchlistCandidates.length > 0) {
       const watchlistRows = watchlistCandidates.map(h => ({
-        user_id:  user.id,
-        ticker:   h.ticker,
-        added_at: new Date().toISOString(),
+        portfolio_id: portfolio_id,
+        user_id:      user.id,
+        ticker:       h.ticker,
+        notes:        `Quick build: ${h.signal} — ${h.rationale ?? ""}`.trim(),
+        added_at:     new Date().toISOString(),
       }));
 
       const { error: watchErr } = await supabase
-        .from("user_watchlist")
-        .insert(watchlistRows);
+        .from("portfolio_watchlist")
+        .upsert(watchlistRows, { onConflict: "portfolio_id,ticker", ignoreDuplicates: true });
 
       if (watchErr) throw watchErr;
       insertedWatchlist = watchlistRows.length;
