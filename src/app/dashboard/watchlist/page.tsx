@@ -128,18 +128,30 @@ export default async function WatchlistPage() {
   const themeMap  = new Map((activeThemes ?? []).map(t => [t.id, t]))
   const activeIds = new Set((activeThemes ?? []).map(t => t.id))
 
-  // ── Auto-sync tickers missing price data (fire and forget) ────────────────
+  // ── Auto-sync tickers missing price data — await so data is ready to render ─
   const needsSync = tickers.filter(t => {
     const s = signalMap.get(t)
     return !s?.price_usd || !s?.signal
   })
   if (needsSync.length > 0) {
-    const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
-    const syncUrl = `${base}/api/admin/sync-prices?tickers=${needsSync.join(',')}`
-    fetch(syncUrl, {
-      method:  'POST',
-      headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '' },
-    }).catch(() => {})
+    try {
+      const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
+      const syncUrl = `${base}/api/admin/sync-prices?tickers=${needsSync.join(',')}`
+      await fetch(syncUrl, {
+        method:  'POST',
+        headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '' },
+        signal:  AbortSignal.timeout(30_000),
+      })
+      // Re-fetch signals for newly synced tickers
+      const freshSignals = await query<SignalRow[]>(
+        db.from('asset_signals')
+          .select('ticker, signal, score, price_usd, change_pct, rationale')
+          .in('ticker', needsSync)
+      )
+      for (const s of freshSignals ?? []) {
+        signalMap.set(s.ticker, s)
+      }
+    } catch { /* sync failed — render with whatever we have */ }
   }
 
   // ── Group themes by ticker ────────────────────────────────────────────────
