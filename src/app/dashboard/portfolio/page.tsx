@@ -787,7 +787,15 @@ export default function PortfolioPage() {
   const [adding,        setAdding]        = useState(false);
   const [generating,    setGenerating]    = useState(false);
   const [aiBuilding,    setAiBuilding]    = useState(false);
-  const [aiResult,      setAiResult]      = useState<{ rationale: string; warnings: string[] } | null>(null);
+  const [aiResult, setAiResult] = useState<{
+    rationale: string;
+    warnings:  string[];
+    buy:       { ticker: string; weight: number; capital: number; price: number | null; quantity: number | null; rationale: string }[];
+    watch:     { ticker: string; price: number | null; rationale: string }[];
+    avoid:     { ticker: string; price: number | null; rationale: string }[];
+    inserted_holdings:  number;
+    inserted_watchlist: number;
+  } | null>(null);
   const [formError,   setFormError]   = useState("");
   const [tickerError, setTickerError] = useState("");
 
@@ -906,7 +914,15 @@ export default function PortfolioPage() {
       });
       const data = await res.json();
       if (!res.ok) { setFormError(data.error ?? "Failed to generate portfolio"); return; }
-      setAiResult({ rationale: data.rationale, warnings: data.warnings ?? [] });
+      setAiResult({
+        rationale:          data.rationale,
+        warnings:           data.warnings ?? [],
+        buy:                data.buy      ?? [],
+        watch:              data.watch    ?? [],
+        avoid:              data.avoid    ?? [],
+        inserted_holdings:  data.inserted_holdings  ?? 0,
+        inserted_watchlist: data.inserted_watchlist ?? 0,
+      });
       await loadPortfolioData(selectedId);
     } catch {
       setFormError("Failed to generate portfolio");
@@ -1020,17 +1036,93 @@ export default function PortfolioPage() {
                   {/* AI result panel */}
                   {aiResult && (
                     <div style={{
-                      background: "rgba(200,169,110,0.05)", border: "1px solid rgba(200,169,110,0.2)",
-                      borderRadius: 8, padding: "0.9rem 1.1rem", display: "flex", flexDirection: "column", gap: "0.5rem",
+                      background: "rgba(200,169,110,0.04)", border: "1px solid rgba(200,169,110,0.18)",
+                      borderRadius: 10, padding: "1rem 1.2rem", display: "flex", flexDirection: "column", gap: "0.85rem",
                     }}>
-                      <div style={{ fontSize: "0.65rem", color: "rgba(200,169,110,0.5)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                        AI portfolio rationale
+                      {/* Header */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontSize: "0.65rem", color: "rgba(200,169,110,0.5)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.3rem" }}>
+                            AI portfolio rationale
+                          </div>
+                          <p style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.7)", lineHeight: 1.6, margin: 0 }}>
+                            {aiResult.rationale}
+                          </p>
+                        </div>
+                        <button onClick={() => setAiResult(null)}
+                          style={{ background: "none", border: "none", color: "rgba(232,226,217,0.2)", cursor: "pointer", fontSize: "1rem", flexShrink: 0, marginLeft: "0.75rem" }}>
+                          ×
+                        </button>
                       </div>
-                      <p style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.7)", lineHeight: 1.6, margin: 0 }}>
-                        {aiResult.rationale}
-                      </p>
+
+                      {/* Summary counts */}
+                      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "0.72rem", color: "var(--signal-bull)", background: "rgba(78,202,153,0.08)", border: "1px solid rgba(78,202,153,0.2)", borderRadius: 4, padding: "0.2rem 0.6rem" }}>
+                          ✓ {aiResult.inserted_holdings} added to holdings
+                        </span>
+                        <span style={{ fontSize: "0.72rem", color: "#63b3ed", background: "rgba(99,179,237,0.08)", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 4, padding: "0.2rem 0.6rem" }}>
+                          ★ {aiResult.inserted_watchlist} added to watchlist
+                        </span>
+                      </div>
+
+                      {/* BUY holdings */}
+                      {aiResult.buy.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: "0.65rem", color: "var(--signal-bull)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
+                            BUY — Added to portfolio
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                            {aiResult.buy.map(h => (
+                              <div key={h.ticker} style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.78rem" }}>
+                                <span style={{ fontWeight: 700, color: "var(--gold)", fontFamily: "monospace", minWidth: "3.5rem" }}>{h.ticker}</span>
+                                <span style={{ color: "rgba(232,226,217,0.5)", minWidth: "4rem" }}>{h.weight.toFixed(1)}%</span>
+                                <span style={{ color: "rgba(232,226,217,0.5)", minWidth: "5rem" }}>${h.capital.toLocaleString()}</span>
+                                {h.price && <span style={{ color: "rgba(232,226,217,0.35)", minWidth: "5rem" }}>@ ${h.price.toFixed(2)}</span>}
+                                {h.quantity != null && <span style={{ color: "rgba(232,226,217,0.35)", minWidth: "5rem" }}>{h.quantity} units</span>}
+                                <span style={{ color: "rgba(232,226,217,0.35)", flex: 1 }}>{h.rationale}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* WATCH tickers */}
+                      {aiResult.watch.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: "0.65rem", color: "#f0b429", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
+                            WATCH — Added to watchlist
+                          </div>
+                          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                            {aiResult.watch.map(h => (
+                              <span key={h.ticker} style={{ fontSize: "0.75rem", background: "rgba(240,180,41,0.08)", border: "1px solid rgba(240,180,41,0.2)", borderRadius: 5, padding: "0.2rem 0.6rem", color: "#f0b429", fontWeight: 600, fontFamily: "monospace" }}
+                                title={h.rationale}>
+                                {h.ticker}{h.price ? ` $${h.price.toFixed(2)}` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* AVOID tickers */}
+                      {aiResult.avoid.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: "0.65rem", color: "var(--signal-bear)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
+                            AVOID — Added to watchlist for awareness
+                          </div>
+                          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                            {aiResult.avoid.map(h => (
+                              <span key={h.ticker} style={{ fontSize: "0.75rem", background: "rgba(252,92,101,0.06)", border: "1px solid rgba(252,92,101,0.2)", borderRadius: 5, padding: "0.2rem 0.6rem", color: "var(--signal-bear)", fontWeight: 600, fontFamily: "monospace" }}
+                                title={h.rationale}>
+                                {h.ticker}{h.price ? ` $${h.price.toFixed(2)}` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Warnings */}
                       {aiResult.warnings.length > 0 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", marginTop: "0.25rem" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                           {aiResult.warnings.map((w, i) => (
                             <div key={i} style={{ fontSize: "0.72rem", color: "rgba(252,180,41,0.7)", display: "flex", gap: "0.4rem" }}>
                               <span>⚠</span><span>{w}</span>
@@ -1038,12 +1130,6 @@ export default function PortfolioPage() {
                           ))}
                         </div>
                       )}
-                      <button
-                        onClick={() => setAiResult(null)}
-                        style={{ alignSelf: "flex-end", background: "none", border: "none", color: "rgba(232,226,217,0.2)", cursor: "pointer", fontSize: "0.72rem" }}
-                      >
-                        Dismiss
-                      </button>
                     </div>
                   )}
                 </div>

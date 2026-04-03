@@ -1,9 +1,15 @@
 // src/app/api/portfolio/generate/route.ts
 //
 // POST /api/portfolio/generate
-// Uses Claude to generate a portfolio of tickers based on the portfolio's
-// preferences, current macro scores, active themes, and available assets.
-// Respects the cash_pct floor when allocating capital weights.
+//
+// Uses Claude to generate a portfolio based on preferences, macro scores,
+// active themes, and available asset signals.
+//
+// BUY tickers  → inserted into holdings with quantity + avg_cost from live price
+// WATCH tickers → inserted into user_watchlist
+// AVOID tickers → inserted into user_watchlist (for awareness)
+//
+// Respects cash_pct as a minimum cash reserve floor when allocating weights.
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
@@ -17,13 +23,14 @@ const anthropic = new Anthropic();
 
 interface GeneratedHolding {
   ticker:    string;
-  weight:    number;   // % of investable capital (after cash floor)
+  signal:    "BUY" | "WATCH" | "AVOID";
+  weight:    number;   // % of investable capital — only meaningful for BUY
   rationale: string;
 }
 
 interface GenerateResponse {
   holdings:  GeneratedHolding[];
-  rationale: string;   // overall portfolio rationale
+  rationale: string;
   warnings:  string[];
 }
 
@@ -41,16 +48,31 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Load portfolio ────────────────────────────────────────────────────────
-    const { data: portfolio, error: pErr } = await supabase
+    // Cast through unknown: generated supabase.ts predates migration_portfolios_preferences.sql.
+    // Remove cast once migration is run and types are regenerated.
+    const { data: portfolioRaw, error: pErr } = await supabase
       .from("portfolios")
       .select("*")
       .eq("id", portfolio_id)
       .eq("user_id", user.id)
       .single();
 
-    if (pErr || !portfolio) {
+    if (pErr || !portfolioRaw) {
       return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
     }
+
+    const portfolio = portfolioRaw as unknown as {
+      id:                 string;
+      user_id:            string;
+      name:               string;
+      risk_appetite:      string;
+      benchmark:          string;
+      target_holdings:    number;
+      preferred_assets:   string[];
+      cash_pct:           number;
+      investment_horizon: string;
+      total_capital:      number;
+    };
 
     // ── Load context data in parallel ─────────────────────────────────────────
     const [
@@ -59,8 +81,8 @@ export async function POST(req: NextRequest) {
       { data: themes },
       { data: macroScores },
       { data: existingHoldings },
+      { data: existingWatchlist },
     ] = await Promise.all([
-      // Assets filtered by preferred_asset_types if set
       supabase
         .from("assets")
         .select("ticker, name, sector, asset_type, pe_ratio, analyst_rating, market_cap_tier")
@@ -68,15 +90,14 @@ export async function POST(req: NextRequest) {
         .order("bootstrap_priority", { ascending: true })
         .limit(200),
 
-      // Signals for scoring
+      // Fetch BUY/WATCH/AVOID signals — we need price_usd for quantity calc
       supabase
         .from("asset_signals")
-        .select("ticker, signal, fundamental_score, technical_score, rationale")
-        .in("signal", ["buy", "watch"])
+        .select("ticker, signal, fundamental_score, technical_score, price_usd, rationale")
+        .in("signal", ["buy", "watch", "avoid"])
         .order("fundamental_score", { ascending: false })
-        .limit(80),
+        .limit(100),
 
-      // Active themes
       supabase
         .from("themes")
         .select("name, brief, conviction, momentum, theme_type")
@@ -84,41 +105,55 @@ export async function POST(req: NextRequest) {
         .order("conviction", { ascending: false })
         .limit(10),
 
-      // Current macro environment
       supabase
         .from("macro_scores")
         .select("aspect, score, direction, commentary")
         .order("scored_at", { ascending: false })
         .limit(6),
 
-      // Existing holdings to avoid duplicates
       supabase
         .from("holdings")
         .select("ticker")
         .eq("portfolio_id", portfolio_id),
+
+      supabase
+        .from("user_watchlist")
+        .select("ticker")
+        .eq("user_id", user.id),
     ]);
 
-    const existingTickers = new Set(
+    // Build lookup sets for deduplication
+    const existingHoldingTickers  = new Set(
       (existingHoldings ?? []).map(h => h.ticker).filter(t => t !== "CASH")
     );
-
-    // Filter signals to assets not already held
-    const candidateSignals = (signals ?? []).filter(
-      s => !existingTickers.has(s.ticker)
+    const existingWatchlistTickers = new Set(
+      (existingWatchlist ?? []).map(w => w.ticker)
     );
 
-    // Filter assets by preferred types if set
+    // Build price map from signals for quantity calculation
+    const priceMap = new Map<string, number>(
+      (signals ?? [])
+        .filter(s => s.price_usd != null)
+        .map(s => [s.ticker, s.price_usd as number])
+    );
+
+    // Filter candidate signals — exclude already held
+    const candidateSignals = (signals ?? []).filter(
+      s => !existingHoldingTickers.has(s.ticker)
+    );
+
+    // Filter assets by preferred types
     const preferredTypes: string[] = portfolio.preferred_assets ?? [];
     const candidateAssets = (assets ?? []).filter(a =>
       preferredTypes.length === 0 || preferredTypes.includes(a.asset_type)
     );
 
-    // Compute investable capital after cash floor
-    const cashFloorPct    = portfolio.cash_pct ?? 0;           // e.g. 10
+    // Capital calculations
+    const cashFloorPct    = portfolio.cash_pct ?? 0;
     const totalCapital    = portfolio.total_capital ?? 0;
     const cashFloorAmount = totalCapital * (cashFloorPct / 100);
     const investable      = totalCapital - cashFloorAmount;
-    const targetCount     = portfolio.target_holdings ?? 15;
+    const targetBuys      = portfolio.target_holdings ?? 15;
 
     // ── Build prompt ──────────────────────────────────────────────────────────
     const prompt = `You are a portfolio construction assistant for a self-directed retail investor.
@@ -127,45 +162,72 @@ PORTFOLIO PREFERENCES:
 - Risk appetite: ${portfolio.risk_appetite}
 - Investment horizon: ${portfolio.investment_horizon}
 - Benchmark: ${portfolio.benchmark}
-- Target holdings: ${targetCount}
+- Target holdings (BUY): ${targetBuys}
 - Total capital: $${totalCapital.toLocaleString()}
 - Minimum cash reserve: ${cashFloorPct}% ($${cashFloorAmount.toLocaleString()})
 - Investable capital: $${investable.toLocaleString()} (${100 - cashFloorPct}% of total)
 - Preferred asset types: ${preferredTypes.length > 0 ? preferredTypes.join(", ") : "all types"}
 
 CURRENT MACRO ENVIRONMENT:
-${(macroScores ?? []).map(m => `- ${m.aspect}: ${m.score > 0 ? "+" : ""}${m.score}/10 (${m.direction}) — ${m.commentary}`).join("\n")}
+${(macroScores ?? []).map(m =>
+  `- ${m.aspect}: ${m.score > 0 ? "+" : ""}${m.score}/10 (${m.direction}) — ${m.commentary}`
+).join("\n")}
 
 ACTIVE INVESTMENT THEMES:
-${(themes ?? []).map(t => `- ${t.name} [conviction: ${t.conviction}%] — ${t.brief ?? ""}`).join("\n") || "None available"}
+${(themes ?? []).map(t =>
+  `- ${t.name} [conviction: ${t.conviction}%] — ${t.brief ?? ""}`
+).join("\n") || "None available"}
 
-TOP CANDIDATE SIGNALS (BUY/WATCH, not already in portfolio):
-${candidateSignals.slice(0, 40).map(s =>
-  `- ${s.ticker}: ${s.signal.toUpperCase()} | F:${s.fundamental_score ?? "?"} T:${s.technical_score ?? "?"} | ${s.rationale?.slice(0, 80) ?? ""}`
-).join("\n")}
+SIGNAL UNIVERSE (excluding already held tickers):
+BUY signals:
+${candidateSignals.filter(s => s.signal === "buy").slice(0, 30).map(s =>
+  `- ${s.ticker}: F:${s.fundamental_score ?? "?"} T:${s.technical_score ?? "?"} price:$${s.price_usd ?? "?"} | ${s.rationale?.slice(0, 80) ?? ""}`
+).join("\n") || "None"}
+
+WATCH signals:
+${candidateSignals.filter(s => s.signal === "watch").slice(0, 20).map(s =>
+  `- ${s.ticker}: F:${s.fundamental_score ?? "?"} T:${s.technical_score ?? "?"} price:$${s.price_usd ?? "?"}`
+).join("\n") || "None"}
+
+AVOID signals:
+${candidateSignals.filter(s => s.signal === "avoid").slice(0, 10).map(s =>
+  `- ${s.ticker}: F:${s.fundamental_score ?? "?"} T:${s.technical_score ?? "?"}`
+).join("\n") || "None"}
 
 AVAILABLE ASSET UNIVERSE (filtered by preferences):
 ${candidateAssets.slice(0, 60).map(a =>
   `- ${a.ticker} (${a.asset_type}, ${a.sector ?? "—"}, ${a.market_cap_tier ?? "—"}, analyst: ${a.analyst_rating ?? "—"})`
 ).join("\n")}
 
-EXISTING HOLDINGS (exclude these):
-${existingTickers.size > 0 ? [...existingTickers].join(", ") : "None"}
+ALREADY IN HOLDINGS (exclude from all selections):
+${existingHoldingTickers.size > 0 ? [...existingHoldingTickers].join(", ") : "None"}
 
 INSTRUCTIONS:
-Select ${targetCount} tickers for this portfolio. Prioritise:
-1. BUY/WATCH signal tickers aligned with active themes and macro environment
-2. Diversification across sectors and asset types consistent with preferences
-3. Risk appetite: ${portfolio.risk_appetite === "aggressive" ? "lean toward high-growth, momentum plays" : portfolio.risk_appetite === "conservative" ? "lean toward dividend-paying, low-beta, defensive stocks" : "balanced mix of growth and stability"}
-4. Horizon: ${portfolio.investment_horizon === "short" ? "prefer near-term catalysts and momentum" : portfolio.investment_horizon === "long" ? "prefer quality fundamentals and compounding" : "balance near-term and long-term"}
+1. Select exactly ${targetBuys} BUY tickers for the portfolio.
+   - These are high-conviction positions to invest in now.
+   - Weights must sum to 100 (% of investable capital of $${investable.toLocaleString()}).
+   - Prioritise BUY signal tickers aligned with active themes and macro environment.
+   - Diversify across sectors and asset types per preferences.
+   - Risk: ${portfolio.risk_appetite === "aggressive" ? "lean toward growth and momentum" : portfolio.risk_appetite === "conservative" ? "prefer dividend-paying, low-beta, defensive" : "balanced growth and stability"}
+   - Horizon: ${portfolio.investment_horizon === "short" ? "near-term catalysts and momentum" : portfolio.investment_horizon === "long" ? "quality fundamentals and compounding" : "balance near and long-term"}
 
-Weights must sum to 100 (representing % of investable capital of $${investable.toLocaleString()}).
-Do NOT include CASH as a ticker — cash reserve is handled separately.
+2. Select 3-5 WATCH tickers to monitor.
+   - These are good fundamentals but not yet ready to buy (technical not confirmed).
+   - No weight needed — just select and provide a rationale.
 
-Respond ONLY with valid JSON in this exact shape, no markdown, no preamble:
+3. Select 2-3 AVOID tickers as awareness signals.
+   - These are positions to be aware of and avoid for now.
+   - No weight needed.
+
+4. Do NOT include CASH as a ticker.
+5. Do NOT include tickers already in holdings.
+
+Respond ONLY with valid JSON, no markdown, no preamble:
 {
   "holdings": [
-    { "ticker": "AAPL", "weight": 8.5, "rationale": "one sentence max" }
+    { "ticker": "AAPL", "signal": "BUY",   "weight": 8.5, "rationale": "one sentence" },
+    { "ticker": "TSLA", "signal": "WATCH", "weight": 0,   "rationale": "one sentence" },
+    { "ticker": "XYZ",  "signal": "AVOID", "weight": 0,   "rationale": "one sentence" }
   ],
   "rationale": "2-3 sentence overall portfolio rationale",
   "warnings": ["any concern about concentration, missing diversification, etc."]
@@ -195,32 +257,110 @@ Respond ONLY with valid JSON in this exact shape, no markdown, no preamble:
       );
     }
 
-    // Validate tickers exist in our universe
     const validTickers = new Set((assets ?? []).map(a => a.ticker));
-    const validated    = parsed.holdings.filter(h => validTickers.has(h.ticker));
 
-    // ── Insert holdings ───────────────────────────────────────────────────────
-    if (validated.length > 0) {
-      const rows = validated.map(h => ({
-        portfolio_id: portfolio_id,
-        ticker:       h.ticker,
-        quantity:     null,                        // no quantity — weight-based
-        avg_cost:     null,
-        notes:        h.rationale,
-        asset_type:   candidateAssets.find(a => a.ticker === h.ticker)?.asset_type ?? null,
-        name:         candidateAssets.find(a => a.ticker === h.ticker)?.name ?? null,
-      }));
+    // Partition by signal
+    const buyHoldings   = parsed.holdings.filter(h => h.signal === "BUY"   && validTickers.has(h.ticker));
+    const watchTickers  = parsed.holdings.filter(h => h.signal === "WATCH" && validTickers.has(h.ticker));
+    const avoidTickers  = parsed.holdings.filter(h => h.signal === "AVOID" && validTickers.has(h.ticker));
 
-      const { error: insertErr } = await supabase.from("holdings").insert(rows);
-      if (insertErr) throw insertErr;
+    // ── Insert BUY tickers into holdings ─────────────────────────────────────
+    // quantity = floor((weight/100 × investable) / price), avg_cost = live price
+    let insertedHoldings = 0;
+    if (buyHoldings.length > 0) {
+      const assetMeta = new Map(
+        (candidateAssets ?? []).map(a => [a.ticker, a])
+      );
+
+      const holdingRows = buyHoldings.map(h => {
+        const price    = priceMap.get(h.ticker) ?? null;
+        const capital  = (h.weight / 100) * investable;
+        const quantity = price && price > 0
+          ? Math.floor(capital / price)
+          : null;
+
+        return {
+          portfolio_id: portfolio_id,
+          ticker:       h.ticker,
+          avg_cost:     price,           // latest price as cost basis
+          quantity:     quantity,        // whole shares/units
+          name:         assetMeta.get(h.ticker)?.name       ?? null,
+          asset_type:   assetMeta.get(h.ticker)?.asset_type ?? null,
+          notes:        h.rationale,
+        };
+      });
+
+      const { error: holdingsErr } = await supabase
+        .from("holdings")
+        .insert(holdingRows);
+
+      if (holdingsErr) throw holdingsErr;
+      insertedHoldings = holdingRows.length;
     }
 
+    // ── Insert WATCH + AVOID into watchlist ───────────────────────────────────
+    // Deduplicate against existing watchlist entries
+    const watchlistCandidates = [...watchTickers, ...avoidTickers].filter(
+      h => !existingWatchlistTickers.has(h.ticker) &&
+           !existingHoldingTickers.has(h.ticker)
+    );
+
+    let insertedWatchlist = 0;
+    if (watchlistCandidates.length > 0) {
+      const watchlistRows = watchlistCandidates.map(h => ({
+        user_id:  user.id,
+        ticker:   h.ticker,
+        added_at: new Date().toISOString(),
+      }));
+
+      const { error: watchErr } = await supabase
+        .from("user_watchlist")
+        .insert(watchlistRows);
+
+      if (watchErr) throw watchErr;
+      insertedWatchlist = watchlistRows.length;
+    }
+
+    // ── Build summary for client ──────────────────────────────────────────────
+    const buySummary = buyHoldings.map(h => {
+      const price    = priceMap.get(h.ticker) ?? null;
+      const capital  = (h.weight / 100) * investable;
+      const quantity = price && price > 0 ? Math.floor(capital / price) : null;
+      return {
+        ticker:    h.ticker,
+        signal:    "BUY" as const,
+        weight:    h.weight,
+        capital:   Math.round(capital),
+        price:     price,
+        quantity:  quantity,
+        rationale: h.rationale,
+      };
+    });
+
+    const watchSummary = watchTickers.map(h => ({
+      ticker:    h.ticker,
+      signal:    "WATCH" as const,
+      rationale: h.rationale,
+      price:     priceMap.get(h.ticker) ?? null,
+    }));
+
+    const avoidSummary = avoidTickers.map(h => ({
+      ticker:    h.ticker,
+      signal:    "AVOID" as const,
+      rationale: h.rationale,
+      price:     priceMap.get(h.ticker) ?? null,
+    }));
+
     return NextResponse.json({
-      holdings:  validated,
-      rationale: parsed.rationale,
-      warnings:  parsed.warnings ?? [],
-      cash_floor_pct:    cashFloorPct,
-      cash_floor_amount: cashFloorAmount,
+      rationale:          parsed.rationale,
+      warnings:           parsed.warnings ?? [],
+      buy:                buySummary,
+      watch:              watchSummary,
+      avoid:              avoidSummary,
+      inserted_holdings:  insertedHoldings,
+      inserted_watchlist: insertedWatchlist,
+      cash_floor_pct:     cashFloorPct,
+      cash_floor_amount:  cashFloorAmount,
       investable_capital: investable,
     });
 
