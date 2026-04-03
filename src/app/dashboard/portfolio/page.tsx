@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { PortfolioSignalDistribution } from "@/components/dashboard/PortfolioSignalDistribution";
 import {
   computeCapitalMetrics,
@@ -770,6 +771,7 @@ function Field({ label, value, onChange, placeholder }: {
 // ----------------------------------------------------------------------------
 
 export default function PortfolioPage() {
+  const router = useRouter();
   const [portfolios,  setPortfolios]  = useState<Portfolio[]>([]);
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [holdings,    setHoldings]    = useState<Holding[]>([]);
@@ -1064,21 +1066,38 @@ export default function PortfolioPage() {
                 {/* AI portfolio builder */}
                 <div style={{ marginBottom: "1.2rem", display: "flex", flexDirection: "column", gap: "0.7rem" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <button
-                      onClick={buildPortfolioWithAI}
-                      disabled={aiBuilding || !selectedPortfolio?.total_capital}
-                      style={{
-                        padding: "0.55rem 1.1rem",
-                        background: aiBuilding ? "rgba(200,169,110,0.1)" : "rgba(200,169,110,0.15)",
-                        border: "1px solid rgba(200,169,110,0.35)",
-                        color: "var(--gold)", borderRadius: 7, fontSize: "0.82rem",
-                        fontWeight: 600, cursor: aiBuilding || !selectedPortfolio?.total_capital ? "not-allowed" : "pointer",
-                        opacity: !selectedPortfolio?.total_capital ? 0.4 : 1,
-                        display: "flex", alignItems: "center", gap: "0.5rem", transition: "all 0.15s",
-                      }}
-                    >
-                      <span>{aiBuilding ? "⟳ Building…" : "✦ Build portfolio for me"}</span>
-                    </button>
+                    <div style={{ display: "flex", gap: "0.6rem" }}>
+                      <button
+                        onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}`)}
+                        disabled={!selectedPortfolio?.total_capital}
+                        style={{
+                          padding: "0.55rem 1.1rem",
+                          background: "rgba(200,169,110,0.15)",
+                          border: "1px solid rgba(200,169,110,0.35)",
+                          color: "var(--gold)", borderRadius: 7, fontSize: "0.82rem",
+                          fontWeight: 600, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer",
+                          opacity: !selectedPortfolio?.total_capital ? 0.4 : 1,
+                          display: "flex", alignItems: "center", gap: "0.5rem", transition: "all 0.15s",
+                        }}
+                      >
+                        ✦ Build portfolio for me
+                      </button>
+                      <button
+                        onClick={buildPortfolioWithAI}
+                        disabled={aiBuilding || !selectedPortfolio?.total_capital}
+                        style={{
+                          padding: "0.55rem 1.1rem",
+                          background: aiBuilding ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.04)",
+                          border: "1px solid var(--dash-border)",
+                          color: "rgba(232,226,217,0.5)", borderRadius: 7, fontSize: "0.82rem",
+                          fontWeight: 500, cursor: aiBuilding || !selectedPortfolio?.total_capital ? "not-allowed" : "pointer",
+                          opacity: !selectedPortfolio?.total_capital ? 0.4 : 1,
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {aiBuilding ? "⟳ Quick build…" : "Quick build"}
+                      </button>
+                    </div>
                     {!selectedPortfolio?.total_capital && (
                       <span style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.3)" }}>
                         Set a total capital amount first
