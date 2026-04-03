@@ -1,7 +1,7 @@
-// src/app/api/profile/route.ts
+﻿// src/app/api/profile/route.ts
 /**
- * GET  /api/profile — fetch current user's profile preferences
- * POST /api/profile — update preferences
+ * GET  /api/profile â€” fetch current user's profile preferences
+ * POST /api/profile â€” update preferences
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
@@ -33,7 +33,7 @@ export async function GET() {
     .single()
 
   if (error) {
-    // Profile may not exist yet — return defaults
+    // Profile may not exist yet â€” return defaults
     return NextResponse.json({
       risk_appetite:      'moderate',
       investment_horizon: 'medium',
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   const db = createServiceClient()
 
-  // Upsert — create profile if it doesn't exist
+  // Upsert â€” create profile if it doesn't exist
   const { error } = await (db.from('profiles') as any)
     .upsert({ id: userId, ...update }, { onConflict: 'id' })
 
