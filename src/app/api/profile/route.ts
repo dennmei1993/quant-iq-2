@@ -64,8 +64,19 @@ export async function POST(req: NextRequest) {
   const db = createServiceClient()
 
   // Upsert â€” create profile if it doesn't exist
+  // Get user email for profile creation
+  const cookieStore2 = await cookies()
+  const authClient2  = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { get: (n: string) => cookieStore2.get(n)?.value, set: () => {}, remove: () => {} } }
+  )
+  const { data: { user: fullUser } } = await authClient2.auth.getUser()
+  const email = fullUser?.email ?? ''
+
+  // Upsert — create profile if it doesn't exist
   const { error } = await (db.from('profiles') as any)
-    .upsert({ id: userId, ...update }, { onConflict: 'id' })
+    .upsert({ id: userId, email, ...update }, { onConflict: 'id' })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
