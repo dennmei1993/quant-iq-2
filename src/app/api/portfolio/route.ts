@@ -1,38 +1,61 @@
-// GET    /api/portfolio          — fetch portfolio + enriched holdings
-// POST   /api/portfolio          — add a holding
-// DELETE /api/portfolio?holding_id=  — remove a holding
+// src/app/api/portfolio/route.ts
+//
+// GET    /api/portfolio?portfolio_id=   — fetch portfolio + enriched holdings
+//                                         (omit portfolio_id to get first/all)
+// POST   /api/portfolio                 — action: "create_portfolio" | "add_holding"
+// PATCH  /api/portfolio                 — update portfolio preferences
+// DELETE /api/portfolio?holding_id=     — remove a holding
+
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
 
-export async function GET() {
+// ----------------------------------------------------------------------------
+// GET — fetch portfolios + enriched holdings for selected portfolio
+// ----------------------------------------------------------------------------
+
+export async function GET(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
+    const portfolioId = req.nextUrl.searchParams.get("portfolio_id");
 
-    // Get or create portfolio
-    let { data: portfolio } = await supabase
+    // Fetch all portfolios for this user
+    const { data: portfolios, error: pErr } = await supabase
       .from("portfolios")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true });
 
-    if (!portfolio) {
-      const { data: created } = await supabase
-        .from("portfolios")
-        .insert({ user_id: user.id })
-        .select()
-        .single();
-      portfolio = created;
+    if (pErr) throw pErr;
+
+    // No portfolios yet — return empty state, do NOT auto-create
+    // The client handles first-run creation via the modal
+    if (!portfolios?.length) {
+      return NextResponse.json({ portfolios: [], holdings: [] });
     }
 
-    const { data: holdings } = await supabase
+    // Resolve which portfolio to load holdings for
+    const target =
+      (portfolioId ? portfolios.find(p => p.id === portfolioId) : undefined) ??
+      portfolios[0];
+
+    // Fetch holdings for target portfolio
+    const { data: holdings, error: hErr } = await supabase
       .from("holdings")
       .select("*")
-      .eq("portfolio_id", portfolio!.id)
+      .eq("portfolio_id", target.id)
       .order("created_at", { ascending: false });
 
-    // Enrich with latest signal
-    const tickers = (holdings ?? []).map(h => h.ticker);
-    let signalMap: Record<string, { signal: string; score: number; price_usd: number | null; change_pct: number | null }> = {};
+    if (hErr) throw hErr;
+
+    // Enrich holdings with latest signal (skip CASH — no signal row)
+    const tickers = (holdings ?? [])
+      .map(h => h.ticker)
+      .filter(t => t !== "CASH");
+
+    let signalMap: Record<
+      string,
+      { signal: string; score: number | null; price_usd: number | null; change_pct: number | null }
+    > = {};
 
     if (tickers.length) {
       const { data: signals } = await supabase
@@ -42,66 +65,172 @@ export async function GET() {
       signalMap = Object.fromEntries((signals ?? []).map(s => [s.ticker, s]));
     }
 
-    const enriched = (holdings ?? []).map(h => ({ ...h, signal: signalMap[h.ticker] ?? null }));
-    return NextResponse.json({ portfolio, holdings: enriched });
+    const enriched = (holdings ?? []).map(h => ({
+      ...h,
+      signal: h.ticker === "CASH" ? null : (signalMap[h.ticker] ?? null),
+    }));
+
+    return NextResponse.json({ portfolios, portfolio: target, holdings: enriched });
   } catch (e) {
     const { body, status } = errorResponse(e);
     return NextResponse.json(body, { status });
   }
 }
+
+// ----------------------------------------------------------------------------
+// POST — create portfolio OR add holding, routed by `action`
+// ----------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
     const body = await req.json();
-    const { ticker, name, asset_type, quantity, avg_cost, notes } = body;
+    const { action } = body;
 
-    if (!ticker) return NextResponse.json({ error: "ticker is required" }, { status: 400 });
+    // ── action: create_portfolio ─────────────────────────────────────────────
+    if (action === "create_portfolio") {
+      const {
+        name,
+        risk_appetite,
+        benchmark,
+        target_holdings,
+        preferred_assets,
+        cash_pct,
+        investment_horizon,
+        total_capital,
+      } = body;
 
-    let { data: portfolio } = await supabase
-      .from("portfolios")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
+      if (!name?.trim()) {
+        return NextResponse.json({ error: "name is required" }, { status: 400 });
+      }
 
-    if (!portfolio) {
-      const { data: created } = await supabase
+      const { data: portfolio, error } = await supabase
         .from("portfolios")
-        .insert({ user_id: user.id })
-        .select("id")
+        .insert({
+          user_id:            user.id,
+          name:               name.trim(),
+          risk_appetite:      risk_appetite      ?? "moderate",
+          benchmark:          benchmark          ?? "SPY",
+          target_holdings:    target_holdings    ?? 20,
+          preferred_assets:   preferred_assets   ?? [],
+          cash_pct:           cash_pct           ?? 0,
+          investment_horizon: investment_horizon ?? "long",
+          total_capital:      total_capital      ?? 0,
+        })
+        .select()
         .single();
-      portfolio = created;
+
+      if (error) throw error;
+      return NextResponse.json({ portfolio }, { status: 201 });
     }
 
-    const { data: holding, error } = await supabase
-      .from("holdings")
-      .insert({
-        portfolio_id: portfolio!.id,
-        ticker:    ticker.toUpperCase(),
-        name:      name      ?? null,
-        asset_type: asset_type ?? null,
-        quantity:  quantity  ? Number(quantity)  : null,
-        avg_cost:  avg_cost  ? Number(avg_cost)  : null,
-        notes:     notes     ?? null,
-      })
-      .select()
-      .single();
+    // ── action: add_holding ──────────────────────────────────────────────────
+    if (action === "add_holding") {
+      const { portfolio_id, ticker, name, asset_type, quantity, avg_cost, notes } = body;
 
-    if (error) throw error;
-    return NextResponse.json({ holding }, { status: 201 });
+      if (!ticker?.trim()) {
+        return NextResponse.json({ error: "ticker is required" }, { status: 400 });
+      }
+
+      // Verify the portfolio belongs to this user
+      const { data: portfolio, error: pErr } = await supabase
+        .from("portfolios")
+        .select("id")
+        .eq("id", portfolio_id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (pErr || !portfolio) {
+        return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
+      }
+
+      const { data: holding, error } = await supabase
+        .from("holdings")
+        .insert({
+          portfolio_id: portfolio.id,
+          ticker:       ticker.trim().toUpperCase(),
+          name:         name       ?? null,
+          asset_type:   asset_type ?? null,
+          quantity:     quantity   ? Number(quantity)  : null,
+          avg_cost:     avg_cost   ? Number(avg_cost)  : null,
+          notes:        notes      ?? null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return NextResponse.json({ holding }, { status: 201 });
+    }
+
+    // ── unknown action ───────────────────────────────────────────────────────
+    return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (e) {
     const { body, status } = errorResponse(e);
     return NextResponse.json(body, { status });
   }
 }
 
+// ----------------------------------------------------------------------------
+// PATCH — update portfolio preferences
+// ----------------------------------------------------------------------------
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { supabase, user } = await requireUser();
+    const { portfolio_id, ...prefs } = await req.json();
+
+    if (!portfolio_id) {
+      return NextResponse.json({ error: "portfolio_id is required" }, { status: 400 });
+    }
+
+    // Whitelist updatable preference fields — never allow user_id or id to be patched
+    const ALLOWED = new Set([
+      "name",
+      "risk_appetite",
+      "benchmark",
+      "target_holdings",
+      "preferred_assets",
+      "cash_pct",
+      "investment_horizon",
+      "total_capital",
+    ]);
+
+    const update = Object.fromEntries(
+      Object.entries(prefs).filter(([k]) => ALLOWED.has(k))
+    );
+
+    if (!Object.keys(update).length) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from("portfolios")
+      .update(update)
+      .eq("id", portfolio_id)
+      .eq("user_id", user.id); // ownership check
+
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const { body, status } = errorResponse(e);
+    return NextResponse.json(body, { status });
+  }
+}
+
+// ----------------------------------------------------------------------------
+// DELETE — remove a holding
+// ----------------------------------------------------------------------------
+
 export async function DELETE(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
     const holding_id = req.nextUrl.searchParams.get("holding_id");
-    if (!holding_id) return NextResponse.json({ error: "holding_id required" }, { status: 400 });
 
-    // Verify ownership
+    if (!holding_id) {
+      return NextResponse.json({ error: "holding_id is required" }, { status: 400 });
+    }
+
+    // Verify ownership via portfolio join
     const { data: holding } = await supabase
       .from("holdings")
       .select("id, portfolios!inner(user_id)")

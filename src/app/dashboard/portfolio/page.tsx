@@ -499,11 +499,12 @@ function CreatePortfolioScreen({
 // ----------------------------------------------------------------------------
 
 function NewPortfolioModal({
-  defaults, onClose, onCreate,
+  defaults, onClose, onCreate, isFirstRun = false,
 }: {
-  defaults: ProfileDefaults;
-  onClose:  () => void;
-  onCreate: (name: string, prefs: ProfileDefaults) => Promise<void>;
+  defaults:    ProfileDefaults;
+  onClose:     () => void;
+  onCreate:    (name: string, prefs: ProfileDefaults) => Promise<void>;
+  isFirstRun?: boolean;
 }) {
   const [name,       setName]       = useState("");
   const [prefs,      setPrefs]      = useState<ProfileDefaults>(defaults);
@@ -536,7 +537,15 @@ function NewPortfolioModal({
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 10, padding: "1.6rem", width: 500, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}>
-        <h3 style={{ color: "var(--cream)", fontFamily: "serif", fontSize: "1.25rem", margin: "0 0 1.4rem" }}>New portfolio</h3>
+        <h3 style={{ color: "var(--cream)", fontFamily: "serif", fontSize: "1.25rem", margin: "0 0 0.4rem" }}>
+          {isFirstRun ? "Create your first portfolio" : "New portfolio"}
+        </h3>
+        {isFirstRun && (
+          <p style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.3)", margin: "0 0 1.4rem" }}>
+            Set your preferences — these shape your signal thresholds and recommendations.
+          </p>
+        )}
+        {!isFirstRun && <div style={{ marginBottom: "1.4rem" }} />}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
           <div>
@@ -609,10 +618,12 @@ function NewPortfolioModal({
           </div>
 
           <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end", marginTop: "0.4rem" }}>
-            <button type="button" onClick={onClose}
-              style={{ padding: "0.5rem 1rem", background: "transparent", border: "1px solid var(--dash-border)", color: "rgba(232,226,217,0.4)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem" }}>
-              Cancel
-            </button>
+            {!isFirstRun && (
+              <button type="button" onClick={onClose}
+                style={{ padding: "0.5rem 1rem", background: "transparent", border: "1px solid var(--dash-border)", color: "rgba(232,226,217,0.4)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem" }}>
+                Cancel
+              </button>
+            )}
             <button type="submit" disabled={saving}
               style={{ padding: "0.5rem 1.1rem", background: "var(--gold)", color: "var(--navy)", fontWeight: 700, borderRadius: 6, border: "none", fontSize: "0.82rem", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
               {saving ? "Creating…" : "Create"}
@@ -761,7 +772,7 @@ export default function PortfolioPage() {
       });
       const all = portRes.portfolios ?? (portRes.portfolio ? [portRes.portfolio] : []);
       setPortfolios(all);
-      if (all.length) setSelectedId(all[0].id);
+      if (all.length) { setSelectedId(all[0].id); } else { setShowNew(true); setIsFirstRun(true); }
       setInitLoading(false);
     }
     init();
@@ -783,6 +794,8 @@ export default function PortfolioPage() {
   async function handleCreatePortfolio(name: string, prefs: ProfileDefaults) {
     const res  = await fetch("/api/portfolio", {
       method: "POST", headers: { "Content-Type": "application/json" },
+      // action: "create_portfolio" tells the API route this is NOT an add_holding call.
+      // The API route must check `action` first before validating `ticker`.
       body: JSON.stringify({ action: "create_portfolio", name, ...prefs }),
     });
     const data = await res.json();
@@ -790,6 +803,8 @@ export default function PortfolioPage() {
     const newPort = data.portfolio as Portfolio;
     setPortfolios(prev => [...prev, newPort]);
     setSelectedId(newPort.id);
+    setIsFirstRun(false);
+    setShowNew(false);
   }
 
   async function updatePreference(key: keyof Portfolio, value: any) {
@@ -861,18 +876,17 @@ export default function PortfolioPage() {
     return <div style={{ color: "rgba(232,226,217,0.2)", fontSize: "0.85rem", padding: "3rem 0" }}>Loading…</div>;
   }
 
-  // ── Render: first-run ───────────────────────────────────────────────────────
-
-  if (!portfolios.length && defaults) {
-    return <CreatePortfolioScreen defaults={defaults} onCreate={handleCreatePortfolio} />;
-  }
-
   // ── Render: main ────────────────────────────────────────────────────────────
 
   return (
     <>
       {showNew && defaults && (
-        <NewPortfolioModal defaults={defaults} onClose={() => setShowNew(false)} onCreate={handleCreatePortfolio} />
+        <NewPortfolioModal
+          defaults={defaults}
+          isFirstRun={isFirstRun}
+          onClose={() => { if (!isFirstRun) setShowNew(false); }}
+          onCreate={handleCreatePortfolio}
+        />
       )}
 
       {/* Header */}
