@@ -12,9 +12,18 @@ export const revalidate = 0
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type WatchlistRow = { id: string; ticker: string; added_at: string }
-type SignalRow    = { ticker: string; signal: string | null; score: number | null; price_usd: number | null; change_pct: number | null; rationale: string | null }
-type ThemeTicker = { ticker: string; theme_id: string; final_weight: number }
+type SignalRow = {
+  ticker:              string
+  signal:              string | null
+  score:               number | null
+  price_usd:           number | null
+  change_pct:          number | null
+  rationale:           string | null
+  rationale_signal:    string | null
+  rationale_updated_at:string | null
+}
 type ThemeRow    = { id: string; name: string; timeframe: string; theme_type: string }
+type ThemeTicker = { ticker: string; theme_id: string; final_weight: number }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -107,7 +116,7 @@ export default async function WatchlistPage() {
   const [signals, activeThemes, themeTickerRows] = await Promise.all([
     query<SignalRow[]>(
       db.from('asset_signals')
-        .select('ticker, signal, score, price_usd, change_pct, rationale')
+        .select('ticker, signal, score, price_usd, change_pct, rationale, rationale_signal, rationale_updated_at')
         .in('ticker', tickers)
     ),
     query<ThemeRow[]>(
@@ -145,13 +154,87 @@ export default async function WatchlistPage() {
       // Re-fetch signals for newly synced tickers
       const freshSignals = await query<SignalRow[]>(
         db.from('asset_signals')
-          .select('ticker, signal, score, price_usd, change_pct, rationale')
+          .select('ticker, signal, score, price_usd, change_pct, rationale, rationale_signal, rationale_updated_at')
           .in('ticker', needsSync)
       )
       for (const s of freshSignals ?? []) {
         signalMap.set(s.ticker, s)
       }
+
+      // Generate short rationale for tickers that have a signal but no rationale
+      const needsRationale = (freshSignals ?? []).filter(s => {
+        if (!s.signal) return false
+        if (!s.rationale) return true
+        if (s.rationale_signal !== s.signal) return true
+        return false  // has rationale and signal hasn't changed — skip
+      })
+
+      await Promise.all(needsRationale.map(async s => {
+        try {
+          const prompt = `Write 1-2 sentences explaining why ${s.ticker} currently has a ${s.signal?.toUpperCase()} signal. Price change: ${s.change_pct != null ? (s.change_pct >= 0 ? '+' : '') + Number(s.change_pct).toFixed(2) + '%' : 'N/A'}. Score: ${s.score}/100. Be concise and factual.`
+          const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method:  'POST',
+            headers: {
+              'Content-Type':      'application/json',
+              'x-api-key':         process.env.ANTHROPIC_API_KEY ?? '',
+              'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+              model:      'claude-haiku-4-5-20251001',
+              max_tokens: 120,
+              messages:   [{ role: 'user', content: prompt }],
+            }),
+            signal: AbortSignal.timeout(15_000),
+          })
+          if (!res.ok) return
+          const data  = await res.json()
+          const short = data.content?.[0]?.text?.trim()
+          if (!short) return
+          await (db.from('asset_signals') as any)
+            .update({ rationale: short, rationale_signal: s.signal, rationale_updated_at: new Date().toISOString() })
+            .eq('ticker', s.ticker)
+          // Update local map
+          signalMap.set(s.ticker, { ...s, rationale: short })
+        } catch { /* rationale failed silently */ }
+      }))
     } catch { /* sync failed — render with whatever we have */ }
+  }
+
+  // ── Generate short rationale for existing tickers missing it ────────────────
+  const existingNeedRationale = [...signalMap.values()].filter(s => {
+    if (!s.signal) return false
+    if (!s.rationale) return true
+    if ((s as any).rationale_signal !== s.signal) return true
+    return false
+  })
+  if (existingNeedRationale.length > 0) {
+    await Promise.all(existingNeedRationale.map(async s => {
+      try {
+        const prompt = `Write 1-2 sentences explaining why ${s.ticker} currently has a ${s.signal?.toUpperCase()} signal. Price change: ${s.change_pct != null ? (s.change_pct >= 0 ? '+' : '') + Number(s.change_pct).toFixed(2) + '%' : 'N/A'}. Score: ${s.score}/100. Be short, concise and factual.`
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method:  'POST',
+          headers: {
+            'Content-Type':      'application/json',
+            'x-api-key':         process.env.ANTHROPIC_API_KEY ?? '',
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model:      'claude-haiku-4-5-20251001',
+            max_tokens: 60,
+            messages:   [{ role: 'user', content: prompt }],
+          }),
+          signal: AbortSignal.timeout(15_000),
+        })
+        if (!res.ok) return
+        const data  = await res.json()
+        const short = data.content?.[0]?.text?.trim()
+        if (!short) return
+        await (db.from('asset_signals') as any)
+          .update({ rationale: short, rationale_signal: s.signal, rationale_updated_at: new Date().toISOString() })
+          .eq('ticker', s.ticker)
+        signalMap.set(s.ticker, { ...s, rationale: short })
+      } catch { /* rationale failed silently */ }
+    }))
   }
 
   // ── Group themes by ticker ────────────────────────────────────────────────
