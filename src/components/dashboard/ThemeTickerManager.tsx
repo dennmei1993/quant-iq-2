@@ -16,6 +16,7 @@ type TickerWeight = {
   final_weight: number
   relevance:    number
   rationale:    string | null
+  asset_type:   string | null
 }
 
 type AssetResult = {
