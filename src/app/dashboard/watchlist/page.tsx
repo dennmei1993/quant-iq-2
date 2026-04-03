@@ -1,4 +1,4 @@
-// src/app/dashboard/watchlist/page.tsx
+﻿// src/app/dashboard/watchlist/page.tsx
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
@@ -9,14 +9,14 @@ import RemoveWatchlistButton from '@/components/dashboard/RemoveWatchlistButton'
 export const dynamic  = 'force-dynamic'
 export const revalidate = 0
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type WatchlistRow  = { id: string; ticker: string; added_at: string }
 type SignalRow     = { ticker: string; signal: string | null; score: number | null; price_usd: number | null; change_pct: number | null; rationale: string | null }
 type ThemeTicker  = { ticker: string; theme_id: string; final_weight: number }
 type ThemeRow     = { id: string; name: string; timeframe: string; theme_type: string }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function query<T>(q: any): Promise<T | null> {
   const result = await q
@@ -45,7 +45,7 @@ function relTime(iso: string) {
   return `${days}d ago`
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default async function WatchlistPage() {
   const db = createServiceClient()
@@ -80,13 +80,13 @@ export default async function WatchlistPage() {
           Watchlist
         </h1>
         <p style={{ color: 'rgba(232,226,217,0.35)', fontSize: '0.82rem', marginBottom: '2rem' }}>
-          Track tickers you're watching — click any ticker page to add
+          Track tickers you're watching â€” click any ticker page to add
         </p>
         <div style={{
           background: 'var(--navy2)', border: '1px solid var(--dash-border)',
           borderRadius: 10, padding: '3rem', textAlign: 'center',
         }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.8rem', opacity: 0.3 }}>★</div>
+          <div style={{ fontSize: '2rem', marginBottom: '0.8rem', opacity: 0.3 }}>â˜…</div>
           <div style={{ color: 'rgba(232,226,217,0.3)', fontSize: '0.88rem' }}>
             Your watchlist is empty
           </div>
@@ -123,10 +123,23 @@ export default async function WatchlistPage() {
 
   // Build lookup maps
   const signalMap  = new Map((signals ?? []).map(s => [s.ticker, s]))
+
+  // Auto-sync tickers missing price data — fire and forget, don't block render
+  const unsynced = tickers.filter(t => {
+    const s = signalMap.get(t)
+    return !s?.price_usd || !s?.signal
+  })
+  if (unsynced.length > 0) {
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
+    fetch(${base}/api/admin/sync-prices?tickers=, {
+      method:  'POST',
+      headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '' },
+    }).catch(() => {})
+  }
   const themeMap   = new Map((activeThemes ?? []).map(t => [t.id, t]))
   const activeIds  = new Set((activeThemes ?? []).map(t => t.id))
 
-  // Group themes by ticker — only active themes
+  // Group themes by ticker â€” only active themes
   const themesByTicker = new Map<string, { id: string; name: string; timeframe: string; theme_type: string; final_weight: number }[]>()
   for (const row of themeTickerRows ?? []) {
     if (!activeIds.has(row.theme_id)) continue
@@ -195,7 +208,7 @@ export default async function WatchlistPage() {
                 transition: 'background 0.12s',
               }}
             >
-              {/* Ticker — clickable */}
+              {/* Ticker â€” clickable */}
               <Link
                 href={`/dashboard/tickers/${row.ticker}`}
                 style={{ textDecoration: 'none' }}
@@ -210,14 +223,14 @@ export default async function WatchlistPage() {
 
               {/* Price */}
               <div style={{ fontSize: '0.85rem', color: 'var(--cream)', fontFamily: 'monospace' }}>
-                {sig?.price_usd ? `$${sig.price_usd.toFixed(2)}` : '—'}
+                {sig?.price_usd ? `$${sig.price_usd.toFixed(2)}` : 'â€”'}
               </div>
 
               {/* Change% */}
               <div style={{ fontSize: '0.82rem', fontWeight: 500, color: changeColor(sig?.change_pct ?? null) }}>
                 {sig?.change_pct != null
                   ? `${sig.change_pct >= 0 ? '+' : ''}${sig.change_pct.toFixed(2)}%`
-                  : '—'}
+                  : 'â€”'}
               </div>
 
               {/* Signal score */}
@@ -244,13 +257,13 @@ export default async function WatchlistPage() {
                 fontSize: '0.72rem', color: 'rgba(232,226,217,0.4)', lineHeight: 1.4,
                 display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
               } as React.CSSProperties}>
-                {sig?.rationale ?? '—'}
+                {sig?.rationale ?? 'â€”'}
               </div>
 
               {/* Active themes */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                 {themes.length === 0 ? (
-                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>—</span>
+                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>â€”</span>
                 ) : themes.slice(0, 3).map(t => (
                   <span key={t.id} style={{
                     fontSize: '0.6rem', fontWeight: 500,
@@ -259,7 +272,7 @@ export default async function WatchlistPage() {
                     padding: '0.15rem 0.4rem', borderRadius: 3,
                     whiteSpace: 'nowrap',
                   }}>
-                    {t.name.length > 18 ? t.name.slice(0, 18) + '…' : t.name}
+                    {t.name.length > 18 ? t.name.slice(0, 18) + 'â€¦' : t.name}
                   </span>
                 ))}
                 {themes.length > 3 && (
