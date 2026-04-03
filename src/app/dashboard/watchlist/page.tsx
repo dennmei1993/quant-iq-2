@@ -1,4 +1,4 @@
-// src/app/dashboard/watchlist/page.tsx
+﻿// src/app/dashboard/watchlist/page.tsx
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
@@ -9,7 +9,7 @@ import RemoveWatchlistButton from '@/components/dashboard/RemoveWatchlistButton'
 export const dynamic  = 'force-dynamic'
 export const revalidate = 0
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type WatchlistRow = { id: string; ticker: string; added_at: string }
 type SignalRow = {
@@ -25,7 +25,7 @@ type SignalRow = {
 type ThemeRow    = { id: string; name: string; timeframe: string; theme_type: string }
 type ThemeTicker = { ticker: string; theme_id: string; final_weight: number }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function query<T>(q: any): Promise<T | null> {
   const result = await q
@@ -53,12 +53,12 @@ function relTime(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default async function WatchlistPage() {
   const db = createServiceClient()
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   let userId: string | null = null
   try {
     const cookieStore = await cookies()
@@ -73,7 +73,7 @@ export default async function WatchlistPage() {
 
   if (!userId) redirect('/auth/login')
 
-  // ── Fetch watchlist ───────────────────────────────────────────────────────
+  // â”€â”€ Fetch watchlist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const watchlist = await query<WatchlistRow[]>(
     db.from('user_watchlist')
       .select('id, ticker, added_at')
@@ -88,13 +88,13 @@ export default async function WatchlistPage() {
           Watchlist
         </h1>
         <p style={{ color: 'rgba(232,226,217,0.35)', fontSize: '0.82rem', marginBottom: '2rem' }}>
-          Track tickers you're watching — click any ticker page to add
+          Track tickers you're watching â€” click any ticker page to add
         </p>
         <div style={{
           background: 'var(--navy2)', border: '1px solid var(--dash-border)',
           borderRadius: 10, padding: '3rem', textAlign: 'center',
         }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.8rem', opacity: 0.3 }}>☆</div>
+          <div style={{ fontSize: '2rem', marginBottom: '0.8rem', opacity: 0.3 }}>â˜†</div>
           <div style={{ color: 'rgba(232,226,217,0.3)', fontSize: '0.88rem' }}>Your watchlist is empty</div>
           <div style={{ color: 'rgba(232,226,217,0.18)', fontSize: '0.75rem', marginTop: '0.4rem' }}>
             Browse{' '}
@@ -112,7 +112,7 @@ export default async function WatchlistPage() {
 
   const tickers = watchlist.map(w => w.ticker)
 
-  // ── Parallel data fetches ─────────────────────────────────────────────────
+  // â”€â”€ Parallel data fetches â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [signals, activeThemes, themeTickerRows] = await Promise.all([
     query<SignalRow[]>(
       db.from('asset_signals')
@@ -132,12 +132,12 @@ export default async function WatchlistPage() {
     ),
   ])
 
-  // ── Build lookup maps ─────────────────────────────────────────────────────
+  // â”€â”€ Build lookup maps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const signalMap = new Map((signals ?? []).map(s => [s.ticker, s]))
   const themeMap  = new Map((activeThemes ?? []).map(t => [t.id, t]))
   const activeIds = new Set((activeThemes ?? []).map(t => t.id))
 
-  // ── Auto-sync tickers missing price data — await so data is ready to render ─
+  // â”€â”€ Auto-sync tickers missing price data â€” await so data is ready to render â”€
   const needsSync = tickers.filter(t => {
     const s = signalMap.get(t)
     return !s?.price_usd || !s?.signal
@@ -166,7 +166,7 @@ export default async function WatchlistPage() {
         if (!s.signal) return false
         if (!s.rationale) return true
         if (s.rationale_signal !== s.signal) return true
-        return false  // has rationale and signal hasn't changed — skip
+        return false  // has rationale and signal hasn't changed â€” skip
       })
 
       await Promise.all(needsRationale.map(async s => {
@@ -197,10 +197,10 @@ export default async function WatchlistPage() {
           signalMap.set(s.ticker, { ...s, rationale: short })
         } catch { /* rationale failed silently */ }
       }))
-    } catch { /* sync failed — render with whatever we have */ }
+    } catch { /* sync failed â€” render with whatever we have */ }
   }
 
-  // ── Generate short rationale for existing tickers missing it ────────────────
+  // â”€â”€ Generate short rationale for existing tickers missing it â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const existingNeedRationale = [...signalMap.values()].filter(s => {
     if (!s.signal) return false
     if (!s.rationale) return true
@@ -237,7 +237,7 @@ export default async function WatchlistPage() {
     }))
   }
 
-  // ── Group themes by ticker ────────────────────────────────────────────────
+  // â”€â”€ Group themes by ticker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   type ThemeEntry = { id: string; name: string; timeframe: string; theme_type: string; final_weight: number }
   const themesByTicker = new Map<string, ThemeEntry[]>()
   for (const row of themeTickerRows ?? []) {
@@ -254,7 +254,7 @@ export default async function WatchlistPage() {
     })
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
@@ -319,14 +319,14 @@ export default async function WatchlistPage() {
 
               {/* Price */}
               <div style={{ fontSize: '0.85rem', color: 'var(--cream)', fontFamily: 'monospace' }}>
-                {sig?.price_usd != null ? `$${Number(sig.price_usd).toFixed(2)}` : '—'}
+                {sig?.price_usd != null ? `$${Number(sig.price_usd).toFixed(2)}` : 'â€”'}
               </div>
 
               {/* Change% */}
               <div style={{ fontSize: '0.82rem', fontWeight: 500, color: changeColor(sig?.change_pct ?? null) }}>
                 {sig?.change_pct != null
                   ? `${sig.change_pct >= 0 ? '+' : ''}${Number(sig.change_pct).toFixed(2)}%`
-                  : '—'}
+                  : 'â€”'}
               </div>
 
               {/* Signal + score */}
@@ -346,7 +346,7 @@ export default async function WatchlistPage() {
                   </div>
                 )}
                 {!sig?.signal && (
-                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>—</span>
+                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>â€”</span>
                 )}
               </div>
 
@@ -355,13 +355,13 @@ export default async function WatchlistPage() {
                 fontSize: '0.72rem', color: 'rgba(232,226,217,0.4)', lineHeight: 1.4,
                 display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
               } as React.CSSProperties}>
-                {sig?.rationale ?? '—'}
+                {sig?.rationale ?? 'â€”'}
               </div>
 
               {/* Active themes */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                 {themes.length === 0 ? (
-                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>—</span>
+                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>â€”</span>
                 ) : (
                   <>
                     {themes.slice(0, 3).map(t => (
@@ -371,7 +371,7 @@ export default async function WatchlistPage() {
                         color:      t.theme_type === 'watchlist' ? '#7ab4e8' : 'var(--gold)',
                         padding: '0.15rem 0.4rem', borderRadius: 3, whiteSpace: 'nowrap',
                       }}>
-                        {t.name.length > 18 ? t.name.slice(0, 18) + '…' : t.name}
+                        {t.name.length > 18 ? t.name.slice(0, 18) + 'â€¦' : t.name}
                       </span>
                     ))}
                     {themes.length > 3 && (
