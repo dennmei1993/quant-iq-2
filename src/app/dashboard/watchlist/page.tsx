@@ -1,4 +1,4 @@
-﻿// src/app/dashboard/watchlist/page.tsx
+// src/app/dashboard/watchlist/page.tsx
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
@@ -9,23 +9,14 @@ import RemoveWatchlistButton from '@/components/dashboard/RemoveWatchlistButton'
 export const dynamic  = 'force-dynamic'
 export const revalidate = 0
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type WatchlistRow = { id: string; ticker: string; added_at: string }
-type SignalRow = {
-  ticker:              string
-  signal:              string | null
-  score:               number | null
-  price_usd:           number | null
-  change_pct:          number | null
-  rationale:           string | null
-  rationale_signal:    string | null
-  rationale_updated_at:string | null
-}
-type ThemeRow    = { id: string; name: string; timeframe: string; theme_type: string }
+type SignalRow    = { ticker: string; signal: string | null; score: number | null; price_usd: number | null; change_pct: number | null }
 type ThemeTicker = { ticker: string; theme_id: string; final_weight: number }
+type ThemeRow    = { id: string; name: string; timeframe: string; theme_type: string }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function query<T>(q: any): Promise<T | null> {
   const result = await q
@@ -47,18 +38,18 @@ function changeColor(pct: number | null) {
 }
 
 function relTime(iso: string) {
-  const hrs  = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
+  const hrs = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
   if (hrs < 1)  return 'just now'
   if (hrs < 24) return `${hrs}h ago`
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-// â”€â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function WatchlistPage() {
   const db = createServiceClient()
 
-  // â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Auth ──────────────────────────────────────────────────────────────────
   let userId: string | null = null
   try {
     const cookieStore = await cookies()
@@ -73,7 +64,7 @@ export default async function WatchlistPage() {
 
   if (!userId) redirect('/auth/login')
 
-  // â”€â”€ Fetch watchlist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Fetch watchlist ───────────────────────────────────────────────────────
   const watchlist = await query<WatchlistRow[]>(
     db.from('user_watchlist')
       .select('id, ticker, added_at')
@@ -88,13 +79,13 @@ export default async function WatchlistPage() {
           Watchlist
         </h1>
         <p style={{ color: 'rgba(232,226,217,0.35)', fontSize: '0.82rem', marginBottom: '2rem' }}>
-          Track tickers you're watching â€” click any ticker page to add
+          Track tickers you are watching — click any ticker page to add
         </p>
         <div style={{
           background: 'var(--navy2)', border: '1px solid var(--dash-border)',
           borderRadius: 10, padding: '3rem', textAlign: 'center',
         }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.8rem', opacity: 0.3 }}>â˜†</div>
+          <div style={{ fontSize: '2rem', marginBottom: '0.8rem', opacity: 0.3 }}>☆</div>
           <div style={{ color: 'rgba(232,226,217,0.3)', fontSize: '0.88rem' }}>Your watchlist is empty</div>
           <div style={{ color: 'rgba(232,226,217,0.18)', fontSize: '0.75rem', marginTop: '0.4rem' }}>
             Browse{' '}
@@ -112,11 +103,11 @@ export default async function WatchlistPage() {
 
   const tickers = watchlist.map(w => w.ticker)
 
-  // â”€â”€ Parallel data fetches â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Parallel data fetches ─────────────────────────────────────────────────
   const [signals, activeThemes, themeTickerRows] = await Promise.all([
     query<SignalRow[]>(
       db.from('asset_signals')
-        .select('ticker, signal, score, price_usd, change_pct, rationale, rationale_signal, rationale_updated_at')
+        .select('ticker, signal, score, price_usd, change_pct')
         .in('ticker', tickers)
     ),
     query<ThemeRow[]>(
@@ -132,112 +123,36 @@ export default async function WatchlistPage() {
     ),
   ])
 
-  // â”€â”€ Build lookup maps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Build lookup maps ─────────────────────────────────────────────────────
   const signalMap = new Map((signals ?? []).map(s => [s.ticker, s]))
   const themeMap  = new Map((activeThemes ?? []).map(t => [t.id, t]))
   const activeIds = new Set((activeThemes ?? []).map(t => t.id))
 
-  // â”€â”€ Auto-sync tickers missing price data â€” await so data is ready to render â”€
+  // ── Auto-sync tickers missing price data — await before render ────────────
   const needsSync = tickers.filter(t => {
     const s = signalMap.get(t)
     return !s?.price_usd || !s?.signal
   })
   if (needsSync.length > 0) {
     try {
-      const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
-      const syncUrl = `${base}/api/admin/sync-prices?tickers=${needsSync.join(',')}`
-      await fetch(syncUrl, {
+      const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
+      await fetch(`${base}/api/admin/sync-prices?tickers=${needsSync.join(',')}`, {
         method:  'POST',
         headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '' },
         signal:  AbortSignal.timeout(30_000),
       })
-      // Re-fetch signals for newly synced tickers
       const freshSignals = await query<SignalRow[]>(
         db.from('asset_signals')
-          .select('ticker, signal, score, price_usd, change_pct, rationale, rationale_signal, rationale_updated_at')
+          .select('ticker, signal, score, price_usd, change_pct')
           .in('ticker', needsSync)
       )
       for (const s of freshSignals ?? []) {
         signalMap.set(s.ticker, s)
       }
-
-      // Generate short rationale for tickers that have a signal but no rationale
-      const needsRationale = (freshSignals ?? []).filter(s => {
-        if (!s.signal) return false
-        if (!s.rationale) return true
-        if (s.rationale_signal !== s.signal) return true
-        return false  // has rationale and signal hasn't changed â€” skip
-      })
-
-      await Promise.all(needsRationale.map(async s => {
-        try {
-          const prompt = `Write 1-2 sentences explaining why ${s.ticker} currently has a ${s.signal?.toUpperCase()} signal. Price change: ${s.change_pct != null ? (s.change_pct >= 0 ? '+' : '') + Number(s.change_pct).toFixed(2) + '%' : 'N/A'}. Score: ${s.score}/100. Be concise and factual.`
-          const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method:  'POST',
-            headers: {
-              'Content-Type':      'application/json',
-              'x-api-key':         process.env.ANTHROPIC_API_KEY ?? '',
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model:      'claude-haiku-4-5-20251001',
-              max_tokens: 120,
-              messages:   [{ role: 'user', content: prompt }],
-            }),
-            signal: AbortSignal.timeout(15_000),
-          })
-          if (!res.ok) return
-          const data  = await res.json()
-          const short = data.content?.[0]?.text?.trim()
-          if (!short) return
-          await (db.from('asset_signals') as any)
-            .update({ rationale: short, rationale_signal: s.signal, rationale_updated_at: new Date().toISOString() })
-            .eq('ticker', s.ticker)
-          // Update local map
-          signalMap.set(s.ticker, { ...s, rationale: short })
-        } catch { /* rationale failed silently */ }
-      }))
-    } catch { /* sync failed â€” render with whatever we have */ }
+    } catch { /* sync failed silently */ }
   }
 
-  // â”€â”€ Generate short rationale for existing tickers missing it â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const existingNeedRationale = [...signalMap.values()].filter(s => {
-    if (!s.signal) return false
-    if (!s.rationale) return true
-    if ((s as any).rationale_signal !== s.signal) return true
-    return false
-  })
-  if (existingNeedRationale.length > 0) {
-    await Promise.all(existingNeedRationale.map(async s => {
-      try {
-        const prompt = `Write 1-2 sentences explaining why ${s.ticker} currently has a ${s.signal?.toUpperCase()} signal. Price change: ${s.change_pct != null ? (s.change_pct >= 0 ? '+' : '') + Number(s.change_pct).toFixed(2) + '%' : 'N/A'}. Score: ${s.score}/100. In reply, DO NOT mention ticker and current signal.Be short, concise and factual.`
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method:  'POST',
-          headers: {
-            'Content-Type':      'application/json',
-            'x-api-key':         process.env.ANTHROPIC_API_KEY ?? '',
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model:      'claude-haiku-4-5-20251001',
-            max_tokens: 60,
-            messages:   [{ role: 'user', content: prompt }],
-          }),
-          signal: AbortSignal.timeout(15_000),
-        })
-        if (!res.ok) return
-        const data  = await res.json()
-        const short = data.content?.[0]?.text?.trim()
-        if (!short) return
-        await (db.from('asset_signals') as any)
-          .update({ rationale: short, rationale_signal: s.signal, rationale_updated_at: new Date().toISOString() })
-          .eq('ticker', s.ticker)
-        signalMap.set(s.ticker, { ...s, rationale: short })
-      } catch { /* rationale failed silently */ }
-    }))
-  }
-
-  // â”€â”€ Group themes by ticker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Group themes by ticker ────────────────────────────────────────────────
   type ThemeEntry = { id: string; name: string; timeframe: string; theme_type: string; final_weight: number }
   const themesByTicker = new Map<string, ThemeEntry[]>()
   for (const row of themeTickerRows ?? []) {
@@ -254,7 +169,7 @@ export default async function WatchlistPage() {
     })
   }
 
-  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
@@ -274,18 +189,15 @@ export default async function WatchlistPage() {
         </Link>
       </div>
 
-      {/* Table */}
       <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, overflow: 'hidden' }}>
 
         {/* Header */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: '100px 90px 80px 60px 1fr 180px 44px',
+          display: 'grid', gridTemplateColumns: '120px 90px 80px 80px 1fr 44px',
           gap: '0.5rem', padding: '0.6rem 1.2rem',
-          background: 'rgba(255,255,255,0.02)',
-          borderBottom: '1px solid var(--dash-border)',
+          background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--dash-border)',
         }}>
-          {['Ticker', 'Price', 'Change', 'Signal', 'Rationale', 'Active Themes', ''].map(h => (
+          {['Ticker', 'Price', 'Change', 'Signal', 'Active Themes', ''].map(h => (
             <div key={h} style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               {h}
             </div>
@@ -300,10 +212,8 @@ export default async function WatchlistPage() {
 
           return (
             <div key={row.id} style={{
-              display: 'grid',
-              gridTemplateColumns: '100px 90px 80px 60px 1fr 180px 44px',
-              gap: '0.5rem', padding: '0.85rem 1.2rem',
-              alignItems: 'center',
+              display: 'grid', gridTemplateColumns: '120px 90px 80px 80px 1fr 44px',
+              gap: '0.5rem', padding: '0.85rem 1.2rem', alignItems: 'center',
               borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)',
             }}>
 
@@ -319,49 +229,42 @@ export default async function WatchlistPage() {
 
               {/* Price */}
               <div style={{ fontSize: '0.85rem', color: 'var(--cream)', fontFamily: 'monospace' }}>
-                {sig?.price_usd != null ? `$${Number(sig.price_usd).toFixed(2)}` : 'â€”'}
+                {sig?.price_usd != null ? `$${Number(sig.price_usd).toFixed(2)}` : '—'}
               </div>
 
               {/* Change% */}
               <div style={{ fontSize: '0.82rem', fontWeight: 500, color: changeColor(sig?.change_pct ?? null) }}>
                 {sig?.change_pct != null
                   ? `${sig.change_pct >= 0 ? '+' : ''}${Number(sig.change_pct).toFixed(2)}%`
-                  : 'â€”'}
+                  : '—'}
               </div>
 
               {/* Signal + score */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                {sig?.signal && (
-                  <span style={{
-                    fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase',
-                    color: signalColor(sig.signal), background: `${signalColor(sig.signal)}18`,
-                    padding: '0.1rem 0.35rem', borderRadius: 3, width: 'fit-content',
-                  }}>
-                    {sig.signal}
-                  </span>
+                {sig?.signal ? (
+                  <>
+                    <span style={{
+                      fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase',
+                      color: signalColor(sig.signal), background: `${signalColor(sig.signal)}18`,
+                      padding: '0.1rem 0.35rem', borderRadius: 3, width: 'fit-content',
+                    }}>
+                      {sig.signal}
+                    </span>
+                    {sig.score != null && (
+                      <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', fontFamily: 'monospace' }}>
+                        {sig.score}/100
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>—</span>
                 )}
-                {sig?.score != null && (
-                  <div style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.3)', fontFamily: 'monospace' }}>
-                    {sig.score}/100
-                  </div>
-                )}
-                {!sig?.signal && (
-                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>â€”</span>
-                )}
-              </div>
-
-              {/* Rationale */}
-              <div style={{
-                fontSize: '0.72rem', color: 'rgba(232,226,217,0.4)', lineHeight: 1.4,
-                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-              } as React.CSSProperties}>
-                {sig?.rationale ?? 'â€”'}
               </div>
 
               {/* Active themes */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                 {themes.length === 0 ? (
-                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>â€”</span>
+                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.18)' }}>—</span>
                 ) : (
                   <>
                     {themes.slice(0, 3).map(t => (
@@ -371,7 +274,7 @@ export default async function WatchlistPage() {
                         color:      t.theme_type === 'watchlist' ? '#7ab4e8' : 'var(--gold)',
                         padding: '0.15rem 0.4rem', borderRadius: 3, whiteSpace: 'nowrap',
                       }}>
-                        {t.name.length > 18 ? t.name.slice(0, 18) + 'â€¦' : t.name}
+                        {t.name.length > 20 ? t.name.slice(0, 20) + '…' : t.name}
                       </span>
                     ))}
                     {themes.length > 3 && (
