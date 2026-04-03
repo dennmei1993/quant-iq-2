@@ -743,6 +743,7 @@ export default function PortfolioPage() {
   const [defaults,    setDefaults]    = useState<ProfileDefaults | null>(null);
   const [initLoading, setInitLoading] = useState(true);
   const [showNew,     setShowNew]     = useState(false);
+  const [isFirstRun,  setIsFirstRun]  = useState(false);
   const [activeTab,   setActiveTab]   = useState<"holdings" | "distribution">("holdings");
 
   const [ticker,      setTicker]      = useState("");
