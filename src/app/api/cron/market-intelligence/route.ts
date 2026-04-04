@@ -2,9 +2,11 @@
 //
 // Refreshes the market_intelligence table — one row per aspect.
 // All 5 aspects run in PARALLEL via Promise.allSettled.
-// DB-only aspects (sector_momentum, recent_events) have no LLM calls.
-// Web-search aspects use a single combined LLM call (not two separate ones).
-// Schedule: 0 11 * * * (after ingest→macro→themes pipeline completes)
+//
+// NO web search — uses DB data + Claude training knowledge only.
+// This keeps each aspect under 10s. Total runtime ~15-20s.
+//
+// Schedule: 0 11 * * * (after ingest→macro→themes pipeline)
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
@@ -32,117 +34,125 @@ interface AspectRow {
   cron_name: string;
 }
 
-// ─── Single combined LLM call with web search ─────────────────────────────────
-// Replaces two separate calls (search + extraction) with one.
+// ─── Shared Claude call ───────────────────────────────────────────────────────
 
-async function searchAndExtract(query: string, extractPrompt: string, max_tokens = 800): Promise<{ raw: string; data: any }> {
-  try {
-    // Step 1: web search
-    const searchMsg = await anthropic.messages.create({
-      model:      "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      tools:      [{ type: "web_search_20250305", name: "web_search" } as any],
-      messages:   [{ role: "user", content: query }],
-    });
-    const raw = searchMsg.content
-      .filter((b: any) => b.type === "text")
-      .map((b: any)   => b.text)
-      .join("\n")
-      .slice(0, 2000);
-
-    // Step 2: extract structured data
-    const extractMsg = await anthropic.messages.create({
-      model:      "claude-sonnet-4-20250514",
-      max_tokens,
-      messages:   [{ role: "user", content: `${extractPrompt}\n\nSOURCE TEXT:\n${raw}` }],
-    });
-    const text  = extractMsg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
-    const clean = text.replace(/```json|```/g, "").trim();
-    return { raw, data: JSON.parse(clean) };
-  } catch (e) {
-    console.error("searchAndExtract error:", e);
-    return { raw: "", data: {} };
-  }
+async function askClaude(prompt: string, max_tokens = 500): Promise<any> {
+  const msg = await anthropic.messages.create({
+    model:    "claude-haiku-4-5-20251001",   // fastest + cheapest for structured extraction
+    max_tokens,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const text  = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+  const clean = text.replace(/```json|```/g, "").trim();
+  return JSON.parse(clean);
 }
 
 // ─── Aspect: macro_indicators ─────────────────────────────────────────────────
+// Reads from our macro_scores table + asks Claude for macro narrative
 
-async function buildMacroIndicators(): Promise<AspectRow> {
-  const { raw, data } = await searchAndExtract(
-    "Current US macro data: CPI inflation, GDP growth rate, unemployment rate, Fed funds rate, 10-year Treasury yield. Latest numbers only.",
-    `Extract these US macro indicators and return ONLY valid JSON:
+async function buildMacroIndicators(supabase: any): Promise<AspectRow> {
+  const { data: scores } = await supabase
+    .from("macro_scores")
+    .select("aspect, score, direction, commentary")
+    .order("scored_at", { ascending: false })
+    .limit(6);
+
+  const macroText = (scores ?? [])
+    .map((m: any) => `${m.aspect}: ${m.score > 0 ? "+" : ""}${m.score}/10 (${m.direction}) — ${m.commentary}`)
+    .join("\n");
+
+  const avgScore = scores?.length
+    ? scores.reduce((s: number, m: any) => s + m.score, 0) / scores.length
+    : 0;
+
+  let data: any = { scores, avg_score: avgScore };
+  try {
+    data = await askClaude(
+      `You are a macro analyst. Based on these internal macro scores, provide a brief investment narrative.
+
+MACRO SCORES:
+${macroText || "No macro scores available yet."}
+
+Return ONLY valid JSON:
 {
-  "cpi_yoy": "X.X% (Mon Year)",
-  "gdp_growth": "X.X% (QX 20XX)",
-  "unemployment": "X.X% (Mon Year)",
-  "fed_rate": "X.XX%-X.XX%",
-  "yield_10y": "X.XX%",
+  "summary": "2 sentence narrative on the macro environment and implication for US equities",
   "fed_stance": "hawkish|neutral|dovish",
-  "summary": "2 sentence narrative on macro environment and implication for US equities"
-}
-Use null for unavailable values.`,
-    600
-  );
+  "key_risk": "the single biggest macro risk right now in one phrase",
+  "avg_score": ${avgScore.toFixed(1)}
+}`,
+      400
+    );
+    data.scores = scores;
+  } catch {
+    data = { summary: macroText.slice(0, 300), scores, avg_score: avgScore };
+  }
 
-  const score = data.fed_stance === "dovish" ? 3 : data.fed_stance === "hawkish" ? -3 : 0;
+  const score = Math.max(-10, Math.min(10, Math.round(avgScore)));
   return {
     aspect:    "macro_indicators",
-    summary:   data.summary ?? raw.slice(0, 300),
+    summary:   data.summary ?? macroText.slice(0, 300),
     data,
     score,
     sentiment: score >= 2 ? "bullish" : score <= -2 ? "bearish" : "neutral",
-    sources:   ["web_search"],
+    sources:   ["macro_scores"],
     cron_name: "market-intelligence",
   };
 }
 
 // ─── Aspect: geopolitical ─────────────────────────────────────────────────────
+// Reads recent geopolitical events from DB + Claude summarises
 
 async function buildGeopolitical(supabase: any): Promise<AspectRow> {
-  // Pull recent geopolitical events from DB first
   const { data: events } = await supabase
     .from("events")
-    .select("headline, ai_summary, event_type, impact_score, sectors, published_at")
+    .select("headline, ai_summary, event_type, impact_score, sentiment_score, sectors, published_at")
     .eq("ai_processed", true)
-    .in("event_type", ["geopolitical", "policy", "trade", "conflict", "sanction"])
+    .in("event_type", ["geopolitical", "policy", "trade", "conflict", "sanction", "macro"])
     .order("impact_score", { ascending: false })
-    .limit(10);
+    .order("published_at",  { ascending: false })
+    .limit(15);
 
-  const dbContext = (events ?? []).slice(0, 8).map((e: any) => {
+  const rows = events ?? [];
+  const eventText = rows.slice(0, 10).map((e: any) => {
     const date = new Date(e.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return `[${date}] ${e.headline}`;
+    return `[${date}] impact:${(e.impact_score ?? 0).toFixed(1)} — ${e.headline}${e.ai_summary ? ` → ${e.ai_summary}` : ""}`;
   }).join("\n");
 
-  const { raw, data } = await searchAndExtract(
-    "Current geopolitical risks for US stock markets: Iran conflict, Middle East tensions, US-China trade tariffs, Russia-Ukraine. Which sectors are most affected?",
-    `Synthesise geopolitical risks for US equity investors. Known events from our DB:
-${dbContext}
+  let data: any = {};
+  try {
+    data = await askClaude(
+      `You are a geopolitical risk analyst for equity investors. Analyse these recent events:
+
+${eventText || "No recent geopolitical events classified."}
 
 Return ONLY valid JSON:
 {
-  "summary": "3 sentence narrative on active geopolitical risks and their market impact by sector",
-  "active_risks": ["Iran conflict", "US-China tariffs"],
+  "summary": "3 sentence narrative on active geopolitical risks and their impact on US equity sectors",
+  "active_risks": ["list up to 3 named risks, e.g. Iran conflict, US-China tariffs"],
   "exposed_sectors": { "risk": ["Energy"], "opportunity": ["Defense"] },
   "risk_level": "elevated|moderate|contained",
-  "score": -4
+  "score": -3
 }
-score: -10 (extreme risk) to +10 (benign).`,
-    500
-  );
+score: -10 (extreme risk) to 0 (neutral).`,
+      500
+    );
+  } catch {
+    data = { risk_level: "moderate", active_risks: [], summary: eventText.slice(0, 200) };
+  }
 
-  const score = typeof data.score === "number" ? Math.max(-10, Math.min(10, data.score)) : -2;
+  const score = typeof data.score === "number" ? Math.max(-10, Math.min(0, data.score)) : -2;
   return {
     aspect:    "geopolitical",
-    summary:   data.summary ?? raw.slice(0, 300),
-    data,
+    summary:   data.summary ?? "",
+    data:      { ...data, raw_events: rows.slice(0, 10) },
     score,
-    sentiment: score >= 0 ? "neutral" : "bearish",
-    sources:   ["events_table", "web_search"],
+    sentiment: score >= 0 ? "neutral" : score >= -4 ? "bearish" : "bearish",
+    sources:   ["events_table"],
     cron_name: "market-intelligence",
   };
 }
 
-// ─── Aspect: sector_momentum — pure DB, no LLM ───────────────────────────────
+// ─── Aspect: sector_momentum — pure DB aggregation, no LLM ───────────────────
 
 async function buildSectorMomentum(supabase: any): Promise<AspectRow> {
   const { data: signals } = await supabase
@@ -181,7 +191,7 @@ async function buildSectorMomentum(supabase: any): Promise<AspectRow> {
 
   return {
     aspect:    "sector_momentum",
-    summary:   `Leading sectors: ${leading.join(", ")}. Lagging: ${lagging.join(", ")}. Based on ${signals?.length ?? 0} signal records.`,
+    summary:   `Leading: ${leading.join(", ")}. Lagging: ${lagging.join(", ")}. Based on ${signals?.length ?? 0} signals.`,
     data:      { sectors: ranked, leading, lagging },
     score:     Math.max(-10, Math.min(10, Math.round(overall / 10))),
     sentiment: overall > 5 ? "bullish" : overall < -5 ? "bearish" : "neutral",
@@ -191,31 +201,64 @@ async function buildSectorMomentum(supabase: any): Promise<AspectRow> {
 }
 
 // ─── Aspect: market_sentiment ─────────────────────────────────────────────────
+// Aggregates from our events + signals, Claude interprets
 
-async function buildMarketSentiment(): Promise<AspectRow> {
-  const { raw, data } = await searchAndExtract(
-    "US stock market sentiment now: S&P 500 trend, VIX level, risk-on or risk-off, earnings outlook.",
-    `Summarise US market sentiment. Return ONLY valid JSON:
+async function buildMarketSentiment(supabase: any): Promise<AspectRow> {
+  const { data: recentEvents } = await supabase
+    .from("events")
+    .select("sentiment_score, impact_score, event_type")
+    .eq("ai_processed", true)
+    .order("published_at", { ascending: false })
+    .limit(30);
+
+  const rows = recentEvents ?? [];
+  const avgSentiment = rows.length
+    ? rows.reduce((s: number, e: any) => s + (e.sentiment_score ?? 0), 0) / rows.length
+    : 0;
+  const avgImpact = rows.length
+    ? rows.reduce((s: number, e: any) => s + (e.impact_score ?? 0), 0) / rows.length
+    : 0;
+
+  let data: any = {};
+  try {
+    data = await askClaude(
+      `You are a market sentiment analyst. Based on these aggregate metrics from recent news events:
+
+- Average sentiment score: ${avgSentiment.toFixed(2)} (scale: -1 bearish to +1 bullish)
+- Average impact score: ${avgImpact.toFixed(1)} (scale: 0-10)
+- Number of events analysed: ${rows.length}
+- Event type breakdown: ${JSON.stringify(
+        rows.reduce((acc: any, e: any) => {
+          acc[e.event_type ?? "general"] = (acc[e.event_type ?? "general"] ?? 0) + 1;
+          return acc;
+        }, {})
+      )}
+
+Interpret the current market sentiment for US equity investors.
+
+Return ONLY valid JSON:
 {
-  "summary": "2 sentence narrative on current market sentiment",
+  "summary": "2 sentence narrative on current market sentiment and what it means for investors",
   "market_trend": "bullish|bearish|sideways",
   "risk_appetite": "risk-on|risk-off|mixed",
   "vix_level": "low|moderate|elevated|extreme",
-  "key_risks": ["risk1", "risk2"],
   "score": 2
 }
 score -10 to +10.`,
-    400
-  );
+      400
+    );
+  } catch {
+    data = { market_trend: "sideways", risk_appetite: "mixed", summary: `Avg sentiment: ${avgSentiment.toFixed(2)}` };
+  }
 
-  const score = typeof data.score === "number" ? Math.max(-10, Math.min(10, data.score)) : 0;
+  const score = typeof data.score === "number" ? Math.max(-10, Math.min(10, data.score)) : Math.round(avgSentiment * 5);
   return {
     aspect:    "market_sentiment",
-    summary:   data.summary ?? raw.slice(0, 300),
-    data,
+    summary:   data.summary ?? "",
+    data:      { ...data, avg_sentiment: avgSentiment, avg_impact: avgImpact, event_count: rows.length },
     score,
     sentiment: score >= 3 ? "bullish" : score <= -3 ? "bearish" : "neutral",
-    sources:   ["web_search"],
+    sources:   ["events_table"],
     cron_name: "market-intelligence",
   };
 }
@@ -250,10 +293,10 @@ async function buildRecentEvents(supabase: any): Promise<AspectRow> {
 
   return {
     aspect:    "recent_events",
-    summary:   `${rows.length} events tracked. Avg sentiment: ${avgSentiment.toFixed(1)}. Types: ${Object.keys(byType).join(", ")}.`,
+    summary:   `${rows.length} events. Avg sentiment: ${avgSentiment.toFixed(1)}. Types: ${Object.keys(byType).join(", ")}.`,
     data:      { by_type: byType, top_events_text: topEventsText, total: rows.length, avg_sentiment: avgSentiment },
     score:     Math.max(-10, Math.min(10, Math.round(avgSentiment * 3))),
-    sentiment: avgSentiment > 1 ? "bullish" : avgSentiment < -1 ? "bearish" : "neutral",
+    sentiment: avgSentiment > 0.5 ? "bullish" : avgSentiment < -0.5 ? "bearish" : "neutral",
     sources:   ["events_table"],
     cron_name: "market-intelligence",
   };
@@ -277,13 +320,13 @@ async function handler(req: NextRequest) {
   const supabase = createServiceClient();
   const started  = Date.now();
 
-  // ── Run all aspects in parallel ───────────────────────────────────────────
+  // All 5 aspects in parallel
   const aspects = [
-    { name: "macro_indicators", fn: () => buildMacroIndicators()          },
-    { name: "geopolitical",     fn: () => buildGeopolitical(supabase)     },
-    { name: "sector_momentum",  fn: () => buildSectorMomentum(supabase)   },
-    { name: "market_sentiment", fn: () => buildMarketSentiment()          },
-    { name: "recent_events",    fn: () => buildRecentEvents(supabase)     },
+    { name: "macro_indicators", fn: () => buildMacroIndicators(supabase) },
+    { name: "geopolitical",     fn: () => buildGeopolitical(supabase)    },
+    { name: "sector_momentum",  fn: () => buildSectorMomentum(supabase)  },
+    { name: "market_sentiment", fn: () => buildMarketSentiment(supabase) },
+    { name: "recent_events",    fn: () => buildRecentEvents(supabase)    },
   ];
 
   const settled = await Promise.allSettled(aspects.map(a => a.fn()));
@@ -291,35 +334,27 @@ async function handler(req: NextRequest) {
   const results: string[] = [];
   const errors:  string[] = [];
 
-  // Upsert results — also in parallel
   await Promise.allSettled(
     settled.map(async (result, i) => {
       const { name } = aspects[i];
       if (result.status === "rejected") {
         errors.push(`${name}: ${result.reason?.message ?? "failed"}`);
-        console.error(`[market-intelligence] ${name} failed:`, result.reason);
+        console.error(`[market-intelligence] ${name}:`, result.reason);
         return;
       }
-      const row = result.value;
       const { error } = await supabase
         .from("market_intelligence")
-        .upsert({ ...row, refreshed_at: new Date().toISOString() }, { onConflict: "aspect" });
-      if (error) {
-        errors.push(`${name} upsert: ${error.message}`);
-      } else {
-        results.push(`${name}: ok`);
-      }
+        .upsert(
+          { ...result.value, refreshed_at: new Date().toISOString() },
+          { onConflict: "aspect" }
+        );
+      if (error) errors.push(`${name} upsert: ${error.message}`);
+      else       results.push(`${name}: ok`);
     })
   );
 
   const elapsed = Math.round((Date.now() - started) / 1000);
-  console.log(`[market-intelligence] done in ${elapsed}s — ${results.length} ok, ${errors.length} errors`);
+  console.log(`[market-intelligence] ${elapsed}s — ${results.length} ok, ${errors.length} errors`);
 
-  return NextResponse.json({
-    ok:          errors.length === 0,
-    results,
-    errors,
-    elapsed_s:   elapsed,
-    refreshed_at: new Date().toISOString(),
-  });
+  return NextResponse.json({ ok: errors.length === 0, results, errors, elapsed_s: elapsed });
 }
