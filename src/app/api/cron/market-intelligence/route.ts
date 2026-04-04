@@ -346,7 +346,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase  = createClient();
+  const supabase  = await createClient();
   const results: string[] = [];
   const errors:  string[] = [];
 
