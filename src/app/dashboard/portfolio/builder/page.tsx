@@ -187,24 +187,34 @@ function Card({ children, highlight, style }: { children: React.ReactNode; highl
 // ModeToggle
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ModeToggle({ mode, onChange, dataReady, llmReady }: {
+function ModeToggle({ mode, onChange, dataReady, llmReady }: { // both modes use Claude — difference is input constraints
   mode:      BuildMode;
   onChange:  (m: BuildMode) => void;
   dataReady: boolean;
   llmReady:  boolean;
 }) {
-  const modes: { id: BuildMode; label: string; icon: string; desc: string }[] = [
+  const modes: { id: BuildMode; label: string; icon: string; desc: string; detail: string[] }[] = [
     {
       id:    "data",
       icon:  "◈",
       label: "Data-driven",
-      desc:  "Ranks your mapped theme_tickers using signals + Claude for selection",
+      desc:  "Claude selects from your existing mapped data",
+      detail: [
+        "Themes: Claude ranks themes already in your DB",
+        "Tickers: Claude picks from pre-mapped theme_tickers",
+        "Constrained to your curated universe",
+      ],
     },
     {
       id:    "llm",
       icon:  "✦",
       label: "LLM-powered",
-      desc:  "Claude freely selects from the full asset universe with no pre-mapping constraint",
+      desc:  "Claude reasons freely from the full asset universe",
+      detail: [
+        "Themes: Claude defines themes independently",
+        "Tickers: Claude picks from all 200+ active assets",
+        "No pre-mapping constraint — pure model judgment",
+      ],
     },
   ];
 
@@ -243,7 +253,14 @@ function ModeToggle({ mode, onChange, dataReady, llmReady }: {
                 <span style={{ fontSize: "0.6rem", background: "rgba(78,202,153,0.15)", color: "#4eca99", border: "1px solid rgba(78,202,153,0.3)", borderRadius: 4, padding: "0.05rem 0.4rem" }}>ready</span>
               )}
             </div>
-            <div style={{ fontSize: "0.72rem", color: T.dim, lineHeight: 1.4 }}>{m.desc}</div>
+            <div style={{ fontSize: "0.72rem", color: T.dim, lineHeight: 1.5, marginBottom: "0.4rem" }}>{m.desc}</div>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.15rem" }}>
+              {m.detail.map(d => (
+                <div key={d} style={{ fontSize: "0.65rem", color: mode === m.id ? "rgba(200,169,110,0.6)" : "rgba(232,226,217,0.2)", display: "flex", gap: "0.35rem" }}>
+                  <span style={{ opacity: 0.5 }}>–</span><span>{d}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </button>
       ))}
@@ -1153,8 +1170,11 @@ export default function PortfolioBuilderPage() {
         <h1 style={{ color: T.cream, fontFamily: "serif", fontSize: "1.8rem", margin: "0 0 0.25rem" }}>
           Portfolio Builder
         </h1>
-        <p style={{ color: T.dim, fontSize: "0.82rem", margin: 0 }}>
-          AI-guided, step-by-step portfolio construction based on your preferences and current market conditions.
+        <p style={{ color: T.dim, fontSize: "0.82rem", margin: 0, lineHeight: 1.6 }}>
+          AI-guided, step-by-step portfolio construction. Both modes use Claude —
+          the difference is <strong style={{ color: "rgba(232,226,217,0.6)", fontWeight: 500 }}>what Claude is allowed to choose from</strong>:
+          Data-driven constrains Claude to your mapped themes and tickers;
+          LLM-powered gives Claude the full asset universe.
         </p>
       </div>
 
