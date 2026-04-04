@@ -53,7 +53,34 @@ interface TickerAllocation {
 }
 
 type Step = 1 | 2 | 3;
-type BuildMode = "data" | "llm";
+type BuildMode    = "data" | "llm";
+type LlmProvider  = "claude" | "openai";
+
+const LLM_PROVIDER_META: Record<LlmProvider, {
+  label: string; icon: string; color: string;
+  models: { id: string; label: string; desc: string }[];
+}> = {
+  claude: {
+    label: "Claude",
+    icon:  "◆",
+    color: "#c8a96e",
+    models: [
+      { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4",  desc: "Balanced — fast + high quality" },
+      { id: "claude-opus-4-5",          label: "Claude Opus 4.5",  desc: "Most capable Claude model" },
+      { id: "claude-haiku-4-5-20251001",label: "Claude Haiku 4.5", desc: "Fastest, lowest cost" },
+    ],
+  },
+  openai: {
+    label: "OpenAI",
+    icon:  "⬡",
+    color: "#74aa9c",
+    models: [
+      { id: "gpt-4o",       label: "GPT-4o",       desc: "Flagship — multimodal, fast" },
+      { id: "gpt-4o-mini",  label: "GPT-4o mini",  desc: "Fast and cost-efficient" },
+      { id: "o1-mini",      label: "o1-mini",       desc: "Reasoning-optimised" },
+    ],
+  },
+};
 
 interface MacroScore {
   aspect:     string;
@@ -231,6 +258,78 @@ function SignalStrengthBar({ label, value, color }: { label: string; value: numb
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LlmProviderToggle — shown in LLM mode above step content
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LlmProviderToggle({
+  provider, modelId, onChange,
+}: {
+  provider: LlmProvider;
+  modelId:  string;
+  onChange: (provider: LlmProvider, modelId: string) => void;
+}) {
+  return (
+    <div style={{
+      background: "rgba(255,255,255,0.02)", border: `1px solid rgba(255,255,255,0.07)`,
+      borderRadius: 9, padding: "0.85rem 1rem", marginBottom: "1rem",
+      display: "flex", flexDirection: "column" as const, gap: "0.75rem",
+    }}>
+      <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        LLM Provider
+      </div>
+
+      {/* Provider tabs */}
+      <div style={{ display: "flex", gap: "0.5rem" }}>
+        {(Object.keys(LLM_PROVIDER_META) as LlmProvider[]).map(p => {
+          const meta    = LLM_PROVIDER_META[p];
+          const active  = provider === p;
+          const defModel = meta.models[0].id;
+          return (
+            <button key={p} onClick={() => onChange(p, defModel)}
+              style={{
+                padding: "0.4rem 1rem",
+                background: active ? `${meta.color}15` : "rgba(255,255,255,0.04)",
+                border: `1.5px solid ${active ? `${meta.color}50` : "rgba(255,255,255,0.08)"}`,
+                color:  active ? meta.color : "rgba(232,226,217,0.4)",
+                borderRadius: 7, fontSize: "0.82rem", fontWeight: active ? 700 : 400,
+                cursor: "pointer", transition: "all 0.15s",
+                display: "flex", alignItems: "center", gap: "0.4rem",
+              }}>
+              <span>{meta.icon}</span>
+              <span>{meta.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Model selector for active provider */}
+      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" as const }}>
+        {LLM_PROVIDER_META[provider].models.map(m => {
+          const active = modelId === m.id;
+          const color  = LLM_PROVIDER_META[provider].color;
+          return (
+            <button key={m.id} onClick={() => onChange(provider, m.id)}
+              style={{
+                padding: "0.3rem 0.8rem",
+                background: active ? `${color}12` : "transparent",
+                border: `1px solid ${active ? `${color}40` : "rgba(255,255,255,0.07)"}`,
+                color:  active ? color : "rgba(232,226,217,0.35)",
+                borderRadius: 5, fontSize: "0.75rem", fontWeight: active ? 600 : 400,
+                cursor: "pointer", transition: "all 0.15s",
+                display: "flex", flexDirection: "column" as const, alignItems: "flex-start",
+                gap: "0.1rem",
+              }}>
+              <span>{m.label}</span>
+              <span style={{ fontSize: "0.6rem", opacity: 0.6 }}>{m.desc}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function StepIndicator({ current, total }: { current: Step; total: number }) {
   const labels = ["Strategy", "Themes", "Allocation"];
   return (
@@ -298,8 +397,14 @@ function PillToggle({ active, onClick, children, color }: {
   );
 }
 
-function ModelBadge({ mode }: { mode: BuildMode }) {
+function ModelBadge({ mode, provider, modelId }: {
+  mode:      BuildMode;
+  provider?: LlmProvider;
+  modelId?:  string;
+}) {
   const isLlm = mode === "llm";
+  const meta  = provider ? LLM_PROVIDER_META[provider] : null;
+  const model = meta?.models.find(m => m.id === modelId);
   return (
     <span style={{
       display:      "inline-flex",
@@ -311,12 +416,15 @@ function ModelBadge({ mode }: { mode: BuildMode }) {
       textTransform:"uppercase",
       padding:      "0.2rem 0.55rem",
       borderRadius: 5,
-      background:   isLlm ? "rgba(200,169,110,0.12)" : "rgba(99,179,237,0.1)",
-      border:       `1px solid ${isLlm ? "rgba(200,169,110,0.35)" : "rgba(99,179,237,0.25)"}`,
-      color:        isLlm ? "var(--gold)"              : "#63b3ed",
+      background:   isLlm ? `${meta?.color ?? "var(--gold)"}18` : "rgba(99,179,237,0.1)",
+      border:       `1px solid ${isLlm ? `${meta?.color ?? "var(--gold)"}50` : "rgba(99,179,237,0.25)"}`,
+      color:        isLlm ? (meta?.color ?? "var(--gold)") : "#63b3ed",
       flexShrink:   0,
     }}>
-      {isLlm ? "✦" : "◈"} {isLlm ? "LLM" : "Data"}
+      {isLlm ? (meta?.icon ?? "✦") : "◈"}{" "}
+      {isLlm
+        ? `${meta?.label ?? "LLM"}${model ? ` · ${model.label}` : ""}`
+        : "Data"}
     </span>
   );
 }
@@ -457,7 +565,7 @@ function Step1Strategy({
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
           <SectionLabel>Portfolio context</SectionLabel>
-          <ModelBadge mode={mode} />
+          <ModelBadge mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined} />
         </div>
         <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
           {[
@@ -520,7 +628,7 @@ function Step1Strategy({
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.15rem" }}>
                   <div style={{ fontSize: "1.1rem", fontWeight: 700, color: T.cream }}>{strategy.summary}</div>
-                  <ModelBadge mode={mode} />
+                  <ModelBadge mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined} />
                 </div>
                 <div style={{ fontSize: "0.78rem", color: T.dim, lineHeight: 1.6 }}>{strategy.rationale}</div>
               </div>
@@ -685,7 +793,7 @@ function Step2Themes({
               ? "Claude defined these themes independently — select the ones that fit your strategy."
               : "Claude ranked these themes from your database — select the ones you want to build around."}
           </p>
-          <ModelBadge mode={mode} />
+          <ModelBadge mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined} />
         </div>
         <span style={{ fontSize: "0.75rem", color: selected.length > 0 ? T.gold : T.dim, whiteSpace: "nowrap", marginLeft: "1rem" }}>
           {selected.length} selected · {totalAlloc.toFixed(0)}% allocated
@@ -847,7 +955,7 @@ function Step3Allocation({
               ? "Tickers selected by Claude from the full asset universe"
               : "Tickers selected by Claude from your mapped theme_tickers"}
           </div>
-          <ModelBadge mode={mode} />
+          <ModelBadge mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "1rem" }}>
           {[
@@ -1124,6 +1232,9 @@ export default function PortfolioBuilderPage() {
 
   const [runId,                  setRunId]                  = useState<string | null>(null);
   const [macroScores,            setMacroScores]            = useState<MacroScore[]>([]);
+  // LLM provider selection — only applies when mode === "llm"
+  const [llmProvider,            setLlmProvider]            = useState<LlmProvider>("claude");
+  const [llmModelId,             setLlmModelId]             = useState<string>("claude-sonnet-4-20250514");
   const [loadingStrategy,        setLoadingStrategy]        = useState(false);
   const [loadingDataThemes,      setLoadingDataThemes]      = useState(false);
   const [loadingLlmThemes,       setLoadingLlmThemes]       = useState(false);
@@ -1205,7 +1316,7 @@ export default function PortfolioBuilderPage() {
       const res  = await fetch("/api/portfolio/builder/strategy", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ portfolio_id: portfolioId, run_id: runId }),
+        body:    JSON.stringify({ portfolio_id: portfolioId, run_id: runId, provider: initialMode === "llm" ? llmProvider : "claude", model_id: initialMode === "llm" ? llmModelId : undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -1291,7 +1402,7 @@ export default function PortfolioBuilderPage() {
       const res  = await fetch(endpoint, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ portfolio_id: portfolioId, strategy, themes: selectedThemes, run_id: runId }),
+        body:    JSON.stringify({ portfolio_id: portfolioId, strategy, themes: selectedThemes, run_id: runId, provider: targetMode === "llm" ? llmProvider : "claude", model_id: targetMode === "llm" ? llmModelId : undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -1432,28 +1543,43 @@ export default function PortfolioBuilderPage() {
       )}
 
       {step === 1 && (
-        <Step1Strategy
-          portfolio={portfolio}
-          strategy={strategy}
-          loading={loadingStrategy}
-          mode={initialMode}
-          macro={macroScores}
-          onGenerate={generateStrategy}
-          onUpdate={setStrategy}
+        <>
+          {initialMode === "llm" && (
+            <LlmProviderToggle
+              provider={llmProvider}
+              modelId={llmModelId}
+              onChange={(p, m) => { setLlmProvider(p); setLlmModelId(m); setStrategy(null); }}
+            />
+          )}
+          <Step1Strategy
+            portfolio={portfolio}
+            strategy={strategy}
+            loading={loadingStrategy}
+            mode={initialMode}
+            macro={macroScores}
+            onGenerate={generateStrategy}
+            onUpdate={setStrategy}
           onNext={() => {
             setStep(2);
-            // Generate themes for the mode the user arrived with from the portfolio page
             if (initialMode === "data" && dataThemes.length === 0 && !loadingDataThemes) {
               generateThemes("data");
             } else if (initialMode === "llm" && llmThemes.length === 0 && !loadingLlmThemes) {
               generateThemes("llm");
             }
           }}
-        />
+          />
+        </>
       )}
 
       {step === 2 && (
         <>
+          {mode === "llm" && (
+            <LlmProviderToggle
+              provider={llmProvider}
+              modelId={llmModelId}
+              onChange={(p, m) => { setLlmProvider(p); setLlmModelId(m); setLlmThemes([]); }}
+            />
+          )}
           <ModeToggle
             mode={mode}
             onChange={m => {
@@ -1497,6 +1623,13 @@ export default function PortfolioBuilderPage() {
 
       {step === 3 && (
         <>
+          {mode === "llm" && (
+            <LlmProviderToggle
+              provider={llmProvider}
+              modelId={llmModelId}
+              onChange={(p, m) => { setLlmProvider(p); setLlmModelId(m); setLlmTickers([]); }}
+            />
+          )}
           <ModeToggle
             mode={mode}
             onChange={m => {
