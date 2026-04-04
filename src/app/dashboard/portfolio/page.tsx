@@ -4,6 +4,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PortfolioSignalDistribution } from "@/components/dashboard/PortfolioSignalDistribution";
+import { PortfolioWatchlist } from "@/components/dashboard/PortfolioWatchlist";
+import { PortfolioBuildHistory } from "@/components/dashboard/PortfolioBuildHistory";
 import {
   computeCapitalMetrics,
   type PortfolioCapitalMetrics,
@@ -781,7 +783,7 @@ export default function PortfolioPage() {
   const [initLoading, setInitLoading] = useState(true);
   const [showNew,     setShowNew]     = useState(false);
   const [isFirstRun,  setIsFirstRun]  = useState(false);
-  const [activeTab,   setActiveTab]   = useState<"holdings" | "distribution">("holdings");
+  const [activeTab,   setActiveTab]   = useState<"holdings" | "watchlist" | "distribution" | "history">("holdings");
 
   const [ticker,      setTicker]      = useState("");
   const [quantity,    setQuantity]    = useState("");
@@ -792,16 +794,7 @@ export default function PortfolioPage() {
   const [committing,    setCommitting]    = useState(false);
   const [adding,        setAdding]        = useState(false);
   const [generating,    setGenerating]    = useState(false);
-  const [aiBuilding,    setAiBuilding]    = useState(false);
-  const [aiResult, setAiResult] = useState<{
-    rationale: string;
-    warnings:  string[];
-    buy:       { ticker: string; weight: number; capital: number; price: number | null; quantity: number | null; rationale: string }[];
-    watch:     { ticker: string; price: number | null; rationale: string }[];
-    avoid:     { ticker: string; price: number | null; rationale: string }[];
-    inserted_holdings:  number;
-    inserted_watchlist: number;
-  } | null>(null);
+
   const [formError,   setFormError]   = useState("");
   const [tickerError, setTickerError] = useState("");
 
@@ -950,36 +943,8 @@ export default function PortfolioPage() {
     setCommitting(false);
   }
 
-  async function buildPortfolioWithAI() {
-    if (!selectedId) return;
-    setAiBuilding(true);
-    setAiResult(null);
-    try {
-      const res = await fetch("/api/portfolio/generate", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ portfolio_id: selectedId }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setFormError(data.error ?? "Failed to generate portfolio"); return; }
-      setAiResult({
-        rationale:          data.rationale,
-        warnings:           data.warnings ?? [],
-        buy:                data.buy      ?? [],
-        watch:              data.watch    ?? [],
-        avoid:              data.avoid    ?? [],
-        inserted_holdings:  data.inserted_holdings  ?? 0,
-        inserted_watchlist: data.inserted_watchlist ?? 0,
-      });
-      await loadPortfolioData(selectedId);
-    } catch {
-      setFormError("Failed to generate portfolio");
-    } finally {
-      setAiBuilding(false);
-    }
-  }
 
-  // Compute capital metrics from current holdings + live prices
+    // Compute capital metrics from current holdings + live prices
   const selectedPortfolio = portfolios.find(p => p.id === selectedId) ?? null;
   // Use editMap values for live capital preview while user edits
   const capitalMetrics: PortfolioCapitalMetrics | null = selectedPortfolio
@@ -1050,10 +1015,15 @@ export default function PortfolioPage() {
 
           {/* Tab switcher */}
           <div style={{ display: "flex", marginBottom: "1.5rem", background: "rgba(255,255,255,0.03)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden", width: "fit-content" }}>
-            {(["holdings", "distribution"] as const).map(tab => (
+            {([
+                ["holdings",     "Holdings"],
+                ["watchlist",    "Watchlist"],
+                ["distribution", "Signal Distribution"],
+                ["history",      "Build History"],
+              ] as const).map(([tab, label]) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 style={{ padding: "0.45rem 1.1rem", background: activeTab === tab ? "rgba(255,255,255,0.08)" : "transparent", border: "none", color: activeTab === tab ? "var(--cream)" : "rgba(232,226,217,0.35)", fontSize: "0.8rem", fontWeight: activeTab === tab ? 600 : 400, cursor: "pointer", transition: "all 0.15s" }}>
-                {tab === "holdings" ? "Holdings" : "Signal Distribution"}
+                {label}
               </button>
             ))}
           </div>
@@ -1066,9 +1036,28 @@ export default function PortfolioPage() {
                 {/* AI portfolio builder */}
                 <div style={{ marginBottom: "1.2rem", display: "flex", flexDirection: "column", gap: "0.7rem" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <div style={{ display: "flex", gap: "0.6rem" }}>
+                    <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+
+                      {/* Path 1 — Data-driven builder (3-step wizard, theme_tickers mapped) */}
                       <button
-                        onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}`)}
+                        onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}&mode=data`)}
+                        disabled={!selectedPortfolio?.total_capital}
+                        style={{
+                          padding: "0.55rem 1.1rem",
+                          background: "rgba(255,255,255,0.05)",
+                          border: "1px solid var(--dash-border)",
+                          color: "rgba(232,226,217,0.65)", borderRadius: 7, fontSize: "0.82rem",
+                          fontWeight: 500, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer",
+                          opacity: !selectedPortfolio?.total_capital ? 0.4 : 1,
+                          display: "flex", alignItems: "center", gap: "0.5rem", transition: "all 0.15s",
+                        }}
+                      >
+                        <span style={{ opacity: 0.6 }}>◈</span> Build with data
+                      </button>
+
+                      {/* Path 2 — LLM-powered builder (3-step wizard, Claude free selection) */}
+                      <button
+                        onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}&mode=llm`)}
                         disabled={!selectedPortfolio?.total_capital}
                         style={{
                           padding: "0.55rem 1.1rem",
@@ -1080,23 +1069,14 @@ export default function PortfolioPage() {
                           display: "flex", alignItems: "center", gap: "0.5rem", transition: "all 0.15s",
                         }}
                       >
-                        ✦ Build portfolio for me
+                        <span>✦</span> Build with LLM
                       </button>
-                      <button
-                        onClick={buildPortfolioWithAI}
-                        disabled={aiBuilding || !selectedPortfolio?.total_capital}
-                        style={{
-                          padding: "0.55rem 1.1rem",
-                          background: aiBuilding ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.04)",
-                          border: "1px solid var(--dash-border)",
-                          color: "rgba(232,226,217,0.5)", borderRadius: 7, fontSize: "0.82rem",
-                          fontWeight: 500, cursor: aiBuilding || !selectedPortfolio?.total_capital ? "not-allowed" : "pointer",
-                          opacity: !selectedPortfolio?.total_capital ? 0.4 : 1,
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {aiBuilding ? "⟳ Quick build…" : "Quick build"}
-                      </button>
+
+                      {!selectedPortfolio?.total_capital && (
+                        <span style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.25)", alignSelf: "center" }}>
+                          Set total capital first
+                        </span>
+                      )}
                     </div>
                     {!selectedPortfolio?.total_capital && (
                       <span style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.3)" }}>
@@ -1105,105 +1085,7 @@ export default function PortfolioPage() {
                     )}
                   </div>
 
-                  {/* AI result panel */}
-                  {aiResult && (
-                    <div style={{
-                      background: "rgba(200,169,110,0.04)", border: "1px solid rgba(200,169,110,0.18)",
-                      borderRadius: 10, padding: "1rem 1.2rem", display: "flex", flexDirection: "column", gap: "0.85rem",
-                    }}>
-                      {/* Header */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <div>
-                          <div style={{ fontSize: "0.65rem", color: "rgba(200,169,110,0.5)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.3rem" }}>
-                            AI portfolio rationale
-                          </div>
-                          <p style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.7)", lineHeight: 1.6, margin: 0 }}>
-                            {aiResult.rationale}
-                          </p>
-                        </div>
-                        <button onClick={() => setAiResult(null)}
-                          style={{ background: "none", border: "none", color: "rgba(232,226,217,0.2)", cursor: "pointer", fontSize: "1rem", flexShrink: 0, marginLeft: "0.75rem" }}>
-                          ×
-                        </button>
-                      </div>
 
-                      {/* Summary counts */}
-                      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: "0.72rem", color: "var(--signal-bull)", background: "rgba(78,202,153,0.08)", border: "1px solid rgba(78,202,153,0.2)", borderRadius: 4, padding: "0.2rem 0.6rem" }}>
-                          ✓ {aiResult.inserted_holdings} added to holdings
-                        </span>
-                        <span style={{ fontSize: "0.72rem", color: "#63b3ed", background: "rgba(99,179,237,0.08)", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 4, padding: "0.2rem 0.6rem" }}>
-                          ★ {aiResult.inserted_watchlist} added to watchlist
-                        </span>
-                      </div>
-
-                      {/* BUY holdings */}
-                      {aiResult.buy.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: "0.65rem", color: "var(--signal-bull)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
-                            BUY — Added to portfolio
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                            {aiResult.buy.map(h => (
-                              <div key={h.ticker} style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.78rem" }}>
-                                <span style={{ fontWeight: 700, color: "var(--gold)", fontFamily: "monospace", minWidth: "3.5rem" }}>{h.ticker}</span>
-                                <span style={{ color: "rgba(232,226,217,0.5)", minWidth: "4rem" }}>{h.weight.toFixed(1)}%</span>
-                                <span style={{ color: "rgba(232,226,217,0.5)", minWidth: "5rem" }}>${h.capital.toLocaleString()}</span>
-                                {h.price && <span style={{ color: "rgba(232,226,217,0.35)", minWidth: "5rem" }}>@ ${h.price.toFixed(2)}</span>}
-                                {h.quantity != null && <span style={{ color: "rgba(232,226,217,0.35)", minWidth: "5rem" }}>{h.quantity} units</span>}
-                                <span style={{ color: "rgba(232,226,217,0.35)", flex: 1 }}>{h.rationale}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* WATCH tickers */}
-                      {aiResult.watch.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: "0.65rem", color: "#f0b429", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
-                            WATCH — Added to watchlist
-                          </div>
-                          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                            {aiResult.watch.map(h => (
-                              <span key={h.ticker} style={{ fontSize: "0.75rem", background: "rgba(240,180,41,0.08)", border: "1px solid rgba(240,180,41,0.2)", borderRadius: 5, padding: "0.2rem 0.6rem", color: "#f0b429", fontWeight: 600, fontFamily: "monospace" }}
-                                title={h.rationale}>
-                                {h.ticker}{h.price ? ` $${h.price.toFixed(2)}` : ""}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* AVOID tickers */}
-                      {aiResult.avoid.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: "0.65rem", color: "var(--signal-bear)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
-                            AVOID — Added to watchlist for awareness
-                          </div>
-                          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                            {aiResult.avoid.map(h => (
-                              <span key={h.ticker} style={{ fontSize: "0.75rem", background: "rgba(252,92,101,0.06)", border: "1px solid rgba(252,92,101,0.2)", borderRadius: 5, padding: "0.2rem 0.6rem", color: "var(--signal-bear)", fontWeight: 600, fontFamily: "monospace" }}
-                                title={h.rationale}>
-                                {h.ticker}{h.price ? ` $${h.price.toFixed(2)}` : ""}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Warnings */}
-                      {aiResult.warnings.length > 0 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                          {aiResult.warnings.map((w, i) => (
-                            <div key={i} style={{ fontSize: "0.72rem", color: "rgba(252,180,41,0.7)", display: "flex", gap: "0.4rem" }}>
-                              <span>⚠</span><span>{w}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 <form onSubmit={addHolding} style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 8, padding: "1rem 1.2rem", marginBottom: "1.2rem" }}>
@@ -1411,6 +1293,14 @@ export default function PortfolioPage() {
                 )}
               </div>
             </div>
+          )}
+
+          {activeTab === "watchlist" && selectedPortfolio && (
+            <PortfolioWatchlist portfolioId={selectedPortfolio.id} />
+          )}
+
+          {activeTab === "history" && selectedPortfolio && (
+            <PortfolioBuildHistory portfolioId={selectedPortfolio.id} />
           )}
 
           {activeTab === "distribution" && userId && (

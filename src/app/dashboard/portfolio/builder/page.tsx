@@ -811,8 +811,9 @@ export default function PortfolioBuilderPage() {
   const searchParams = useSearchParams();
   const portfolioId  = searchParams.get("portfolio_id");
 
+  const initialMode = (searchParams.get("mode") ?? "data") as BuildMode;
   const [step,      setStep]     = useState<Step>(1);
-  const [mode,      setMode]     = useState<BuildMode>("data");
+  const [mode,      setMode]     = useState<BuildMode>(initialMode);
   const [portfolio, setPortfolio] = useState<any>(null);
   const [strategy,  setStrategy] = useState<Strategy | null>(null);
   const [error,     setError]    = useState<string | null>(null);
@@ -826,7 +827,11 @@ export default function PortfolioBuilderPage() {
   const [llmThemes,   setLlmThemes]   = useState<RecommendedTheme[]>([]);
   const [dataTickers, setDataTickers] = useState<TickerAllocation[]>([]);
   const [llmTickers,  setLlmTickers]  = useState<TickerAllocation[]>([]);
+  // run IDs for persistence — one per mode
+  const [dataRunId,   setDataRunId]   = useState<string | null>(null);
+  const [llmRunId,    setLlmRunId]    = useState<string | null>(null);
 
+  const [runId,                  setRunId]                  = useState<string | null>(null);
   const [loadingStrategy,        setLoadingStrategy]        = useState(false);
   const [loadingDataThemes,      setLoadingDataThemes]      = useState(false);
   const [loadingLlmThemes,       setLoadingLlmThemes]       = useState(false);
@@ -839,16 +844,65 @@ export default function PortfolioBuilderPage() {
   const setThemes = mode === "data" ? setDataThemes : setLlmThemes;
   const tickers   = mode === "data" ? dataTickers   : llmTickers;
   const setTickers = mode === "data" ? setDataTickers : setLlmTickers;
+  const activeRunId  = mode === "data" ? dataRunId  : llmRunId;
+  const setActiveRunId = mode === "data" ? setDataRunId : setLlmRunId;
 
   const loadingThemes     = mode === "data" ? loadingDataThemes     : loadingLlmThemes;
   const loadingAllocation = mode === "data" ? loadingDataAllocation : loadingLlmAllocation;
 
-  // Load portfolio on mount
+  // ── Persist helpers ───────────────────────────────────────────────────────
+  async function createRun(targetMode: BuildMode, strat: Strategy): Promise<string | null> {
+    try {
+      const res  = await fetch("/api/portfolio/builder/runs", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create_run", portfolio_id: portfolioId, mode: targetMode, strategy: strat }),
+      });
+      const data = await res.json();
+      return data.run?.id ?? null;
+    } catch { return null; }
+  }
+
+  async function saveThemesToRun(runId: string, themes: RecommendedTheme[]) {
+    await fetch("/api/portfolio/builder/runs", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save_themes", run_id: runId, themes }),
+    });
+  }
+
+  async function saveTickersToRun(runId: string, tickers: TickerAllocation[]) {
+    const rows = tickers.map(t => ({
+      ticker:     t.ticker,     name:       t.name,
+      theme_name: t.theme_name, signal:     t.editSignal,
+      weight:     Number(t.editWeight || 0),
+      capital:    t.price ? (Number(t.editWeight || 0) / 100) * ((portfolio?.total_capital ?? 0) * (1 - (strategy?.cash_reserve_pct ?? 0) / 100)) : null,
+      price:      t.price,      quantity:   t.price && Number(t.editWeight) ? Math.floor(((Number(t.editWeight) / 100) * ((portfolio?.total_capital ?? 0) * (1 - (strategy?.cash_reserve_pct ?? 0) / 100))) / t.price) : null,
+      rationale:  t.rationale,  included:   t.included,
+      edited:     t.editSignal !== t.signal || t.editWeight !== String(t.weight),
+    }));
+    await fetch("/api/portfolio/builder/runs", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save_tickers", run_id: runId, tickers: rows }),
+    });
+  }
+
+  // Load portfolio + create a build run on mount
   useEffect(() => {
     if (!portfolioId) return;
     fetch(`/api/portfolio?portfolio_id=${portfolioId}`)
       .then(r => r.json())
-      .then(d => setPortfolio(d.portfolio ?? null));
+      .then(async d => {
+        setPortfolio(d.portfolio ?? null);
+        // Create the run record immediately so we can attach logs as steps complete
+        const runRes = await fetch("/api/portfolio/builder/run", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ portfolio_id: portfolioId, mode: initialMode }),
+        });
+        if (runRes.ok) {
+          const runData = await runRes.json();
+          setRunId(runData.run_id);
+        }
+      });
   }, [portfolioId]);
 
   // ── Step 1: generate strategy (shared across modes) ───────────────────────
@@ -859,34 +913,56 @@ export default function PortfolioBuilderPage() {
       const res  = await fetch("/api/portfolio/builder/strategy", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ portfolio_id: portfolioId }),
+        body:    JSON.stringify({ portfolio_id: portfolioId, run_id: runId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setStrategy(data.strategy);
+      // Persist strategy to run
+      if (runId) {
+        fetch("/api/portfolio/builder/run", {
+          method:  "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ run_id: runId, strategy: data.strategy }),
+        });
+      }
     } catch (e: any) {
       setError(e.message ?? "Failed to generate strategy");
     } finally {
       setLoadingStrategy(false);
     }
-  }, [portfolioId]);
+  }, [portfolioId, runId]);
 
   useEffect(() => {
     if (portfolio && !strategy && !loadingStrategy) generateStrategy();
   }, [portfolio]);
 
+  // When strategy is ready, auto-advance to step 2 and generate themes
+  // for whichever mode was passed in the URL
+  useEffect(() => {
+    if (strategy && step === 1) {
+      generateThemes(initialMode);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strategy]);
+
   // ── Step 2: generate themes for active mode ───────────────────────────────
   const generateThemes = useCallback(async (targetMode: BuildMode) => {
     if (!strategy) return;
-    const setLoading = targetMode === "data" ? setLoadingDataThemes : setLoadingLlmThemes;
-    const setResult  = targetMode === "data" ? setDataThemes        : setLlmThemes;
-    const endpoint   = targetMode === "data"
+    const setLoading    = targetMode === "data" ? setLoadingDataThemes : setLoadingLlmThemes;
+    const setResult     = targetMode === "data" ? setDataThemes        : setLlmThemes;
+    const setRunId      = targetMode === "data" ? setDataRunId         : setLlmRunId;
+    const endpoint      = targetMode === "data"
       ? "/api/portfolio/builder/themes"
       : "/api/portfolio/builder/themes-llm";
 
     setLoading(true);
     setError(null);
     try {
+      // Create a new draft run to track this session
+      const runId = await createRun(targetMode, strategy);
+      if (runId) setRunId(runId);
+
       const res  = await fetch(endpoint, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -894,7 +970,12 @@ export default function PortfolioBuilderPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setResult((data.themes as RecommendedTheme[]).map(t => ({ ...t, selected: true })));
+      const themesResult = (data.themes as RecommendedTheme[]).map(t => ({ ...t, selected: true }));
+      setResult(themesResult);
+
+      // Persist themes to run
+      if (runId) await saveThemesToRun(runId, themesResult);
+
       setMode(targetMode);
       setStep(2);
     } catch (e: any) {
@@ -906,15 +987,19 @@ export default function PortfolioBuilderPage() {
 
   // ── Step 3: generate allocation for active mode ───────────────────────────
   const generateAllocation = useCallback(async (targetMode: BuildMode) => {
-    const sourceThemes = targetMode === "data" ? dataThemes : llmThemes;
+    const sourceThemes   = targetMode === "data" ? dataThemes : llmThemes;
     const selectedThemes = sourceThemes.filter(t => t.selected);
     if (!selectedThemes.length || !strategy) return;
 
     const setLoading = targetMode === "data" ? setLoadingDataAllocation : setLoadingLlmAllocation;
     const setResult  = targetMode === "data" ? setDataTickers           : setLlmTickers;
+    const runId      = targetMode === "data" ? dataRunId                : llmRunId;
     const endpoint   = targetMode === "data"
       ? "/api/portfolio/builder/allocate"
       : "/api/portfolio/builder/allocate-llm";
+
+    // Save final theme selections before generating tickers
+    if (runId) await saveThemesToRun(runId, sourceThemes);
 
     setLoading(true);
     setError(null);
@@ -922,16 +1007,21 @@ export default function PortfolioBuilderPage() {
       const res  = await fetch(endpoint, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ portfolio_id: portfolioId, strategy, themes: selectedThemes }),
+        body:    JSON.stringify({ portfolio_id: portfolioId, strategy, themes: selectedThemes, run_id: runId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setResult((data.tickers as TickerAllocation[]).map(t => ({
+      const tickerResult = (data.tickers as TickerAllocation[]).map(t => ({
         ...t,
         editWeight: String(t.weight),
         editSignal: t.signal,
         included:   true,
-      })));
+      }));
+      setResult(tickerResult);
+
+      // Persist tickers to run
+      if (runId) await saveTickersToRun(runId, tickerResult);
+
       setMode(targetMode);
       setStep(3);
     } catch (e: any) {
@@ -939,18 +1029,22 @@ export default function PortfolioBuilderPage() {
     } finally {
       setLoading(false);
     }
-  }, [portfolioId, strategy, dataThemes, llmThemes]);
+  }, [portfolioId, strategy, dataThemes, llmThemes, dataRunId, llmRunId]);
 
-  // ── Confirm: save active mode's tickers ──────────────────────────────────
+  // ── Confirm: save active mode's tickers + mark run confirmed ────────────
   const confirm = useCallback(async () => {
     setCommitting(true);
     setError(null);
     try {
+      // Persist final edited state before confirming
+      if (activeRunId) await saveTickersToRun(activeRunId, tickers);
+
       const res  = await fetch("/api/portfolio/builder/confirm", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           portfolio_id: portfolioId,
+          run_id:       activeRunId,   // passed so confirm route can mark it
           tickers:      tickers.filter(t => t.included).map(t => ({
             ticker:     t.ticker,
             name:       t.name,
@@ -965,13 +1059,23 @@ export default function PortfolioBuilderPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      // Mark the other mode's run as abandoned if it exists and wasn't confirmed
+      const otherRunId = mode === "data" ? llmRunId : dataRunId;
+      if (otherRunId) {
+        await fetch("/api/portfolio/builder/runs", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ run_id: otherRunId, status: "abandoned" }),
+        });
+      }
+
       setDone(true);
     } catch (e: any) {
       setError(e.message ?? "Failed to save");
     } finally {
       setCommitting(false);
     }
-  }, [portfolioId, tickers, strategy]);
+  }, [portfolioId, tickers, strategy, activeRunId, mode, dataRunId, llmRunId]);
 
   function updateTicker(ticker: string, field: keyof TickerAllocation, value: any) {
     const setter = mode === "data" ? setDataTickers : setLlmTickers;

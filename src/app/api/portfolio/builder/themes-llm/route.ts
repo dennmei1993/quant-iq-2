@@ -9,13 +9,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
+import { logLlmStep } from "@/lib/builder-llm-logger";
 
 const anthropic = new Anthropic();
 
 export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
-    const { portfolio_id, strategy } = await req.json();
+    const { portfolio_id, strategy, run_id = null } = await req.json();
 
     const { data: raw } = await supabase
       .from("portfolios").select("*")
@@ -83,11 +84,13 @@ Respond ONLY with valid JSON, no markdown:
   ]
 }`;
 
+    const llmStart = Date.now();
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514", max_tokens: 1500,
       messages: [{ role: "user", content: prompt }],
     });
 
+    await logLlmStep({ supabase, run_id, step: "themes", prompt, message: msg, started_at: llmStart });
     const text   = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");
     const clean  = text.replace(/```json|```/g, "").trim();
     const result = JSON.parse(clean);
