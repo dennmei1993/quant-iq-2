@@ -136,7 +136,7 @@ export function PortfolioSignalDistribution({ userId }: Props) {
         .order("created_at", { ascending: true });
 
       if (error) { console.error(error); return; }
-      setPortfolios((data ?? []) as Portfolio[]);
+      setPortfolios((data ?? []) as unknown as Portfolio[]);
       if (data?.length) setSelectedId(data[0].id);
     }
     loadPortfolios();
@@ -213,10 +213,12 @@ export function PortfolioSignalDistribution({ userId }: Props) {
     if (!selectedId) return;
     setSavingPref(true);
 
+    // Scope update to both id AND user_id so a user can never edit another's portfolio
     const { error } = await supabase
       .from("portfolios")
       .update({ [key]: value })
-      .eq("id", selectedId);
+      .eq("id", selectedId)
+      .eq("user_id", userId);
 
     if (!error) {
       setPortfolios((prev) =>

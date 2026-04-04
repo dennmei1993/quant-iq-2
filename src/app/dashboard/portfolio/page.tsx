@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { PortfolioSignalDistribution } from "@/components/dashboard/PortfolioSignalDistribution";
 import { PortfolioWatchlist } from "@/components/dashboard/PortfolioWatchlist";
 import { PortfolioBuildHistory } from "@/components/dashboard/PortfolioBuildHistory";
@@ -773,7 +774,8 @@ function Field({ label, value, onChange, placeholder }: {
 // ----------------------------------------------------------------------------
 
 export default function PortfolioPage() {
-  const router = useRouter();
+  const router    = useRouter();
+  const supabase  = createClient();
   const [portfolios,  setPortfolios]  = useState<Portfolio[]>([]);
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [holdings,    setHoldings]    = useState<Holding[]>([]);
@@ -800,12 +802,17 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     async function init() {
+      // Get authenticated user directly from session — never from an API call
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setInitLoading(false); return; }
+      setUserId(user.id);
+
       const [profRes, portRes] = await Promise.all([
         fetch("/api/profile").then(r => r.json()),
         fetch("/api/portfolio").then(r => r.json()),
       ]);
+
       const profile = profRes.profile ?? {};
-      setUserId(profile.id ?? null);
       setDefaults({
         risk_appetite:      profile.risk_appetite      ?? "moderate",
         benchmark:          profile.benchmark          ?? "SPY",
@@ -815,6 +822,7 @@ export default function PortfolioPage() {
         investment_horizon: profile.investment_horizon ?? "long",
         total_capital:      profile.total_capital      ?? 0,
       });
+
       const all = portRes.portfolios ?? (portRes.portfolio ? [portRes.portfolio] : []);
       setPortfolios(all);
       if (all.length) { setSelectedId(all[0].id); } else { setShowNew(true); setIsFirstRun(true); }
