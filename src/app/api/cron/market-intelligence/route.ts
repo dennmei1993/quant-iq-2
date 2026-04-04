@@ -13,7 +13,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+
+// Cron routes run without a user session — use service role key to bypass RLS.
+// This is the same pattern used by other cron routes in this project.
+// Requires SUPABASE_SERVICE_ROLE_KEY in environment variables.
+function createServiceClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 const anthropic = new Anthropic();
 
@@ -339,14 +350,24 @@ async function buildRecentEvents(supabase: any): Promise<AspectRow> {
 
 // ─── Cron handler ─────────────────────────────────────────────────────────────
 
+// Vercel crons fire GET requests — alias to the same handler
+export async function GET(req: NextRequest) {
+  return POST(req);
+}
+
 export async function POST(req: NextRequest) {
-  // Verify cron secret
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Allow Vercel cron (sends x-vercel-cron header) OR manual calls with CRON_SECRET
+  const isVercelCron  = req.headers.get("x-vercel-cron") === "1";
+  const authHeader    = req.headers.get("authorization");
+  const validSecret   = process.env.CRON_SECRET
+    ? authHeader === `Bearer ${process.env.CRON_SECRET}`
+    : false;
+
+  if (!isVercelCron && !validSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase  = await createClient();
+  const supabase  = createServiceClient();
   const results: string[] = [];
   const errors:  string[] = [];
 
