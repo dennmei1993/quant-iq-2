@@ -158,6 +158,29 @@ function PillToggle({ active, onClick, children, color }: {
   );
 }
 
+function ModelBadge({ mode }: { mode: BuildMode }) {
+  const isLlm = mode === "llm";
+  return (
+    <span style={{
+      display:      "inline-flex",
+      alignItems:   "center",
+      gap:          "0.3rem",
+      fontSize:     "0.62rem",
+      fontWeight:   700,
+      letterSpacing:"0.06em",
+      textTransform:"uppercase",
+      padding:      "0.2rem 0.55rem",
+      borderRadius: 5,
+      background:   isLlm ? "rgba(200,169,110,0.12)" : "rgba(99,179,237,0.1)",
+      border:       `1px solid ${isLlm ? "rgba(200,169,110,0.35)" : "rgba(99,179,237,0.25)"}`,
+      color:        isLlm ? "var(--gold)"              : "#63b3ed",
+      flexShrink:   0,
+    }}>
+      {isLlm ? "✦" : "◈"} {isLlm ? "LLM" : "Data"}
+    </span>
+  );
+}
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ fontSize: "0.62rem", color: "rgba(200,169,110,0.5)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.6rem" }}>
@@ -272,6 +295,7 @@ function Step1Strategy({
   portfolio,
   strategy,
   loading,
+  mode,
   onGenerate,
   onUpdate,
   onNext,
@@ -279,6 +303,7 @@ function Step1Strategy({
   portfolio: any;
   strategy:  Strategy | null;
   loading:   boolean;
+  mode:      BuildMode;
   onGenerate: () => void;
   onUpdate:  (s: Strategy) => void;
   onNext:    () => void;
@@ -288,7 +313,10 @@ function Step1Strategy({
 
       {/* Portfolio context summary */}
       <Card>
-        <SectionLabel>Portfolio context</SectionLabel>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+          <SectionLabel>Portfolio context</SectionLabel>
+          <ModelBadge mode={mode} />
+        </div>
         <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
           {[
             ["Risk",       portfolio?.risk_appetite],
@@ -347,9 +375,12 @@ function Step1Strategy({
               }}>
                 {STYLE_META[strategy.style].icon}
               </div>
-              <div>
-                <div style={{ fontSize: "1.1rem", fontWeight: 700, color: T.cream }}>{strategy.summary}</div>
-                <div style={{ fontSize: "0.78rem", color: T.dim, marginTop: "0.25rem", lineHeight: 1.6 }}>{strategy.rationale}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.15rem" }}>
+                  <div style={{ fontSize: "1.1rem", fontWeight: 700, color: T.cream }}>{strategy.summary}</div>
+                  <ModelBadge mode={mode} />
+                </div>
+                <div style={{ fontSize: "0.78rem", color: T.dim, lineHeight: 1.6 }}>{strategy.rationale}</div>
               </div>
             </div>
           </Card>
@@ -473,12 +504,14 @@ function Step1Strategy({
 function Step2Themes({
   themes,
   loading,
+  mode,
   onToggle,
   onBack,
   onNext,
 }: {
   themes:   RecommendedTheme[];
   loading:  boolean;
+  mode:     BuildMode;
   onToggle: (id: string) => void;
   onBack:   () => void;
   onNext:   () => void;
@@ -489,18 +522,24 @@ function Step2Themes({
   if (loading) return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "3rem 0" }}>
       <Spinner />
-      <p style={{ fontSize: "0.82rem", color: T.dim, margin: 0 }}>Matching investment themes to your strategy…</p>
+      <p style={{ fontSize: "0.82rem", color: T.dim, margin: 0 }}>
+        {mode === "llm" ? "Claude is defining themes for your strategy…" : "Matching themes from your database to your strategy…"}
+      </p>
     </div>
   );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <p style={{ fontSize: "0.82rem", color: T.dim, margin: 0 }}>
-          Select the investment themes you want to build positions around.
-          Claude has ranked these by fit with your strategy.
-        </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <p style={{ fontSize: "0.82rem", color: T.dim, margin: 0 }}>
+            {mode === "llm"
+              ? "Claude defined these themes independently — select the ones that fit your strategy."
+              : "Claude ranked these themes from your database — select the ones you want to build around."}
+          </p>
+          <ModelBadge mode={mode} />
+        </div>
         <span style={{ fontSize: "0.75rem", color: selected.length > 0 ? T.gold : T.dim, whiteSpace: "nowrap", marginLeft: "1rem" }}>
           {selected.length} selected · {totalAlloc.toFixed(0)}% allocated
         </span>
@@ -596,6 +635,7 @@ function Step3Allocation({
   committing,
   totalCapital,
   cashReservePct,
+  mode,
   onUpdate,
   onBack,
   onConfirm,
@@ -605,6 +645,7 @@ function Step3Allocation({
   committing:    boolean;
   totalCapital:  number;
   cashReservePct: number;
+  mode:          BuildMode;
   onUpdate:      (ticker: string, field: keyof TickerAllocation, value: any) => void;
   onBack:        () => void;
   onConfirm:     () => void;
@@ -638,6 +679,14 @@ function Step3Allocation({
 
       {/* Summary bar */}
       <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+          <div style={{ fontSize: "0.72rem", color: T.dim }}>
+            {mode === "llm"
+              ? "Tickers selected by Claude from the full asset universe"
+              : "Tickers selected by Claude from your mapped theme_tickers"}
+          </div>
+          <ModelBadge mode={mode} />
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "1rem" }}>
           {[
             ["Total capital",    formatCurrency(totalCapital)],
@@ -685,8 +734,16 @@ function Step3Allocation({
       {/* Ticker table by theme */}
       {Object.entries(byTheme).map(([themeName, rows]) => (
         <div key={themeName}>
-          <div style={{ fontSize: "0.72rem", color: T.gold, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
-            {themeName}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+            <div style={{ fontSize: "0.72rem", color: T.gold, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {themeName}
+            </div>
+            {/* Show LLM badge on themes Claude defined from scratch */}
+            {rows[0]?.theme_id == null && mode === "llm" && (
+              <span style={{ fontSize: "0.58rem", color: T.gold, background: "rgba(200,169,110,0.1)", border: "1px solid rgba(200,169,110,0.25)", borderRadius: 4, padding: "0.05rem 0.35rem" }}>
+                LLM-defined
+              </span>
+            )}
           </div>
           <div style={{ background: T.navy2, border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden" }}>
             {/* Header */}
@@ -1191,6 +1248,7 @@ export default function PortfolioBuilderPage() {
           portfolio={portfolio}
           strategy={strategy}
           loading={loadingStrategy}
+          mode={initialMode}
           onGenerate={generateStrategy}
           onUpdate={setStrategy}
           onNext={() => {
@@ -1221,6 +1279,7 @@ export default function PortfolioBuilderPage() {
           <Step2Themes
             themes={themes}
             loading={loadingThemes}
+            mode={mode}
             onToggle={id => setThemes(prev => prev.map(t => t.id === id ? { ...t, selected: !t.selected } : t))}
             onBack={() => setStep(1)}
             onNext={() => generateAllocation(mode)}
@@ -1293,6 +1352,7 @@ export default function PortfolioBuilderPage() {
             committing={committing}
             totalCapital={portfolio?.total_capital ?? 0}
             cashReservePct={strategy?.cash_reserve_pct ?? portfolio?.cash_pct ?? 0}
+            mode={mode}
             onUpdate={updateTicker}
             onBack={() => setStep(2)}
             onConfirm={confirm}
