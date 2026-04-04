@@ -19,16 +19,20 @@ export async function POST(req: NextRequest) {
     if (!raw) return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
     const p = raw as any;
 
-    // Fetch recent high-impact events to inform theme relevance
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: events } = await supabase
-      .from("events")
-      .select("headline, ai_summary, event_type, impact_score, sentiment_score, sectors, tickers, published_at")
-      .eq("ai_processed", true)
-      .gte("published_at", thirtyDaysAgo)
-      .order("impact_score", { ascending: false })
-      .limit(20);
-    const recentEvents = (events ?? []);
+    // Read pre-computed market intelligence snapshot (updated by cron)
+    // Much faster than live event fetching at request time
+    const { data: intelRows } = await supabase
+      .from("market_intelligence")
+      .select("aspect, summary, data, score, sentiment, refreshed_at");
+    const intel = new Map((intelRows ?? []).map((r: any) => [r.aspect, r]));
+    const eventsIntel   = intel.get("recent_events");
+    const geoIntel      = intel.get("geopolitical");
+    const sectorIntel   = intel.get("sector_momentum");
+    const marketContext = [
+      geoIntel    ? `GEOPOLITICAL (${geoIntel.sentiment}): ${geoIntel.summary}` : "",
+      sectorIntel ? `SECTOR MOMENTUM: ${sectorIntel.summary}` : "",
+      eventsIntel?.data?.top_events_text ? `RECENT EVENTS:\n${eventsIntel.data.top_events_text}` : "",
+    ].filter(Boolean).join("\n\n");
 
     // Fetch active themes with their tickers
     const { data: themes } = await supabase
@@ -58,15 +62,11 @@ STRATEGY:
 AVAILABLE THEMES:
 ${themes.map(t => `- ID:${t.id} | ${t.name} [${t.theme_type}] conviction:${t.conviction}% momentum:${t.momentum ?? "stable"} | ${t.brief ?? ""}`).join("\n")}
 
-RECENT HIGH-IMPACT EVENTS (real news — use these to assess theme momentum and risk):
-${recentEvents.map(e => {
-  const date = new Date(e.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const sectors = (e.sectors ?? []).join(", ") || "general";
-  return `• [${date}] [${sectors}] impact:${(e.impact_score ?? 0).toFixed(1)} — ${e.headline}${e.ai_summary ? `\n  → ${e.ai_summary}` : ""}`;
-}).join("\n")}
+CURRENT MARKET INTELLIGENCE (pre-computed from live sources):
+${marketContext}
 
 For each theme, assess how well it fits the strategy and suggest what % of the investable capital to allocate to it.
-Factor in the recent events above — themes with tailwinds from current events should score higher; themes facing headwinds should score lower or be excluded.
+Factor in the market intelligence above — themes aligned with sector momentum and geopolitical context should score higher.
 Select 3-6 themes. Allocations should sum to approximately ${100 - (strategy.cash_reserve_pct ?? 0)}% across all chosen themes (the rest stays as cash reserve).
 
 Respond ONLY with valid JSON, no markdown:
