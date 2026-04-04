@@ -12,6 +12,16 @@ import { callLlm } from "@/lib/llm-caller";
 import { logLlmStep } from "@/lib/builder-llm-logger";
 
 
+
+// Style-to-theme constraint mapping
+const STYLE_THEME_RULES: Record<string, { favour: string; avoid: string }> = {
+  growth:      { favour: "momentum, technology, AI, innovation, high-growth sectors",             avoid: "bond, utility, REIT, dividend-income, or capital-preservation themes" },
+  balanced:    { favour: "a mix of growth and stable themes — no extreme concentration",           avoid: "purely speculative crypto/small-cap OR purely defensive income themes" },
+  defensive:   { favour: "consumer staples, utilities, healthcare, infrastructure, low-beta",      avoid: "crypto, small-cap, speculative, high-volatility, or unprofitable-growth themes" },
+  income:      { favour: "dividend-paying, REIT, infrastructure, yield-generating themes",         avoid: "pure growth/momentum themes with no yield component" },
+  speculative: { favour: "high-conviction bets, crypto, small-cap, emerging tech, concentrated",  avoid: "conservative, income, or capital-preservation themes" },
+};
+
 export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
@@ -56,6 +66,15 @@ export async function POST(req: NextRequest) {
       (p.total_capital ?? 0) * (1 - (strategy.cash_reserve_pct ?? 0) / 100)
     );
 
+
+    const styleRules = STYLE_THEME_RULES[strategy.style as string] ?? STYLE_THEME_RULES["balanced"];
+    const styleConstraint = `STYLE CONSTRAINT — NON-NEGOTIABLE:
+Strategy style is "${strategy.style}".
+- You MUST favour themes that are: ${styleRules.favour}
+- You MUST avoid themes that are: ${styleRules.avoid}
+- Sector tilts from strategy (${strategy.sector_tilts?.join(", ") || "none"}) should be reflected in theme selection.
+- Avoid sectors from strategy (${strategy.avoid_sectors?.join(", ") || "none"}) must NOT appear as selected themes.`;
+
     const prompt = `You are a senior portfolio strategist. Based on the investment strategy and macro environment below, define the best investment themes for this portfolio.
 
 STRATEGY:
@@ -64,6 +83,8 @@ STRATEGY:
 - Sector tilts: ${strategy.sector_tilts?.join(", ") || "none"}
 - Avoid sectors: ${strategy.avoid_sectors?.join(", ") || "none"}
 - Max single position: ${strategy.max_single_weight}%
+
+${styleConstraint}
 - Risk appetite: ${p.risk_appetite} | Horizon: ${p.investment_horizon}
 - Investable capital: $${investable.toLocaleString()}
 - Target holdings: ${p.target_holdings ?? 15}
