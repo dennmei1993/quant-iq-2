@@ -546,18 +546,22 @@ function Step1Strategy({
   loading,
   mode,
   macro,
+  provider,
+  modelId,
   onGenerate,
   onUpdate,
   onNext,
 }: {
-  portfolio: any;
-  strategy:  Strategy | null;
-  loading:   boolean;
-  mode:      BuildMode;
-  macro:     MacroScore[];
+  portfolio:  any;
+  strategy:   Strategy | null;
+  loading:    boolean;
+  mode:       BuildMode;
+  macro:      MacroScore[];
+  provider?:  LlmProvider;
+  modelId?:   string;
   onGenerate: () => void;
-  onUpdate:  (s: Strategy) => void;
-  onNext:    () => void;
+  onUpdate:   (s: Strategy) => void;
+  onNext:     () => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -566,7 +570,7 @@ function Step1Strategy({
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
           <SectionLabel>Portfolio context</SectionLabel>
-          <ModelBadge mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined} />
+          <ModelBadge mode={mode} provider={mode === "llm" ? provider : undefined} modelId={mode === "llm" ? modelId : undefined} />
         </div>
         <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
           {[
@@ -629,7 +633,7 @@ function Step1Strategy({
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.15rem" }}>
                   <div style={{ fontSize: "1.1rem", fontWeight: 700, color: T.cream }}>{strategy.summary}</div>
-                  <ModelBadge mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined} />
+                  <ModelBadge mode={mode} provider={mode === "llm" ? provider : undefined} modelId={mode === "llm" ? modelId : undefined} />
                 </div>
                 <div style={{ fontSize: "0.78rem", color: T.dim, lineHeight: 1.6, marginBottom: strategy.macro_context ? "0.5rem" : 0 }}>{strategy.rationale}</div>
                 {strategy.macro_context && (
@@ -785,16 +789,20 @@ function Step2Themes({
   themes,
   loading,
   mode,
+  provider,
+  modelId,
   onToggle,
   onBack,
   onNext,
 }: {
-  themes:   RecommendedTheme[];
-  loading:  boolean;
-  mode:     BuildMode;
-  onToggle: (id: string) => void;
-  onBack:   () => void;
-  onNext:   () => void;
+  themes:    RecommendedTheme[];
+  loading:   boolean;
+  mode:      BuildMode;
+  provider?: LlmProvider;
+  modelId?:  string;
+  onToggle:  (id: string) => void;
+  onBack:    () => void;
+  onNext:    () => void;
 }) {
   const selected = themes.filter(t => t.selected);
   const totalAlloc = selected.reduce((s, t) => s + t.suggested_allocation, 0);
@@ -818,7 +826,7 @@ function Step2Themes({
               ? "Claude defined these themes independently — select the ones that fit your strategy."
               : "Claude ranked these themes from your database — select the ones you want to build around."}
           </p>
-          <ModelBadge mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined} />
+          <ModelBadge mode={mode} provider={mode === "llm" ? provider : undefined} modelId={mode === "llm" ? modelId : undefined} />
         </div>
         <span style={{ fontSize: "0.75rem", color: selected.length > 0 ? T.gold : T.dim, whiteSpace: "nowrap", marginLeft: "1rem" }}>
           {selected.length} selected · {totalAlloc.toFixed(0)}% allocated
@@ -931,19 +939,23 @@ function Step3Allocation({
   totalCapital,
   cashReservePct,
   mode,
+  provider,
+  modelId,
   onUpdate,
   onBack,
   onConfirm,
 }: {
-  tickers:       TickerAllocation[];
-  loading:       boolean;
-  committing:    boolean;
-  totalCapital:  number;
+  tickers:        TickerAllocation[];
+  loading:        boolean;
+  committing:     boolean;
+  totalCapital:   number;
   cashReservePct: number;
-  mode:          BuildMode;
-  onUpdate:      (ticker: string, field: keyof TickerAllocation, value: any) => void;
-  onBack:        () => void;
-  onConfirm:     () => void;
+  mode:           BuildMode;
+  provider?:      LlmProvider;
+  modelId?:       string;
+  onUpdate:       (ticker: string, field: keyof TickerAllocation, value: any) => void;
+  onBack:         () => void;
+  onConfirm:      () => void;
 }) {
   const investable    = totalCapital * (1 - cashReservePct / 100);
   const investablePct = 100 - cashReservePct;           // target BUY weight sum
@@ -980,7 +992,7 @@ function Step3Allocation({
               ? "Tickers selected by Claude from the full asset universe"
               : "Tickers selected by Claude from your mapped theme_tickers"}
           </div>
-          <ModelBadge mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined} />
+          <ModelBadge mode={mode} provider={mode === "llm" ? provider : undefined} modelId={mode === "llm" ? modelId : undefined} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "1rem" }}>
           {[
@@ -1582,6 +1594,8 @@ function PortfolioBuilderInner() {
             loading={loadingStrategy}
             mode={initialMode}
             macro={macroScores}
+            provider={initialMode === "llm" ? llmProvider : undefined}
+            modelId={initialMode === "llm" ? llmModelId : undefined}
             onGenerate={generateStrategy}
             onUpdate={setStrategy}
           onNext={() => {
@@ -1620,6 +1634,8 @@ function PortfolioBuilderInner() {
             themes={themes}
             loading={loadingThemes}
             mode={mode}
+            provider={mode === "llm" ? llmProvider : undefined}
+            modelId={mode === "llm" ? llmModelId : undefined}
             onToggle={id => setThemes(prev => prev.map(t => t.id === id ? { ...t, selected: !t.selected } : t))}
             onBack={() => setStep(1)}
             onNext={() => generateAllocation(mode)}
@@ -1700,6 +1716,8 @@ function PortfolioBuilderInner() {
             totalCapital={portfolio?.total_capital ?? 0}
             cashReservePct={strategy?.cash_reserve_pct ?? portfolio?.cash_pct ?? 0}
             mode={mode}
+            provider={mode === "llm" ? llmProvider : undefined}
+            modelId={mode === "llm" ? llmModelId : undefined}
             onUpdate={updateTicker}
             onBack={() => setStep(2)}
             onConfirm={confirm}
