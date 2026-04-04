@@ -108,11 +108,18 @@ Respond ONLY with valid JSON, no markdown:
     const result = JSON.parse(clean);
 
     // Enrich with live prices
-    const enriched = (result.tickers as any[]).map(t => ({
-      ...t,
-      price: signalMap.get(t.ticker)?.price_usd ?? null,
-      name:  assetMap.get(t.ticker)?.name ?? t.name ?? t.ticker,
-    }));
+    const enriched = (result.tickers as any[]).map(t => {
+      const sig = signalMap.get(t.ticker);
+      return {
+        ...t,
+        price:             sig?.price_usd         ?? null,
+        name:              assetMap.get(t.ticker)?.name ?? t.name ?? t.ticker,
+        fundamental_score: sig?.fundamental_score ?? null,
+        technical_score:   sig?.technical_score   ?? null,
+        db_signal:         sig?.signal            ?? null,   // signal from our DB scorer
+        db_rationale:      sig?.rationale         ?? null,   // rationale from our DB scorer
+      };
+    });
 
     return NextResponse.json({ tickers: enriched });
   } catch (e) {

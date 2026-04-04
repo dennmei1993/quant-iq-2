@@ -78,7 +78,7 @@ Respond ONLY with valid JSON, no markdown:
     const clean = text.replace(/```json|```/g, "").trim();
     const strategy = JSON.parse(clean);
 
-    return NextResponse.json({ strategy });
+    return NextResponse.json({ strategy, macro: macro ?? [] });
   } catch (e) {
     const { body, status } = errorResponse(e);
     return NextResponse.json(body, { status });

@@ -22,25 +22,30 @@ interface Strategy {
 }
 
 interface RecommendedTheme {
-  id:         string;
-  name:       string;
-  brief:      string;
-  conviction: number;
-  momentum:   string;
-  fit_reason: string;   // why it fits this strategy
-  suggested_allocation: number;   // % of investable
-  selected:   boolean;
+  id:                   string;
+  name:                 string;
+  brief:                string;
+  conviction:           number;
+  momentum:             string;
+  fit_reason:           string;
+  suggested_allocation: number;
+  selected:             boolean;
+  is_llm_generated?:    boolean;   // true when Claude defined the theme, not matched from DB
 }
 
 interface TickerAllocation {
-  ticker:    string;
-  name:      string;
-  signal:    "BUY" | "WATCH";
-  weight:    number;           // % of theme's allocation
-  price:     number | null;
-  rationale: string;
-  theme_id:  string;
-  theme_name: string;
+  ticker:            string;
+  name:              string;
+  signal:            "BUY" | "WATCH";
+  weight:            number;
+  price:             number | null;
+  rationale:         string;
+  theme_id:          string;
+  theme_name:        string;
+  fundamental_score: number | null;
+  technical_score:   number | null;
+  db_signal:         string | null;
+  db_rationale:      string | null;
   // editable
   editWeight:  string;
   editSignal:  "BUY" | "WATCH";
@@ -49,6 +54,13 @@ interface TickerAllocation {
 
 type Step = 1 | 2 | 3;
 type BuildMode = "data" | "llm";
+
+interface MacroScore {
+  aspect:     string;
+  score:      number;
+  direction:  string;
+  commentary: string;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared style tokens — matches existing dashboard aesthetic
@@ -90,6 +102,134 @@ function formatCurrency(v: number) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MacroPanel — environment heatmap shown in data mode Step 1
+// ─────────────────────────────────────────────────────────────────────────────
+
+function HeatGauge({ score, size = "md" }: { score: number; size?: "sm" | "md" }) {
+  // score is -10 to +10
+  const pct   = ((score + 10) / 20) * 100;
+  const color = score >= 3  ? "#4eca99"
+               : score >= 0  ? "#f0b429"
+               : score >= -3 ? "#f0b429"
+               : "#fc5c65";
+  const h = size === "sm" ? 4 : 6;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1 }}>
+      <div style={{ flex: 1, height: h, background: "rgba(255,255,255,0.06)", borderRadius: h, overflow: "hidden", position: "relative" }}>
+        {/* Zero line */}
+        <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.12)" }} />
+        {/* Fill */}
+        <div style={{
+          position: "absolute",
+          height: "100%",
+          left:  score >= 0 ? "50%" : `${pct}%`,
+          width: `${Math.abs(score) / 20 * 100}%`,
+          background: color,
+          borderRadius: h,
+          transition: "width 0.4s ease",
+        }} />
+      </div>
+      <span style={{ fontSize: "0.7rem", fontWeight: 700, color, minWidth: "2rem", textAlign: "right" }}>
+        {score > 0 ? "+" : ""}{score}
+      </span>
+    </div>
+  );
+}
+
+function MacroPanel({ macro, strategy, mode }: {
+  macro:    MacroScore[];
+  strategy: Strategy | null;
+  mode:     BuildMode;
+}) {
+  if (!macro.length) return null;
+
+  const overallScore = macro.reduce((s, m) => s + m.score, 0) / macro.length;
+  const overallColor = overallScore >= 2  ? "#4eca99"
+                     : overallScore >= 0  ? "#f0b429"
+                     : overallScore >= -2 ? "#f0b429"
+                     : "#fc5c65";
+  const overallLabel = overallScore >= 3  ? "Bullish"
+                     : overallScore >= 1  ? "Mildly bullish"
+                     : overallScore >= -1 ? "Neutral"
+                     : overallScore >= -3 ? "Mildly bearish"
+                     : "Bearish";
+
+  return (
+    <Card>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.9rem" }}>
+        <div>
+          <SectionLabel>Macro environment</SectionLabel>
+          {mode === "data" && (
+            <div style={{ fontSize: "0.68rem", color: T.dim, marginTop: "0.1rem" }}>
+              These indicators drove the strategy recommendation
+            </div>
+          )}
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: "0.65rem", color: T.dim, textTransform: "uppercase", letterSpacing: "0.07em" }}>Overall</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: overallColor }}>{overallLabel}</div>
+          <HeatGauge score={parseFloat(overallScore.toFixed(1))} size="sm" />
+        </div>
+      </div>
+
+      {/* Macro aspect rows */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+        {macro.map(m => (
+          <div key={m.aspect} style={{ display: "grid", gridTemplateColumns: "7rem 1fr", gap: "0.75rem", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: "0.68rem", fontWeight: 600, color: "rgba(232,226,217,0.7)", textTransform: "capitalize" }}>
+                {m.aspect}
+              </div>
+              <div style={{ fontSize: "0.6rem", color: T.dim, textTransform: "capitalize" }}>{m.direction}</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+              <HeatGauge score={m.score} />
+              <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.3)", lineHeight: 1.4 }}>
+                {m.commentary}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Strategy implication */}
+      {strategy && mode === "data" && (
+        <div style={{
+          marginTop: "0.9rem", padding: "0.65rem 0.85rem",
+          background: "rgba(200,169,110,0.05)", border: "1px solid rgba(200,169,110,0.15)",
+          borderRadius: 7, fontSize: "0.72rem", color: T.dim, lineHeight: 1.5,
+        }}>
+          <span style={{ color: T.gold, fontWeight: 600 }}>↳ Impact on strategy: </span>
+          {strategy.rationale}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SignalStrengthBar — shown per ticker in data mode Step 3
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SignalStrengthBar({ label, value, color }: { label: string; value: number | null; color: string }) {
+  if (value == null) return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+      <span style={{ fontSize: "0.6rem", color: T.dim, width: "1.2rem" }}>{label}</span>
+      <span style={{ fontSize: "0.65rem", color: "rgba(232,226,217,0.2)" }}>—</span>
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+      <span style={{ fontSize: "0.6rem", color: T.dim, width: "1.2rem", flexShrink: 0 }}>{label}</span>
+      <div style={{ width: 48, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden", flexShrink: 0 }}>
+        <div style={{ height: "100%", width: `${value}%`, background: color, borderRadius: 2 }} />
+      </div>
+      <span style={{ fontSize: "0.65rem", color, minWidth: "1.8rem" }}>{value}</span>
+    </div>
+  );
+}
 
 function StepIndicator({ current, total }: { current: Step; total: number }) {
   const labels = ["Strategy", "Themes", "Allocation"];
@@ -296,6 +436,7 @@ function Step1Strategy({
   strategy,
   loading,
   mode,
+  macro,
   onGenerate,
   onUpdate,
   onNext,
@@ -304,6 +445,7 @@ function Step1Strategy({
   strategy:  Strategy | null;
   loading:   boolean;
   mode:      BuildMode;
+  macro:     MacroScore[];
   onGenerate: () => void;
   onUpdate:  (s: Strategy) => void;
   onNext:    () => void;
@@ -384,6 +526,11 @@ function Step1Strategy({
               </div>
             </div>
           </Card>
+
+          {/* Macro environment — data mode shows the indicators that drove the recommendation */}
+          {mode === "data" && (
+            <MacroPanel macro={macro} strategy={strategy} mode={mode} />
+          )}
 
           {/* Style override */}
           <div>
@@ -579,14 +726,29 @@ function Step2Themes({
                 }}>
                   {theme.momentum ?? "stable"}
                 </span>
-                <span style={{ fontSize: "0.72rem", color: T.gold, marginLeft: "auto" }}>
-                  {theme.conviction}% conviction
-                </span>
               </div>
               <p style={{ fontSize: "0.78rem", color: T.dim, margin: "0 0 0.4rem", lineHeight: 1.5 }}>{theme.brief}</p>
+              {theme.conviction != null && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
+                  <span style={{ fontSize: "0.6rem", color: T.dim, width: "4.5rem", flexShrink: 0 }}>
+                    {mode === "data" ? "DB conviction" : "LLM estimate"}
+                  </span>
+                  <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${theme.conviction}%`, background: "rgba(200,169,110,0.7)", borderRadius: 2, transition: "width 0.4s" }} />
+                  </div>
+                  <span style={{ fontSize: "0.68rem", color: T.gold, fontWeight: 600, minWidth: "2.5rem" }}>
+                    {theme.conviction}%
+                  </span>
+                </div>
+              )}
               <div style={{ fontSize: "0.72rem", color: "#4eca99", fontStyle: "italic" }}>
                 ✦ {theme.fit_reason}
               </div>
+              {theme.is_llm_generated && mode === "llm" && (
+                <div style={{ fontSize: "0.6rem", color: "rgba(200,169,110,0.4)", marginTop: "0.2rem" }}>
+                  Claude-defined theme (not in your database)
+                </div>
+              )}
             </div>
 
             {/* Suggested allocation */}
@@ -753,7 +915,7 @@ function Step3Allocation({
               fontSize: "0.6rem", color: T.dim, textTransform: "uppercase", letterSpacing: "0.07em",
             }}>
               <span />
-              <span>Ticker</span>
+              <span>Ticker {mode === "data" ? "· F/T scores" : ""}</span>
               <span style={{ textAlign: "center" }}>Signal</span>
               <span style={{ textAlign: "right" }}>Weight %</span>
               <span style={{ textAlign: "right" }}>Capital</span>
@@ -789,17 +951,41 @@ function Step3Allocation({
                     {t.included && "✓"}
                   </button>
 
-                  {/* Ticker + name + rationale */}
+                  {/* Ticker + name + rationale + signal strength (data mode) */}
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 700, color: T.cream, fontSize: "0.85rem", fontFamily: "monospace" }}>{t.ticker}</span>
                       <span style={{ fontSize: "0.65rem", color: T.dim }}>{t.name}</span>
+                      {/* DB signal badge — data mode only */}
+                      {mode === "data" && t.db_signal && (
+                        <span style={{
+                          fontSize: "0.58rem", fontWeight: 700,
+                          color: t.db_signal === "buy" ? "#4eca99" : t.db_signal === "watch" ? "#f0b429" : t.db_signal === "avoid" ? "#fc5c65" : T.dim,
+                          background: t.db_signal === "buy" ? "rgba(78,202,153,0.1)" : t.db_signal === "watch" ? "rgba(240,180,41,0.1)" : "rgba(255,255,255,0.05)",
+                          border: `1px solid ${t.db_signal === "buy" ? "rgba(78,202,153,0.25)" : t.db_signal === "watch" ? "rgba(240,180,41,0.25)" : "rgba(255,255,255,0.08)"}`,
+                          padding: "0.05rem 0.35rem", borderRadius: 4, textTransform: "uppercase",
+                        }}>
+                          DB: {t.db_signal}
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: "0.65rem", color: "rgba(232,226,217,0.3)", marginTop: "0.1rem", lineHeight: 1.4 }}>
                       {t.rationale}
                     </div>
+                    {/* F/T score bars — data mode only */}
+                    {mode === "data" && (t.fundamental_score != null || t.technical_score != null) && (
+                      <div style={{ display: "flex", gap: "0.6rem", marginTop: "0.35rem", flexWrap: "wrap" }}>
+                        <SignalStrengthBar label="F" value={t.fundamental_score} color="rgba(200,169,110,0.8)" />
+                        <SignalStrengthBar label="T" value={t.technical_score}   color="rgba(99,179,237,0.8)" />
+                      </div>
+                    )}
+                    {mode === "data" && t.db_rationale && (
+                      <div style={{ fontSize: "0.6rem", color: "rgba(232,226,217,0.2)", marginTop: "0.25rem", lineHeight: 1.4, fontStyle: "italic" }}>
+                        Signal rationale: {t.db_rationale.slice(0, 100)}{t.db_rationale.length > 100 ? "…" : ""}
+                      </div>
+                    )}
                     {qty != null && t.editSignal === "BUY" && (
-                      <div style={{ fontSize: "0.62rem", color: "#63b3ed", marginTop: "0.1rem" }}>
+                      <div style={{ fontSize: "0.62rem", color: "#63b3ed", marginTop: "0.15rem" }}>
                         ≈ {qty} units @ ${price?.toFixed(2)}
                       </div>
                     )}
@@ -937,6 +1123,7 @@ export default function PortfolioBuilderPage() {
   const [llmRunId,    setLlmRunId]    = useState<string | null>(null);
 
   const [runId,                  setRunId]                  = useState<string | null>(null);
+  const [macroScores,            setMacroScores]            = useState<MacroScore[]>([]);
   const [loadingStrategy,        setLoadingStrategy]        = useState(false);
   const [loadingDataThemes,      setLoadingDataThemes]      = useState(false);
   const [loadingLlmThemes,       setLoadingLlmThemes]       = useState(false);
@@ -1023,6 +1210,7 @@ export default function PortfolioBuilderPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setStrategy(data.strategy);
+      if (data.macro) setMacroScores(data.macro);
       // Persist strategy to run
       if (runId) {
         fetch("/api/portfolio/builder/run", {
@@ -1249,6 +1437,7 @@ export default function PortfolioBuilderPage() {
           strategy={strategy}
           loading={loadingStrategy}
           mode={initialMode}
+          macro={macroScores}
           onGenerate={generateStrategy}
           onUpdate={setStrategy}
           onNext={() => {
