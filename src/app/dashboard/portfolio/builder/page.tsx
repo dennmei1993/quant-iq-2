@@ -968,15 +968,6 @@ export default function PortfolioBuilderPage() {
     if (portfolio && !strategy && !loadingStrategy) generateStrategy();
   }, [portfolio]);
 
-  // When strategy is ready, auto-advance to step 2 and generate themes
-  // for whichever mode was passed in the URL
-  useEffect(() => {
-    if (strategy && step === 1) {
-      generateThemes(initialMode);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [strategy]);
-
   // ── Step 2: generate themes for active mode ───────────────────────────────
   const generateThemes = useCallback(async (targetMode: BuildMode) => {
     if (!strategy) return;
@@ -1183,10 +1174,13 @@ export default function PortfolioBuilderPage() {
           onGenerate={generateStrategy}
           onUpdate={setStrategy}
           onNext={() => {
-            // Step 1 "Next" shows mode toggle then proceeds with selected mode
             setStep(2);
-            // Auto-generate for data mode first (default)
-            if (dataThemes.length === 0 && !loadingDataThemes) generateThemes("data");
+            // Generate themes for the mode the user arrived with from the portfolio page
+            if (initialMode === "data" && dataThemes.length === 0 && !loadingDataThemes) {
+              generateThemes("data");
+            } else if (initialMode === "llm" && llmThemes.length === 0 && !loadingLlmThemes) {
+              generateThemes("llm");
+            }
           }}
         />
       )}
