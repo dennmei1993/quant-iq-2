@@ -19,6 +19,17 @@ export async function POST(req: NextRequest) {
     if (!raw) return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
     const p = raw as any;
 
+    // Fetch recent high-impact events to inform theme relevance
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: events } = await supabase
+      .from("events")
+      .select("headline, ai_summary, event_type, impact_score, sentiment_score, sectors, tickers, published_at")
+      .eq("ai_processed", true)
+      .gte("published_at", thirtyDaysAgo)
+      .order("impact_score", { ascending: false })
+      .limit(20);
+    const recentEvents = (events ?? []);
+
     // Fetch active themes with their tickers
     const { data: themes } = await supabase
       .from("themes")
@@ -47,7 +58,15 @@ STRATEGY:
 AVAILABLE THEMES:
 ${themes.map(t => `- ID:${t.id} | ${t.name} [${t.theme_type}] conviction:${t.conviction}% momentum:${t.momentum ?? "stable"} | ${t.brief ?? ""}`).join("\n")}
 
+RECENT HIGH-IMPACT EVENTS (real news — use these to assess theme momentum and risk):
+${recentEvents.map(e => {
+  const date = new Date(e.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const sectors = (e.sectors ?? []).join(", ") || "general";
+  return `• [${date}] [${sectors}] impact:${(e.impact_score ?? 0).toFixed(1)} — ${e.headline}${e.ai_summary ? `\n  → ${e.ai_summary}` : ""}`;
+}).join("\n")}
+
 For each theme, assess how well it fits the strategy and suggest what % of the investable capital to allocate to it.
+Factor in the recent events above — themes with tailwinds from current events should score higher; themes facing headwinds should score lower or be excluded.
 Select 3-6 themes. Allocations should sum to approximately ${100 - (strategy.cash_reserve_pct ?? 0)}% across all chosen themes (the rest stays as cash reserve).
 
 Respond ONLY with valid JSON, no markdown:

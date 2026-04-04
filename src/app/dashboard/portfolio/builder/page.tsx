@@ -659,9 +659,14 @@ function Step1Strategy({
             <Card>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
                 <SectionLabel>Macro &amp; geopolitical context</SectionLabel>
-                <span style={{ fontSize: "0.62rem", color: "rgba(99,179,237,0.6)", background: "rgba(99,179,237,0.08)", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 4, padding: "0.15rem 0.5rem" }}>
-                  Model knowledge — no DB data used
-                </span>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.62rem", color: "rgba(78,202,153,0.7)", background: "rgba(78,202,153,0.08)", border: "1px solid rgba(78,202,153,0.2)", borderRadius: 4, padding: "0.15rem 0.5rem" }}>
+                    ✦ Live events injected
+                  </span>
+                  <span style={{ fontSize: "0.62rem", color: "rgba(99,179,237,0.6)", background: "rgba(99,179,237,0.08)", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 4, padding: "0.15rem 0.5rem" }}>
+                    Model: {provider ?? "claude"} reasoning
+                  </span>
+                </div>
               </div>
               <p style={{ fontSize: "0.78rem", color: T.dim, lineHeight: 1.7, margin: 0 }}>
                 {strategy.macro_context}
