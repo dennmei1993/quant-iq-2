@@ -593,11 +593,14 @@ function Step3Allocation({
   onConfirm:     () => void;
 }) {
   const investable    = totalCapital * (1 - cashReservePct / 100);
+  const investablePct = 100 - cashReservePct;           // target BUY weight sum
   const included      = tickers.filter(t => t.included);
   const buys          = included.filter(t => t.editSignal === "BUY");
   const watches       = included.filter(t => t.editSignal === "WATCH");
+  // weights are portfolio-level % of total capital
   const totalWeight   = buys.reduce((s, t) => s + Number(t.editWeight || 0), 0);
-  const weightOk      = Math.abs(totalWeight - 100) < 0.5;
+  const cashWeight    = 100 - totalWeight;              // implied cash %
+  const weightOk      = Math.abs(totalWeight - investablePct) < 1.0;
 
   // Group by theme
   const byTheme = tickers.reduce<Record<string, TickerAllocation[]>>((acc, t) => {
@@ -618,24 +621,48 @@ function Step3Allocation({
 
       {/* Summary bar */}
       <Card>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "1rem" }}>
           {[
-            ["Investable capital", formatCurrency(investable)],
-            ["BUY positions",     `${buys.length} tickers`],
-            ["WATCH list",        `${watches.length} tickers`],
-            ["Weight allocated",  `${totalWeight.toFixed(1)}%`],
+            ["Total capital",    formatCurrency(totalCapital)],
+            ["Investable",       `${formatCurrency(investable)} (${investablePct}%)`],
+            ["BUY positions",    `${buys.length} tickers`],
+            ["WATCH list",       `${watches.length} tickers`],
+            ["Deployed",         `${totalWeight.toFixed(1)}%`],
           ].map(([label, val]) => (
             <div key={label}>
               <div style={{ fontSize: "0.62rem", color: T.dim, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</div>
-              <div style={{ fontSize: "1rem", fontWeight: 700, color: T.cream, marginTop: "0.2rem" }}>{val}</div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 700, color: T.cream, marginTop: "0.2rem" }}>{val}</div>
             </div>
           ))}
         </div>
-        {!weightOk && buys.length > 0 && (
-          <div style={{ marginTop: "0.75rem", fontSize: "0.72rem", color: "#fc5c65" }}>
-            ⚠ BUY weights sum to {totalWeight.toFixed(1)}% — adjust to reach 100% before confirming
+
+        {/* Weight progress bar */}
+        <div style={{ marginTop: "0.75rem" }}>
+          <div style={{ height: 5, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", borderRadius: 3, transition: "width 0.3s ease",
+              width: `${Math.min(100, (totalWeight / investablePct) * 100)}%`,
+              background: weightOk
+                ? "linear-gradient(90deg, rgba(78,202,153,0.6), rgba(78,202,153,0.9))"
+                : totalWeight > investablePct
+                  ? "linear-gradient(90deg, rgba(252,92,101,0.6), rgba(252,92,101,0.9))"
+                  : "linear-gradient(90deg, rgba(200,169,110,0.6), rgba(200,169,110,0.9))",
+            }} />
           </div>
-        )}
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.3rem" }}>
+            <span style={{ fontSize: "0.62rem", color: T.dim }}>
+              {totalWeight.toFixed(1)}% deployed · {cashWeight.toFixed(1)}% cash
+              {cashReservePct > 0 && ` (min ${cashReservePct}% reserved)`}
+            </span>
+            <span style={{ fontSize: "0.62rem", color: weightOk ? "#4eca99" : "#fc5c65", fontWeight: 600 }}>
+              {weightOk
+                ? "✓ Allocation valid"
+                : totalWeight > investablePct
+                  ? `⚠ ${(totalWeight - investablePct).toFixed(1)}% over — reduce BUY weights`
+                  : `${(investablePct - totalWeight).toFixed(1)}% unallocated`}
+            </span>
+          </div>
+        </div>
       </Card>
 
       {/* Ticker table by theme */}
@@ -661,7 +688,8 @@ function Step3Allocation({
             </div>
 
             {rows.map((t, idx) => {
-              const capital = (Number(t.editWeight || 0) / 100) * investable;
+              // weight is portfolio-level % of total capital
+              const capital = (Number(t.editWeight || 0) / 100) * totalCapital;
               const price   = t.price;
               const qty     = price && price > 0 ? Math.floor(capital / price) : null;
               const isWatch = t.editSignal === "WATCH";
@@ -726,28 +754,31 @@ function Step3Allocation({
                     ))}
                   </div>
 
-                  {/* Weight input — only for BUY */}
+                  {/* Weight input — portfolio % of total capital, BUY only */}
                   <div style={{ textAlign: "right" }}>
                     {!isWatch ? (
-                      <input
-                        type="number"
-                        value={t.editWeight}
-                        onChange={e => onUpdate(t.ticker, "editWeight", e.target.value)}
-                        style={{
-                          width: 60, textAlign: "right",
-                          background: "rgba(255,255,255,0.05)",
-                          border: `1px solid rgba(255,255,255,0.1)`,
-                          borderRadius: 4, color: T.cream,
-                          fontSize: "0.8rem", outline: "none",
-                          padding: "0.2rem 0.4rem",
-                        }}
-                      />
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.2rem", justifyContent: "flex-end" }}>
+                        <input
+                          type="number"
+                          value={t.editWeight}
+                          onChange={e => onUpdate(t.ticker, "editWeight", e.target.value)}
+                          style={{
+                            width: 52, textAlign: "right",
+                            background: "rgba(255,255,255,0.05)",
+                            border: `1px solid rgba(255,255,255,0.1)`,
+                            borderRadius: 4, color: T.cream,
+                            fontSize: "0.8rem", outline: "none",
+                            padding: "0.2rem 0.4rem",
+                          }}
+                        />
+                        <span style={{ fontSize: "0.65rem", color: T.dim }}>%</span>
+                      </div>
                     ) : (
                       <span style={{ fontSize: "0.72rem", color: T.dim }}>—</span>
                     )}
                   </div>
 
-                  {/* Capital estimate */}
+                  {/* Capital estimate — weight% × total capital */}
                   <div style={{ textAlign: "right", fontSize: "0.78rem", color: isWatch ? T.dim : T.cream }}>
                     {isWatch ? "watchlist" : formatCurrency(capital)}
                   </div>
@@ -786,12 +817,12 @@ function Step3Allocation({
           )}
           <button
             onClick={onConfirm}
-            disabled={committing || (buys.length > 0 && !weightOk)}
+            disabled={committing || !weightOk}
             style={{
               padding: "0.6rem 1.6rem", background: T.gold, color: "var(--navy)",
               fontWeight: 700, borderRadius: 7, border: "none", fontSize: "0.88rem",
-              cursor: committing || (buys.length > 0 && !weightOk) ? "not-allowed" : "pointer",
-              opacity: committing || (buys.length > 0 && !weightOk) ? 0.5 : 1,
+              cursor: committing || !weightOk ? "not-allowed" : "pointer",
+              opacity: committing || !weightOk ? 0.5 : 1,
             }}
           >
             {committing ? "Saving…" : `✓ Confirm — add ${buys.length} holdings + ${watches.length} to watchlist`}
@@ -1011,12 +1042,26 @@ export default function PortfolioBuilderPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const tickerResult = (data.tickers as TickerAllocation[]).map(t => ({
-        ...t,
-        editWeight: String(t.weight),
-        editSignal: t.signal,
-        included:   true,
-      }));
+      // Convert theme-relative weight → portfolio-level weight
+      // ticker.weight = % within theme; theme.suggested_allocation = % of investable
+      // portfolio_weight = (ticker.weight / 100) × theme.suggested_allocation
+      const themeAllocMap = new Map(
+        selectedThemes.map((th: any) => [th.name, th.suggested_allocation ?? 0])
+      );
+
+      const tickerResult = (data.tickers as TickerAllocation[]).map(t => {
+        const themeAlloc    = themeAllocMap.get(t.theme_name) ?? 0;
+        const portfolioWeight = t.signal === "BUY"
+          ? parseFloat(((t.weight / 100) * themeAlloc).toFixed(1))
+          : 0;
+        return {
+          ...t,
+          weight:     portfolioWeight,   // store as portfolio-level %
+          editWeight: t.signal === "BUY" ? String(portfolioWeight) : "0",
+          editSignal: t.signal,
+          included:   true,
+        };
+      });
       setResult(tickerResult);
 
       // Persist tickers to run

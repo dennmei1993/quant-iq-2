@@ -8,7 +8,7 @@ import { requireUser, errorResponse } from "@/lib/supabase";
 export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
-    const { portfolio_id, tickers, strategy } = await req.json();
+    const { portfolio_id, tickers, strategy, run_id } = await req.json();
 
     if (!portfolio_id) return NextResponse.json({ error: "portfolio_id required" }, { status: 400 });
 
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     // Insert BUY → holdings with quantity + avg_cost
     if (buys.length > 0) {
       const holdingRows = buys.map((t: any) => {
-        const capital  = (t.weight / 100) * investable;
+        const capital  = (t.weight / 100) * (p.total_capital ?? 0);  // weight is portfolio-level %
         const quantity = t.price && t.price > 0 ? Math.floor(capital / t.price) : null;
         return {
           portfolio_id,
@@ -66,9 +66,17 @@ export async function POST(req: NextRequest) {
       if (error) throw error;
     }
 
+    // Mark the run as confirmed
+    if (run_id) {
+      await supabase.from("portfolio_build_runs")
+        .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
+        .eq("id", run_id).eq("user_id", user.id);
+    }
+
     return NextResponse.json({
-      ok:                true,
-      inserted_holdings: buys.length,
+      ok:                 true,
+      run_id:             run_id ?? null,
+      inserted_holdings:  buys.length,
       inserted_watchlist: watches.length,
     });
   } catch (e) {
