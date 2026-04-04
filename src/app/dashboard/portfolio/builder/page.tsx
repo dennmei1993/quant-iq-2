@@ -1,7 +1,7 @@
 // src/app/dashboard/portfolio/builder/page.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { RiskAppetite, InvestmentHorizon } from "@/types/portfolio-preferences";
 
@@ -14,11 +14,12 @@ type StyleFocus = "growth" | "balanced" | "defensive" | "income" | "speculative"
 interface Strategy {
   style:            StyleFocus;
   cash_reserve_pct: number;
-  sector_tilts:     string[];   // e.g. ["tech", "healthcare"]
+  sector_tilts:     string[];
   avoid_sectors:    string[];
-  max_single_weight: number;   // % cap per position
-  rationale:        string;    // LLM explanation
-  summary:          string;    // one-liner headline
+  max_single_weight: number;
+  rationale:        string;
+  summary:          string;
+  macro_context?:   string | null;   // LLM mode: model's own macro/geopolitical reasoning
 }
 
 interface RecommendedTheme {
@@ -630,14 +631,38 @@ function Step1Strategy({
                   <div style={{ fontSize: "1.1rem", fontWeight: 700, color: T.cream }}>{strategy.summary}</div>
                   <ModelBadge mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined} />
                 </div>
-                <div style={{ fontSize: "0.78rem", color: T.dim, lineHeight: 1.6 }}>{strategy.rationale}</div>
+                <div style={{ fontSize: "0.78rem", color: T.dim, lineHeight: 1.6, marginBottom: strategy.macro_context ? "0.5rem" : 0 }}>{strategy.rationale}</div>
+                {strategy.macro_context && (
+                  <div style={{
+                    fontSize: "0.72rem", color: "rgba(232,226,217,0.4)",
+                    lineHeight: 1.6, fontStyle: "italic",
+                    paddingTop: "0.4rem",
+                    borderTop: "1px solid rgba(255,255,255,0.06)",
+                  }}>
+                    <span style={{ color: "rgba(99,179,237,0.7)", fontStyle: "normal", fontWeight: 600 }}>Macro context: </span>
+                    {strategy.macro_context}
+                  </div>
+                )}
               </div>
             </div>
           </Card>
 
-          {/* Macro environment — data mode shows the indicators that drove the recommendation */}
-          {mode === "data" && (
+              {/* Macro environment — data mode shows DB indicators; LLM mode shows model's own context */}
+          {mode === "data" && macro.length > 0 && (
             <MacroPanel macro={macro} strategy={strategy} mode={mode} />
+          )}
+          {mode === "llm" && strategy?.macro_context && (
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+                <SectionLabel>Macro &amp; geopolitical context</SectionLabel>
+                <span style={{ fontSize: "0.62rem", color: "rgba(99,179,237,0.6)", background: "rgba(99,179,237,0.08)", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 4, padding: "0.15rem 0.5rem" }}>
+                  Model knowledge — no DB data used
+                </span>
+              </div>
+              <p style={{ fontSize: "0.78rem", color: T.dim, lineHeight: 1.7, margin: 0 }}>
+                {strategy.macro_context}
+              </p>
+            </Card>
           )}
 
           {/* Style override */}
@@ -1205,7 +1230,7 @@ function Step3Allocation({
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function PortfolioBuilderPage() {
+function PortfolioBuilderInner() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const portfolioId  = searchParams.get("portfolio_id");
@@ -1256,7 +1281,7 @@ export default function PortfolioBuilderPage() {
   // ── Persist helpers ───────────────────────────────────────────────────────
   async function createRun(targetMode: BuildMode, strat: Strategy): Promise<string | null> {
     try {
-      const res  = await fetch("/api/portfolio/builder/runs", {
+      const res  = await fetch("/api/portfolio/builder/run", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "create_run", portfolio_id: portfolioId, mode: targetMode, strategy: strat }),
       });
@@ -1266,7 +1291,7 @@ export default function PortfolioBuilderPage() {
   }
 
   async function saveThemesToRun(runId: string, themes: RecommendedTheme[]) {
-    await fetch("/api/portfolio/builder/runs", {
+    await fetch("/api/portfolio/builder/run", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "save_themes", run_id: runId, themes }),
     });
@@ -1282,7 +1307,7 @@ export default function PortfolioBuilderPage() {
       rationale:  t.rationale,  included:   t.included,
       edited:     t.editSignal !== t.signal || t.editWeight !== String(t.weight),
     }));
-    await fetch("/api/portfolio/builder/runs", {
+    await fetch("/api/portfolio/builder/run", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "save_tickers", run_id: runId, tickers: rows }),
     });
@@ -1316,7 +1341,7 @@ export default function PortfolioBuilderPage() {
       const res  = await fetch("/api/portfolio/builder/strategy", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ portfolio_id: portfolioId, run_id: runId, provider: initialMode === "llm" ? llmProvider : "claude", model_id: initialMode === "llm" ? llmModelId : undefined }),
+        body:    JSON.stringify({ portfolio_id: portfolioId, mode: initialMode, run_id: runId, provider: initialMode === "llm" ? llmProvider : "claude", model_id: initialMode === "llm" ? llmModelId : undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -1472,7 +1497,7 @@ export default function PortfolioBuilderPage() {
       // Mark the other mode's run as abandoned if it exists and wasn't confirmed
       const otherRunId = mode === "data" ? llmRunId : dataRunId;
       if (otherRunId) {
-        await fetch("/api/portfolio/builder/runs", {
+        await fetch("/api/portfolio/builder/run", {
           method: "PATCH", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ run_id: otherRunId, status: "abandoned" }),
         });
@@ -1682,5 +1707,17 @@ export default function PortfolioBuilderPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function PortfolioBuilderPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ color: "rgba(232,226,217,0.2)", fontSize: "0.85rem", padding: "3rem 0" }}>
+        Loading…
+      </div>
+    }>
+      <PortfolioBuilderInner />
+    </Suspense>
   );
 }
