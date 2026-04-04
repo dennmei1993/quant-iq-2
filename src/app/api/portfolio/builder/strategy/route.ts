@@ -115,51 +115,80 @@ interface IntelCtx {
 function buildIntelSection(ctx: IntelCtx): string {
   const lines: string[] = [
     `=== MARKET INTELLIGENCE SNAPSHOT (refreshed: ${ctx.refreshedAt}) ===`,
-    "This data is pre-computed from live sources — treat it as current ground truth.",
+    "This is pre-computed data from live sources. Treat it as current ground truth.",
+    "You MUST reference specific facts from this snapshot in your rationale and macro_context.",
     "",
   ];
 
+  // ── Macro indicators ──────────────────────────────────────────────────────
   if (ctx.macro_intel) {
     const d = ctx.macro_intel.data ?? {};
     lines.push("── MACRO INDICATORS ──");
-    if (d.cpi_yoy)      lines.push(`CPI Inflation:   ${d.cpi_yoy}`);
-    if (d.gdp_growth)   lines.push(`GDP Growth:      ${d.gdp_growth}`);
-    if (d.unemployment) lines.push(`Unemployment:    ${d.unemployment}`);
-    if (d.fed_rate)     lines.push(`Fed Funds Rate:  ${d.fed_rate}`);
-    if (d.yield_10y)    lines.push(`10Y Treasury:    ${d.yield_10y}`);
-    if (d.fed_stance)   lines.push(`Fed Stance:      ${d.fed_stance}`);
-    lines.push(`Macro summary: ${ctx.macro_intel.summary}`);
+    lines.push(`Overall macro score: ${d.avg_score ?? ctx.macro_intel.score}/10 | Fed stance: ${d.fed_stance ?? "unknown"}`);
+    lines.push(`Key risk: ${d.key_risk ?? "not assessed"}`);
+    // Individual macro aspect scores
+    if (d.scores?.length) {
+      for (const s of d.scores) {
+        lines.push(`  ${s.aspect}: ${s.score > 0 ? "+" : ""}${s.score}/10 (${s.direction}) — ${s.commentary}`);
+      }
+    }
+    lines.push(`Summary: ${ctx.macro_intel.summary}`);
     lines.push("");
   }
 
+  // ── Geopolitical ──────────────────────────────────────────────────────────
   if (ctx.geo_intel) {
+    const d = ctx.geo_intel.data ?? {};
     lines.push("── GEOPOLITICAL ENVIRONMENT ──");
-    lines.push(`Risk level: ${ctx.geo_intel.data?.risk_level ?? "moderate"} | Score: ${ctx.geo_intel.score ?? 0}/10`);
-    const risks = ctx.geo_intel.data?.active_risks ?? [];
-    if (risks.length) lines.push(`Active risks: ${risks.join(", ")}`);
+    lines.push(`Risk level: ${d.risk_level ?? "moderate"} | Score: ${ctx.geo_intel.score}/10`);
+    if (d.active_risks?.length) {
+      lines.push(`Active risks:`);
+      for (const r of d.active_risks) lines.push(`  • ${r}`);
+    }
+    if (d.exposed_sectors?.risk?.length) {
+      lines.push(`Sectors at risk: ${d.exposed_sectors.risk.join(", ")}`);
+    }
+    if (d.exposed_sectors?.opportunity?.length) {
+      lines.push(`Sector opportunities: ${d.exposed_sectors.opportunity.join(", ")}`);
+    }
     lines.push(ctx.geo_intel.summary);
+    // Include top raw events for specificity
+    if (d.raw_events?.length) {
+      lines.push("Top geopolitical events:");
+      for (const e of d.raw_events.slice(0, 5)) {
+        const date = new Date(e.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        lines.push(`  [${date}] impact:${(e.impact_score ?? 0).toFixed(1)} — ${e.headline}`);
+      }
+    }
     lines.push("");
   }
 
+  // ── Sector momentum ───────────────────────────────────────────────────────
   if (ctx.sector_intel) {
     const d = ctx.sector_intel.data ?? {};
-    lines.push("── SECTOR MOMENTUM ──");
-    if (d.leading?.length)  lines.push(`Leading sectors:  ${d.leading.join(", ")}`);
-    if (d.lagging?.length)  lines.push(`Lagging sectors:  ${d.lagging.join(", ")}`);
-    lines.push(ctx.sector_intel.summary);
+    lines.push("── SECTOR MOMENTUM (from our signal database) ──");
+    if (d.leading?.length) lines.push(`Leading (high BUY signal): ${d.leading.join(", ")}`);
+    if (d.lagging?.length) lines.push(`Lagging (high AVOID signal): ${d.lagging.join(", ")}`);
+    if (d.sectors?.length) {
+      lines.push("Sector breakdown:");
+      for (const s of d.sectors.slice(0, 6)) {
+        lines.push(`  ${s.sector}: BUY ${s.buy_pct}% | AVOID ${s.avoid_pct}% | F:${s.f_avg} T:${s.t_avg}`);
+      }
+    }
     lines.push("");
   }
 
+  // ── Market sentiment ──────────────────────────────────────────────────────
   if (ctx.sentiment_intel) {
     const d = ctx.sentiment_intel.data ?? {};
     lines.push("── MARKET SENTIMENT ──");
-    if (d.market_trend)   lines.push(`Trend:          ${d.market_trend}`);
-    if (d.risk_appetite)  lines.push(`Risk appetite:  ${d.risk_appetite}`);
-    if (d.vix_level)      lines.push(`Volatility:     ${d.vix_level}`);
+    lines.push(`Trend: ${d.market_trend ?? "unknown"} | Risk appetite: ${d.risk_appetite ?? "mixed"} | Volatility: ${d.vix_level ?? "moderate"}`);
+    lines.push(`Score: ${d.score ?? ctx.sentiment_intel.score}/10`);
     lines.push(ctx.sentiment_intel.summary);
     lines.push("");
   }
 
+  // ── Recent events ─────────────────────────────────────────────────────────
   if (ctx.events_intel?.data?.top_events_text) {
     lines.push("── RECENT HIGH-IMPACT EVENTS ──");
     lines.push(ctx.events_intel.data.top_events_text);
@@ -217,9 +246,13 @@ function buildLlmPrompt(p: any, ctx: IntelCtx): string {
     "The snapshot contains real current data — use it as your primary source.",
     "Your recommendation MUST:",
     "1. Respect ALL client constraints above",
-    "2. Explicitly reference specific data points from the snapshot (e.g. Fed rate, active conflicts)",
-    "3. Set sector_tilts consistent with sector momentum and geopolitical data",
-    "4. Reflect current sentiment and volatility in the cash_reserve_pct recommendation",
+    "2. Name specific risks from the snapshot — e.g. 'U.S.-Iran conflict', 'Strait of Hormuz disruption', not generic 'geopolitical uncertainty'",
+    "3. Reference specific macro scores — e.g. 'labour score -3/10', 'Fed stance dovish', not 'current macro conditions'",
+    "4. Set sector_tilts consistent with leading sectors from the sector momentum data",
+    "5. Set avoid_sectors consistent with lagging sectors AND geopolitical exposed_sectors.risk",
+    "6. Justify cash_reserve_pct using geopolitical risk level and market sentiment score",
+    "FORBIDDEN: Do not write 'without access to specific data' or 'based on general patterns'.",
+    "REQUIRED: Your rationale must cite at least 2 named events/indicators from the snapshot above.",
     "",
     "Respond ONLY with valid JSON, no markdown:",
     "{",
@@ -266,8 +299,8 @@ function buildDataPrompt(p: any, macro: any[], ctx: IntelCtx): string {
     '  "sector_tilts": ["Technology", "Healthcare"],',
     '  "avoid_sectors": ["Energy"],',
     '  "max_single_weight": 10,',
-    '  "summary": "One-line headline",',
-    '  "rationale": "2-3 sentences explaining the recommendation referencing macro scores and market intelligence",',
+    '  "summary": "One-line headline citing a specific macro or geopolitical factor",',
+    '  "rationale": "2-3 sentences — cite specific macro scores (e.g. labour -3/10, Fed dovish) and named geopolitical events (e.g. U.S.-Iran conflict, Hormuz disruption)",',
     '  "macro_context": null',
     "}",
   ].join("\n");
