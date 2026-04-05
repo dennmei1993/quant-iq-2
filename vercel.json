@@ -1,5 +1,6 @@
 {
   "crons": [
+    { "path": "/api/cron/macro",                "schedule": "0 9 * * *"  }
     { "path": "/api/cron/financials",           "schedule": "0 6 * * 1"  }
   ],
   "functions": {
