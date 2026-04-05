@@ -1,0 +1,99 @@
+Events:
+
+[
+  {
+    "headline": "Trump $2.2 Trillion Budget Pairs Defense Boost, Agency Cuts",
+    "impact_score": "6.0",
+    "created_at": "2026-04-04 08:11:05.306185+00"
+  },
+  {
+    "headline": "Why Is Elon Musk Taking SpaceX Public?",
+    "impact_score": "6.0",
+    "created_at": "2026-04-04 08:11:01.078908+00"
+  },
+  {
+    "headline": "United unveils basic Polaris business fare in premium cabin overhaul",
+    "impact_score": "3.0",
+    "created_at": "2026-04-04 08:10:56.453455+00"
+  },
+  {
+    "headline": "Oil Market Stress Threatens Shortages in Asia, Europe",
+    "impact_score": "6.0",
+    "created_at": "2026-04-04 08:10:51.378058+00"
+  },
+  {
+    "headline": "United Airlines hikes checked bag fee by $10 as fuel prices continue to climb",
+    "impact_score": "3.0",
+    "created_at": "2026-04-04 08:10:46.151035+00"
+  },
+  {
+    "headline": "US Bonds Fall as Strong Jobs Data Undermines Fed Cut Outlook",
+    "impact_score": "6.0",
+    "created_at": "2026-04-04 08:10:40.63862+00"
+  },
+  {
+    "headline": "These master&apos;s degrees lead to fast-growing, in-demand jobs—but offer low ROI",
+    "impact_score": "2.0",
+    "created_at": "2026-04-04 08:10:36.138576+00"
+  },
+  {
+    "headline": "The cost to fly private is up as much as 20% with fuel prices soaring",
+    "impact_score": "4.0",
+    "created_at": "2026-04-04 08:10:30.74048+00"
+  },
+  {
+    "headline": "Labor Market ‘Stable, With a Lot of Volatility,’ Economist Roth Says",
+    "impact_score": "6.0",
+    "created_at": "2026-04-04 08:10:25.501536+00"
+  },
+  {
+    "headline": "Russia Dismisses Push at UN to Force Open the Strait of Hormuz",
+    "impact_score": "7.0",
+    "created_at": "2026-04-04 08:10:20.231061+00"
+  }
+]
+
+Macro Scores:
+
+[
+  {
+    "commentary": "The strong March jobs report with unemployment falling to 4.3% and payrolls beating expectations by 119,000 is driving mildly positive sentiment, as robust labor market conditions support economic growth expectations while potentially keeping the Fed cautious about aggressive rate cuts."
+  },
+  {
+    "commentary": "US inflation pressures remain contained despite escalating Iran tensions driving oil prices 5% higher, as geopolitical energy spikes face offsetting factors from broader economic uncertainty and potential demand destruction from market volatility."
+  },
+  {
+    "commentary": "The US labor market remains exceptionally strong with March payrolls beating expectations and unemployment falling to 4.3%, but this robust performance is reducing Fed rate cut expectations and pressuring bond prices while supporting bank stocks."
+  },
+  {
+    "commentary": "US growth momentum remains mildly positive despite geopolitical headwinds, primarily supported by a strong jobs report showing robust hiring and declining unemployment. However, Middle East tensions create supply chain risks that could dampen industrial production and broader economic expansion."
+  },
+  {
+    "commentary": "Escalating US-Iran military tensions, including downed aircraft and threats of further conflict, create moderate geopolitical headwinds for US markets through potential oil price spikes and broader volatility, while benefiting defense contractors."
+  },
+  {
+    "commentary": "US credit and financial conditions remain neutral as geopolitical tensions from Middle East escalation create cross-currents with strong domestic fundamentals, evidenced by robust March payrolls, while flight-to-quality dynamics and global spillover risks keep markets cautiously positioned."
+  }
+]
+
+Market Intelligence
+
+[
+  {
+    "summary": "Market sentiment is essentially neutral with a slight positive lean, suggesting investors are cautiously optimistic but not confident enough to commit aggressively. The moderate impact level of events indicates meaningful market drivers exist, but the near-zero sentiment score reflects significant uncertainty and conflicting directional signals across regulatory, geopolitical, and corporate developments."
+  },
+  {
+    "summary": "The US economy presents a mixed picture dominated by an exceptionally strong labor market that is offsetting moderate geopolitical headwinds from Middle East escalation, keeping the Fed in a cautious holding pattern. While robust employment supports equity valuations, the combination of sticky rate expectations due to labor strength and geopolitical uncertainty creates a narrow trading range for US equities with elevated volatility likely."
+  },
+  {
+    "summary": "Leading: Energy, Technology, Industrials. Lagging: Healthcare, Financial Services, Consumer Cyclical. Based on 12 signals."
+  },
+  {
+    "summary": "25 events. Avg sentiment: -0.2. Types: geopolitical, corporate, regulatory, economic_data."
+  },
+  {
+    "summary": "Escalating U.S.-Iran military conflict with confirmed aircraft losses and explicit threats of infrastructure strikes represents the most acute geopolitical risk to equity markets, with immediate implications for oil supply disruption via the Strait of Hormuz chokepoint. The conflict is creating a sharp sectoral divergence: defense contractors face significant upside from military spending acceleration, while broad market exposure to energy price spikes and potential recession spillover creates substantial downside risk. Russian diplomatic obstruction at the UN combined with Australian banking sector recession warnings suggest this conflict carries material tail-risk potential for global financial stability."
+  }
+]
+
+

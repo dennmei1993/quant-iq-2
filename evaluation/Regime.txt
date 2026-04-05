@@ -1,0 +1,221 @@
+1) What is “Market Regime”
+
+A market regime is the dominant macro environment that drives asset returns.
+
+It compresses complex inputs (growth, inflation, rates, geopolitics) into a single actionable state.
+
+Common regimes
+Early-cycle → growth recovering, rates low
+Mid-cycle → stable growth, moderate inflation
+Late-cycle → strong growth, rising rates
+Recession → growth falling, easing policy
+Stagflation → weak growth + high inflation
+In your dataset (example)
+Strong labour + rising oil + geopolitics
+→ Late-cycle / higher-for-longer / elevated risk
+2) Expected Outcome (Why it matters)
+
+Using regimes gives you:
+
+a) Consistent strategy mapping
+Regime → sectors → assets
+(no ad-hoc decisions)
+b) Better signal-to-noise
+Filters noisy news into clear positioning
+c) Portfolio alignment
+Avoids contradictions (e.g. growth stocks + rising rates)
+d) Systematic output
+
+Final output becomes structured:
+
+{
+  "regime": "...",
+  "strategy": "...",
+  "sectors": {...},
+  "portfolio": [...]
+}
+3) Implementation Steps (Practical)
+Step 1 — Signal Extraction
+
+Input: news + macro
+Output:
+
+{
+  "growth": "up",
+  "inflation": "up",
+  "rates": "up",
+  "geopolitics": "high"
+}
+Step 2 — Regime Classification
+
+Map signals → regime using rules:
+
+IF growth ↑ AND inflation ↑ AND rates ↑
+→ Late-cycle
+
+IF growth ↓ AND inflation ↓
+→ Recession
+
+(You can hardcode this initially)
+
+Step 3 — Strategy Mapping
+
+Translate regime → positioning:
+
+Example:
+
+Late-cycle →
+Overweight: energy, defense
+Underweight: long-duration tech
+Step 4 — Sector Allocation
+
+Use:
+
+Your macro signals
+Your “leading/lagging sectors” table
+
+Output:
+
+{
+  "overweight": [...],
+  "underweight": [...]
+}
+Step 5 — Asset Selection
+
+Map sectors → tickers:
+
+Energy → XLE, XOM
+Defense → LMT
+Step 6 — Portfolio Construction
+
+Apply constraints:
+
+Max weight
+Diversification
+Add hedge
+Step 7 — Risk Check (important)
+
+Second pass:
+
+Detect concentration
+Check macro mismatch
+Bottom Line
+Regime = abstraction layer
+It converts raw data → consistent investment decisions
+Implementation is simple:
+Extract signals
+Classify regime
+Map to strategy
+Build portfolio
+
+If you want, I can turn this into a working TypeScript module (Supabase + Vercel) so you can plug it directly into your pipeline.
+
+how often the regime should be checked, or what's the trigger to re-check
+1) How often should you check the regime?
+
+Use a hybrid approach (time-based + event-driven). Pure schedules are too slow; pure triggers are too noisy.
+
+Baseline cadence
+Daily (light check)
+Recompute signals, not full portfolio
+Weekly (full regime review)
+Reclassify regime
+Re-evaluate sector tilts
+Monthly (portfolio rebalance)
+Adjust weights / positions
+
+This mirrors how institutional PMs operate:
+signal monitoring ≠ portfolio turnover.
+
+2) Event-Driven Triggers (More Important)
+
+You should override the schedule when key variables shift.
+
+A. Macro data shocks
+
+Trigger if:
+
+Jobs / inflation materially surprise
+Rate expectations shift
+
+Example:
+
+Strong payrolls → rates ↑ → regime shift toward late-cycle
+B. Geopolitical escalation
+
+From your dataset:
+
+Iran conflict / oil supply risk
+
+Trigger if:
+
+Oil spike > ~5–10%
+ռազմական escalation headlines cluster
+
+Impact:
+
+Forces immediate regime reassessment
+C. Market price signals (fastest indicator)
+
+Trigger thresholds:
+
+Bond yields move > 20–30bps in short time
+Equity index drawdown > 5%
+VIX spike > 25–30
+
+These often lead macro data
+
+D. Internal signal drift (your system)
+
+Since you already have:
+
+macro_signals
+market intelligence
+
+Add:
+
+{
+  "regime_score_change": 0.25
+}
+
+Trigger re-check if:
+
+Composite score changes > 20–30%
+3) Practical Implementation Logic
+Hybrid rule engine
+if (
+  time_since_last_check > 7 days ||
+  macro_surprise == true ||
+  geo_risk_spike == true ||
+  market_volatility_spike == true ||
+  regime_score_delta > 0.25
+) {
+  runFullRegimePipeline();
+}
+4) Avoid This Common Mistake
+
+❌ Recomputing and rebalancing daily
+→ leads to noise trading + poor performance
+
+✅ Separate:
+
+Regime detection (frequent)
+Portfolio action (infrequent)
+5) Recommended Setup for Your Stack
+In Supabase:
+Store:
+regime_history
+signal_scores
+trigger_flags
+In Vercel (cron + events):
+Daily cron → update signals
+Webhook triggers → news / macro shock
+Weekly cron → full regime recompute
+6) Simple Rule of Thumb
+Check signals daily
+Change regime rarely
+Act only when regime materially shifts
+Bottom Line
+
+You don’t “schedule” regime changes —
+you detect them when the underlying drivers move enough.

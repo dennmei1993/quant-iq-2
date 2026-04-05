@@ -1,0 +1,263 @@
+GPT Evaluation
+
+Below is a production-grade AI pipeline framework tailored to your actual data structure (events + macro + market intelligence). This is not generic — it is aligned to how institutional desks would structure signal → portfolio translation.
+
+1) Pipeline Architecture (End-to-End)
+High-level flow
+Raw News + Macro + Market Intelligence
+        ↓
+[Step 1] Signal Extraction Layer
+        ↓
+[Step 2] Regime Classification
+        ↓
+[Step 3] Strategy Generation
+        ↓
+[Step 4] Sector Allocation
+        ↓
+[Step 5] Asset Selection (stocks/ETFs)
+        ↓
+[Step 6] Portfolio Construction
+        ↓
+[Step 7] Risk Critique + Refinement
+        ↓
+Structured JSON Output → Supabase
+2) Step-by-Step Framework
+Step 1 — Signal Extraction
+
+Goal: Convert raw news into structured factors
+
+What to extract:
+Growth (↑ / ↓)
+Inflation (↑ / ↓)
+Rates (↑ / ↓)
+Liquidity (↑ / ↓)
+Geopolitics (risk level)
+Sector implications
+Example based on your data:
+
+From your dataset :
+
+Strong labor → Growth ↑, Rates ↑
+Oil stress + Iran → Inflation ↑, Geopolitical risk ↑
+Bonds falling → Rates higher-for-longer
+Defense budget → Defense ↑
+Market neutral → No strong trend regime
+Step 2 — Market Regime Classification
+
+Output:
+
+Regime type
+Confidence score
+Example classification:
+{
+  "regime": "Late-cycle / Higher-for-longer / Geopolitical risk",
+  "risk_bias": "Neutral to defensive",
+  "volatility": "Elevated",
+  "confidence": 0.72
+}
+Step 3 — Investment Strategy Generation
+Logic layer:
+
+Translate regime → strategy
+
+In your case:
+Strong growth + sticky rates
+Oil/geopolitical upside risk
+Neutral sentiment
+Strategy output:
+Barbell positioning:
+Cyclicals (energy, industrials)
+Defensives (defense, quality tech)
+Avoid duration-sensitive assets
+Step 4 — Sector Allocation Engine
+
+Use:
+
+Market intelligence (leading/lagging)
+Macro overlays
+
+From your data:
+
+Leading: Energy, Tech, Industrials
+Lagging: Healthcare, Financials, Consumer Cyclical
+
+Output:
+{
+  "overweight": ["Energy", "Industrials", "Defense", "Selective Tech"],
+  "neutral": ["Utilities"],
+  "underweight": ["Consumer Cyclical", "Financials", "Healthcare"]
+}
+Step 5 — Stock / ETF Selection
+Selection rules:
+Map sector → liquid proxies
+Add thematic overlays:
+Oil shock → energy majors
+Defense → contractors
+Rates ↑ → avoid long-duration tech
+Example output:
+{
+  "energy": ["XLE", "CVX", "XOM"],
+  "defense": ["LMT", "RTX", "NOC"],
+  "industrials": ["CAT", "DE"],
+  "tech": ["MSFT", "NVDA (reduced weight)"]
+}
+Step 6 — Portfolio Construction
+Constraints:
+Max position: 30%
+5–8 positions
+Diversification across factors
+Example:
+{
+  "portfolio": [
+    {"ticker": "XLE", "weight": 0.25},
+    {"ticker": "LMT", "weight": 0.20},
+    {"ticker": "CAT", "weight": 0.15},
+    {"ticker": "MSFT", "weight": 0.15},
+    {"ticker": "GLD", "weight": 0.10},
+    {"ticker": "CASH", "weight": 0.15}
+  ]
+}
+Step 7 — Risk Critique Layer (Critical)
+
+Force the model to attack its own output:
+
+Checks:
+Overexposure to oil?
+Correlation risk?
+Tail risk (war escalation)?
+3) Prompt Framework (Production-Ready)
+MASTER PROMPT (Step 1–3: Strategy)
+You are a senior global macro portfolio manager.
+
+Input data:
+1. Events (with impact scores)
+2. Macro commentary
+3. Market intelligence summaries
+
+Tasks:
+
+Step 1 — Extract key macro signals:
+- Growth direction
+- Inflation direction
+- Interest rate trajectory
+- Liquidity conditions
+- Geopolitical risk level
+
+Step 2 — Classify market regime:
+- Choose one: Early-cycle, Mid-cycle, Late-cycle, Recession, Stagflation
+- Assign risk bias (risk-on / neutral / risk-off)
+- Estimate volatility level
+
+Step 3 — Generate investment strategy:
+- स्पष्ट positioning (no generic statements)
+- Include:
+  - Factor tilts
+  - Asset class preferences
+  - Key risks
+
+Rules:
+- Be specific and non-generic
+- Use institutional language
+- Do not output JSON
+SECTOR ALLOCATION PROMPT
+Based on the strategy and market regime:
+
+1. Identify sectors:
+   - Overweight (top 3–5)
+   - Neutral
+   - Underweight (avoid)
+
+2. Justify each using:
+   - Macro drivers
+   - Current events
+   - Rate sensitivity
+
+Constraints:
+- Avoid generic reasoning
+- Explicitly link to macro signals
+
+Output format:
+Bullet points only (no JSON)
+STOCK / ETF SELECTION PROMPT
+Select stocks and ETFs for each overweight sector.
+
+Rules:
+- Use highly liquid US-listed securities
+- Prefer sector leaders or ETFs
+- Max 3 per sector
+- Avoid redundancy
+
+Output:
+- Sector → tickers
+- One-line rationale per ticker
+PORTFOLIO CONSTRUCTION PROMPT
+Construct a portfolio using selected assets.
+
+Constraints:
+- Max 6 positions
+- Max 30% per position
+- Include at least 1 hedge or defensive asset
+- Avoid high correlation
+
+Output:
+- Ticker
+- Weight
+- Role (growth / hedge / cyclical)
+RISK CRITIQUE PROMPT
+Act as a risk manager.
+
+Critique the portfolio:
+- Concentration risks
+- Macro mismatch
+- Hidden correlations
+- Tail risks (geopolitics, rates)
+
+Then suggest improvements.
+FINAL JSON STRUCTURING PROMPT
+Convert the following into structured JSON:
+
+{
+  strategy,
+  sectors,
+  assets,
+  portfolio,
+  risks
+}
+
+Ensure:
+- Clean schema
+- No hallucinated fields
+4) Key Design Improvements (What You’re Missing)
+1. You are skipping regime classification
+
+→ This is the MOST important abstraction layer
+
+2. You are mixing reasoning + JSON
+
+→ kills output quality
+
+3. You are not enforcing multi-pass thinking
+
+→ leads to shallow outputs
+
+4. You are not using your own data properly
+
+→ your Supabase tables are actually very strong inputs
+
+5) If You Want to Push This Further
+
+Next upgrades:
+
+Add scoring system:
+Sector score = f(macro + events + momentum)
+Add backtesting loop
+Add agent memory (Supabase):
+Store past strategies → compare performance
+Build theme engine using your asset_themes
+Bottom Line
+
+To match ChatGPT quality, you need:
+
+Pipeline > Prompt
+Multi-step reasoning > single call
+Regime abstraction > raw news interpretation
