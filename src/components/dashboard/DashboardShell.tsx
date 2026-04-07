@@ -1,5 +1,5 @@
-﻿'use client'
-// src/components/dashboard/DashboardShell.tsx
+'use client'
+// src/components/dashboard/DashboardShell.tsx — Terminal / Modern Dark
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -13,14 +13,14 @@ interface Props {
 }
 
 const NAV = [
-  { href: '/dashboard',           label: 'Overview',       icon: '⬡',  section: 'Overview',  separator: false },
-  { href: '/dashboard/events',    label: 'Event Feed',     icon: '📡', section: null,        separator: false },
-  { href: '/dashboard/themes',    label: 'Themes',         icon: '🎯', section: 'Advisory',  separator: false },
-  { href: '/dashboard/assets',    label: 'Asset Screener', icon: '📊', section: null,        separator: false },
-  { href: '/dashboard/watchlist', label: 'My Watchlist',   icon: '★',  section: null,        separator: true  },
-  { href: '/dashboard/portfolio', label: 'My Portfolio',   icon: '🗂️', section: 'Portfolio', separator: false },
-  { href: '/dashboard/alerts',    label: 'Alerts',         icon: '🔔', section: null,        separator: false },
-  { href: '/dashboard/settings',  label: 'Settings',       icon: '⚙',  section: 'Account',  separator: false },
+  { href: '/dashboard',           label: 'Overview',       icon: '⬡',  section: 'Core',      separator: false },
+  { href: '/dashboard/events',    label: 'Event Feed',     icon: '↯',  section: null,        separator: false },
+  { href: '/dashboard/themes',    label: 'Themes',         icon: '◈',  section: 'Advisory',  separator: false },
+  { href: '/dashboard/assets',    label: 'Asset Screener', icon: '▤',  section: null,        separator: false },
+  { href: '/dashboard/watchlist', label: 'Watchlist',      icon: '★',  section: null,        separator: true  },
+  { href: '/dashboard/portfolio', label: 'Portfolio',      icon: '▦',  section: 'Account',   separator: false },
+  { href: '/dashboard/alerts',    label: 'Alerts',         icon: '◉',  section: null,        separator: false },
+  { href: '/dashboard/profile',   label: 'Profile',        icon: '◎',  section: null,        separator: false },
 ]
 
 export default function DashboardShell({ user, children }: Props) {
@@ -38,7 +38,7 @@ export default function DashboardShell({ user, children }: Props) {
     router.refresh()
   }
 
-  const pageTitle = NAV.find(n => n.href === pathname)?.label ?? 'Dashboard'
+  const pageLabel = NAV.find(n => n.href === pathname)?.label ?? 'Dashboard'
 
   return (
     <div className={styles.shell}>
@@ -52,10 +52,10 @@ export default function DashboardShell({ user, children }: Props) {
           {NAV.map((item) => (
             <div key={item.href}>
               {item.separator && (
-                <div style={{ height: 1, background: 'rgba(200,169,110,0.1)', margin: '0.4rem 1rem' }} />
+                <div style={{ height: 1, background: 'var(--border-default)', margin: '0.35rem 1.2rem' }} />
               )}
               {item.section && (
-                <div className={styles.navSection}>{item.section}</div>
+                <div className={styles.navSection}>// {item.section}</div>
               )}
               <Link
                 href={item.href}
@@ -77,7 +77,7 @@ export default function DashboardShell({ user, children }: Props) {
             <div className={styles.avatar}>{initials}</div>
             <div>
               <div className={styles.userName}>{user.fullName || user.email.split('@')[0]}</div>
-              <div className={styles.userPlan}>{user.plan.toUpperCase()} PLAN</div>
+              <div className={styles.userPlan}>{user.plan.toUpperCase()}</div>
             </div>
           </div>
           <button onClick={handleSignOut} className={styles.signOutBtn}>Sign out</button>
@@ -89,9 +89,12 @@ export default function DashboardShell({ user, children }: Props) {
           <button className={styles.menuBtn} onClick={() => setMobileOpen(!mobileOpen)}>
             <span /><span /><span />
           </button>
-          <h1 className={styles.pageTitle}>{pageTitle}</h1>
+          <h1 className={styles.pageTitle}>{pageLabel.toLowerCase().replace(' ', '_')}</h1>
           <div className={styles.topbarRight}>
-            <span className={styles.liveBadge}>⚡ Live</span>
+            <span className={styles.liveBadge}>
+              <span className={styles.liveBadgeDot} />
+              LIVE
+            </span>
             <span className={styles.topbarTime}>
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>

@@ -1,29 +1,33 @@
-/* src/app/dashboard/dashboard.module.css */
+/* src/app/dashboard/dashboard.module.css — Terminal */
+
 .alertStrip {
-  background: rgba(184,76,46,0.12);
-  border: 1px solid rgba(184,76,46,0.25);
-  border-radius: 6px;
-  padding: 0.6rem 1rem;
+  background: rgba(255,78,106,0.05);
+  border-left: 2px solid var(--red);
+  padding: 0.52rem 0.9rem;
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 1.2rem;
-  font-size: 0.8rem;
-  color: rgba(232,150,120,0.9);
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  font-size: 0.76rem;
+  color: rgba(255,150,160,0.8);
+  line-height: 1.5;
 }
 
 .kpiRow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 1px;
+  background: var(--border-default);
+  border: 1px solid var(--border-default);
+  margin-bottom: 1px;
 }
 
 .twoCol {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 1px;
+  background: var(--border-default);
+  margin-bottom: 1px;
 }
 
 @media (max-width: 900px) {

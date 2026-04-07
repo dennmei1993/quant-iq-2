@@ -1,208 +1,144 @@
-/* src/components/dashboard/ui.module.css */
+/* src/components/dashboard/ui.module.css — Terminal / Shared components */
 
-/* ── Panel (card) ── */
+/* ── Panel ── */
 .panel {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--dash-border);
-  border-radius: 10px;
-  padding: 1.1rem 1.2rem;
-  margin-bottom: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  margin-bottom: 1px;
 }
 
 .panelTitle {
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.12em;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(200,169,110,0.55);
-  margin-bottom: 0.9rem;
+  color: var(--text-faint);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.5rem;
 }
 
-.panelLink {
-  font-size: 0.68rem;
-  color: var(--gold);
-  text-decoration: none;
-  letter-spacing: 0;
-  text-transform: none;
-  font-weight: 400;
+.panelTitle::before {
+  content: '##';
+  color: var(--green);
+  font-size: 0.55rem;
 }
-.panelLink:hover { text-decoration: underline; }
 
 .panelSub {
-  font-size: 0.62rem;
-  color: rgba(200,185,165,0.3);
-  letter-spacing: 0;
-  text-transform: none;
+  color: var(--text-faint);
+  font-size: 0.58rem;
+  margin-left: auto;
+  font-weight: 400;
 }
 
-/* ── KPI ── */
+/* ── KPI card ── */
+.kpiCard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  padding: 1rem;
+}
+
+.kpiLabel {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 0.4rem;
+}
+
 .kpiVal {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.9rem;
-  font-weight: 900;
-  color: var(--white);
+  font-family: 'Syne', var(--font-sans);
+  font-size: 1.8rem;
+  font-weight: 500;
+  color: var(--text-primary);
   line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .kpiSub {
-  font-size: 0.7rem;
-  color: var(--dash-muted);
+  font-size: 0.68rem;
+  color: var(--text-faint);
   margin-top: 0.3rem;
+  font-weight: 300;
 }
 
 .kpiDelta {
-  font-size: 0.72rem;
-  font-weight: 500;
-  margin-top: 0.5rem;
-  display: block;
-  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 400;
+  margin-top: 0.35rem;
 }
 
-.up      { color: var(--signal-bull); }
-.down    { color: var(--signal-bear); }
-.neutral { color: var(--signal-neutral); }
-
-/* ── Event feed ── */
-.eventList  { display: flex; flex-direction: column; gap: 0.55rem; }
-
+/* ── Event rows ── */
 .eventItem {
   display: flex;
-  align-items: flex-start;
   gap: 0.7rem;
-  padding: 0.6rem 0.7rem;
-  background: rgba(255,255,255,0.025);
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.04);
-  cursor: pointer;
-  transition: border-color 0.14s, background 0.14s;
+  align-items: flex-start;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid rgba(26,32,48,0.8);
+  transition: background 0.1s;
 }
-.eventItem:hover { border-color: rgba(200,169,110,0.22); background: rgba(200,169,110,0.04); }
 
-.eventDot   { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
-.eventBody  { flex: 1; min-width: 0; }
+.eventItem:last-child { border-bottom: none; }
+.eventItem:hover { background: rgba(78,255,145,0.025); }
+
+.eventDot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
 
 .eventHeadline {
   font-size: 0.78rem;
-  font-weight: 500;
-  color: rgba(232,226,217,0.85);
-  line-height: 1.4;
-  margin-bottom: 0.22rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.eventMeta {
-  display: flex;
-  gap: 0.6rem;
-  font-size: 0.66rem;
-  color: var(--dash-muted);
+  font-weight: 300;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  flex: 1;
 }
 
 .eventScore {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
   font-weight: 500;
   flex-shrink: 0;
-  padding: 0.18rem 0.4rem;
-  border-radius: 3px;
+  padding: 0.12rem 0.35rem;
+  letter-spacing: 0.05em;
 }
 
-.scoreBull { background: rgba(42,124,94,0.2);  color: #4eca99; border: 1px solid rgba(42,124,94,0.3); }
-.scoreBear { background: rgba(184,48,48,0.2);  color: #e87070; border: 1px solid rgba(184,48,48,0.3); }
-.scoreNeut { background: rgba(200,120,32,0.2); color: #e09845; border: 1px solid rgba(200,120,32,0.3); }
+.scoreBull { color: var(--signal-bull); }
+.scoreBear { color: var(--signal-bear); }
+.scoreNeut { color: var(--signal-neut); }
 
-.empty { font-size: 0.8rem; color: var(--dash-muted); padding: 0.5rem 0; }
-
-/* ── Macro gauges ── */
-.gaugeGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
-
-.gaugeItem {
-  padding: 0.6rem 0.7rem;
-  background: rgba(255,255,255,0.025);
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.04);
-}
-
-.gaugeLabel { font-size: 0.66rem; color: var(--dash-muted); margin-bottom: 0.35rem; }
-
-.gaugeBar {
-  height: 4px;
-  background: rgba(255,255,255,0.07);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 0.32rem;
-}
-
-.gaugeFill   { height: 100%; border-radius: 2px; }
-.gaugeVal    { font-family: 'DM Mono', monospace; font-size: 0.78rem; font-weight: 500; color: var(--white); }
-
-/* ── Sector heatmap ── */
-.heatmapRow  { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
-
-.heatCell    { text-align: center; }
-
-.heatBox {
-  height: 44px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.68rem;
-  font-weight: 500;
-  margin-bottom: 4px;
-  transition: opacity 0.15s;
-}
-.heatBox:hover { opacity: 0.85; }
-
-.heatLabel { font-size: 0.6rem; color: var(--dash-muted); }
-
-/* ── Asset table ── */
-.assetTable { width: 100%; border-collapse: collapse; }
-
-.assetTable th {
-  font-size: 0.62rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(200,169,110,0.5);
-  padding: 0 0.5rem 0.6rem;
-  text-align: left;
-  border-bottom: 1px solid var(--dash-border);
-}
-
-.assetTable td {
-  padding: 0.58rem 0.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+/* ── Empty state ── */
+.empty {
+  padding: 2.5rem 1rem;
+  text-align: center;
   font-size: 0.78rem;
-  color: rgba(232,226,217,0.8);
-  vertical-align: middle;
+  color: var(--text-faint);
+  font-weight: 300;
 }
 
-.assetTable tr:hover td { background: rgba(200,169,110,0.03); }
-
-.ticker   { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--gold); font-size: 0.8rem; }
-
-.typePill {
-  font-size: 0.62rem;
-  padding: 0.14rem 0.42rem;
-  border-radius: 3px;
-  font-weight: 500;
+/* ── Alert strip ── */
+.alertStrip {
+  background: rgba(255,78,106,0.05);
+  border-left: 2px solid var(--red);
+  padding: 0.55rem 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  font-size: 0.76rem;
+  color: rgba(255,150,160,0.8);
+  line-height: 1.5;
 }
-.typeStock  { background: rgba(32,96,168,0.22);  color: #7ab4e8; border: 1px solid rgba(32,96,168,0.3); }
-.typeEtf    { background: rgba(42,124,94,0.2);   color: #4eca99; border: 1px solid rgba(42,124,94,0.3); }
-.typeCrypto { background: rgba(200,120,32,0.2);  color: #e09845; border: 1px solid rgba(200,120,32,0.3); }
-.typeCmdty  { background: rgba(184,76,46,0.2);   color: #e87a5a; border: 1px solid rgba(184,76,46,0.3); }
 
-.sigBuy   { color: #4eca99; font-weight: 600; font-size: 0.72rem; }
-.sigWatch { color: #e09845; font-weight: 500; font-size: 0.72rem; }
-.sigHold  { color: var(--dash-muted); font-size: 0.72rem; }
-.sigAvoid { color: #e87070; font-weight: 500; font-size: 0.72rem; }
-
-@media (max-width: 640px) {
-  .heatmapRow { grid-template-columns: repeat(4, 1fr); }
-  .gaugeGrid  { grid-template-columns: 1fr; }
-}
+/* ── Signal badges ── */
+.sigBuy   { color: var(--signal-bull); }
+.sigWatch { color: var(--signal-neut); }
+.sigHold  { color: var(--text-faint);  }
+.sigAvoid { color: var(--signal-bear); }

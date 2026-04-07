@@ -1,8 +1,8 @@
 'use client'
+// src/components/landing/CodeGate.tsx — Terminal / Modern Dark
 import { useState, useEffect } from 'react'
-import styles from './landing.module.css'
 
-const ACCESS_CODE = '9460'  // ← change this to whatever you want
+const ACCESS_CODE = '9460'
 const STORAGE_KEY = 'qiq_access'
 
 export default function CodeGate({ children }: { children: React.ReactNode }) {
@@ -12,10 +12,7 @@ export default function CodeGate({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    // Remember unlocked state in sessionStorage
-    if (sessionStorage.getItem(STORAGE_KEY) === 'true') {
-      setUnlocked(true)
-    }
+    if (sessionStorage.getItem(STORAGE_KEY) === 'true') setUnlocked(true)
     setChecking(false)
   }, [])
 
@@ -31,39 +28,55 @@ export default function CodeGate({ children }: { children: React.ReactNode }) {
   }
 
   if (checking) return null
-
   if (unlocked) return <>{children}</>
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#0f1c2e',
+      background: '#040608',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
+      fontFamily: "'DM Mono', monospace",
+      // scanlines
+      backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)',
     }}>
       <div style={{
         width: '100%',
-        maxWidth: 380,
-        padding: '2.5rem',
-        background: '#162438',
-        borderRadius: 12,
-        border: '1px solid rgba(200,169,110,0.12)',
+        maxWidth: 360,
+        padding: '2.5rem 2rem',
+        background: '#02030a',
+        border: '1px solid #1a2030',
         textAlign: 'center',
       }}>
         {/* Logo */}
         <div style={{
-          fontFamily: 'serif',
-          fontWeight: 900,
-          color: '#c8a96e',
-          fontSize: '1.5rem',
-          marginBottom: '0.4rem',
+          fontFamily: "'Syne', 'DM Sans', sans-serif",
+          fontWeight: 500,
+          color: '#4eff91',
+          fontSize: '0.9rem',
+          marginBottom: '0.3rem',
+          letterSpacing: '0.15em',
+          textTransform: 'uppercase',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.4rem',
         }}>
+          <span style={{
+            width: 6, height: 6,
+            borderRadius: '50%',
+            background: '#4eff91',
+            display: 'inline-block',
+            animation: 'blink 1.2s step-end infinite',
+          }} />
           Quant IQ
         </div>
+
         <div style={{
-          fontSize: '0.72rem',
-          color: 'rgba(200,169,110,0.4)',
+          fontFamily: "'DM Mono', monospace",
+          fontSize: '0.6rem',
+          color: '#2a3a50',
           letterSpacing: '0.2em',
           textTransform: 'uppercase',
           marginBottom: '2rem',
@@ -72,58 +85,71 @@ export default function CodeGate({ children }: { children: React.ReactNode }) {
         </div>
 
         <p style={{
-          fontSize: '0.85rem',
-          color: 'rgba(232,226,217,0.5)',
+          fontSize: '0.76rem',
+          color: '#4a5568',
           marginBottom: '1.5rem',
-          lineHeight: 1.6,
+          lineHeight: 1.65,
+          fontWeight: 300,
         }}>
           Enter your access code to continue.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
           <input
             type="text"
             value={code}
             onChange={e => { setCode(e.target.value); setError(false) }}
-            placeholder="Access code"
+            placeholder="access_code"
             autoFocus
             style={{
               width: '100%',
-              padding: '0.75rem 1rem',
-              background: 'rgba(255,255,255,0.05)',
-              border: `1px solid ${error ? '#b84c2e' : 'rgba(200,169,110,0.15)'}`,
-              borderRadius: 6,
-              color: '#f5f0e8',
-              fontSize: '1rem',
+              padding: '0.7rem 1rem',
+              background: '#040608',
+              border: `1px solid ${error ? '#ff4e6a' : '#1a2030'}`,
+              color: '#eef0f4',
+              fontFamily: "'DM Mono', monospace",
+              fontSize: '0.88rem',
               textAlign: 'center',
-              letterSpacing: '0.15em',
+              letterSpacing: '0.2em',
               textTransform: 'uppercase',
               outline: 'none',
+              transition: 'border-color 0.15s',
             }}
           />
           {error && (
-            <p style={{ color: '#e87070', fontSize: '0.78rem', margin: 0 }}>
-              Invalid code — please try again.
+            <p style={{
+              fontFamily: "'DM Mono', monospace",
+              color: '#ff4e6a',
+              fontSize: '0.68rem',
+              margin: 0,
+              letterSpacing: '0.06em',
+            }}>
+              error: invalid_access_code
             </p>
           )}
           <button
             type="submit"
             style={{
               width: '100%',
-              padding: '0.75rem',
-              background: '#c8a96e',
-              color: '#0f1c2e',
-              fontWeight: 700,
-              fontSize: '0.9rem',
-              borderRadius: 6,
+              padding: '0.7rem',
+              background: '#4eff91',
+              color: '#040608',
+              fontFamily: "'DM Mono', monospace",
+              fontWeight: 500,
+              fontSize: '0.78rem',
               border: 'none',
               cursor: 'pointer',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              transition: 'background 0.15s',
             }}
           >
-            Enter
+            ./enter
           </button>
         </form>
       </div>
+
+      <style>{`@keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }`}</style>
     </div>
   )
 }

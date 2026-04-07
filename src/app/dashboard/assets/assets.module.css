@@ -1,33 +1,68 @@
-/* src/app/dashboard/assets/assets.module.css */
-.filterBar { display:flex; align-items:center; gap:0.4rem; margin-bottom:1rem; flex-wrap:wrap; }
-.filterBtn { background:rgba(255,255,255,0.05); border:1px solid rgba(200,169,110,0.15); border-radius:4px; padding:0.3rem 0.8rem; font-size:0.75rem; font-weight:500; color:rgba(200,185,165,0.45); cursor:pointer; transition:all 0.15s; font-family:inherit; }
-.filterBtn:hover { color:rgba(200,185,165,0.8); }
-.filterBtn.active { background:rgba(200,169,110,0.2); color:var(--dash-gold); border-color:rgba(200,169,110,0.35); }
-.filterNote { margin-left:auto; font-size:0.72rem; color:var(--dash-muted); }
+/* src/app/dashboard/assets/assets.module.css — Terminal */
 
-.table { width:100%; border-collapse:collapse; }
-.table th { font-size:0.65rem; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:rgba(200,169,110,0.5); padding:0 0.5rem 0.6rem; text-align:left; border-bottom:1px solid rgba(200,169,110,0.1); }
-.table td { padding:0.6rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
-.table tr:hover td { background:rgba(200,169,110,0.04); }
-.table tr:last-child td { border-bottom:none; }
+.filterBar { display: flex; align-items: center; gap: 0.35rem; margin-bottom: 1px; flex-wrap: wrap; padding: 0.7rem 1rem; background: var(--bg-surface); border: 1px solid var(--border-default); }
+.filterBtn {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  padding: 0.22rem 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 400;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.1s;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.filterBtn:hover { color: var(--text-secondary); border-color: var(--border-strong); }
+.filterBtn.active { background: rgba(78,255,145,0.08); color: var(--green); border-color: rgba(78,255,145,0.3); }
+.filterNote { margin-left: auto; font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-faint); }
 
-.ticker { font-family:var(--font-dm-mono),monospace; font-size:0.82rem; font-weight:500; color:var(--dash-gold); }
-.name   { font-size:0.78rem; color:rgba(232,226,217,0.75); }
-.sector { font-size:0.72rem; color:var(--dash-muted); }
-.score  { font-family:var(--font-dm-mono),monospace; font-size:0.78rem; font-weight:500; }
-.noSig  { color:var(--dash-muted); font-size:0.75rem; }
+/* Table layout */
+.table { width: 100%; border-collapse: collapse; }
+.table th {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0 0.5rem 0.55rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+}
+.table td {
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid rgba(26,32,48,0.7);
+  vertical-align: middle;
+}
+.table tr:hover td { background: var(--green-faint); }
+.table tr:last-child td { border-bottom: none; }
 
-.typeBadge { font-size:0.64rem; padding:0.15rem 0.45rem; border-radius:3px; font-weight:500; }
-.typeStock  { background:rgba(32,96,168,0.25); color:#7ab4e8; border:1px solid rgba(32,96,168,0.3); }
-.typeEtf    { background:rgba(42,124,94,0.2); color:#4eca99; border:1px solid rgba(42,124,94,0.3); }
-.typeCrypto { background:rgba(200,120,32,0.2); color:#e09845; border:1px solid rgba(200,120,32,0.3); }
-.typeCmdty  { background:rgba(184,76,46,0.2); color:#e87a5a; border:1px solid rgba(184,76,46,0.3); }
+.ticker { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 400; color: var(--green); letter-spacing: 0.04em; }
+.name   { font-size: 0.76rem; color: var(--text-muted); font-weight: 300; }
+.sector { font-size: 0.7rem; color: var(--text-faint); }
+.score  { font-family: var(--font-mono); font-size: 0.76rem; font-weight: 400; }
+.noSig  { color: var(--text-faint); font-size: 0.72rem; }
 
-.signal { font-size:0.72rem; font-weight:500; }
-.sigBuy   { color:#4eca99; }
-.sigWatch { color:#e09845; }
-.sigHold  { color:rgba(200,185,165,0.45); }
-.sigAvoid { color:#e87070; }
+.typeBadge {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 400;
+  padding: 0.08rem 0.35rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.typeStock  { color: var(--blue); }
+.typeEtf    { color: var(--signal-bull); }
+.typeCrypto { color: var(--amber); }
+.typeCmdty  { color: #e87a5a; }
 
-.spark { display:inline-flex; align-items:flex-end; gap:1px; height:20px; vertical-align:middle; }
-.sparkBar { width:3px; border-radius:1px; display:inline-block; }
+.signal { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; letter-spacing: 0.08em; }
+.sigBuy   { color: var(--signal-bull); }
+.sigWatch { color: var(--signal-neut); }
+.sigHold  { color: var(--text-faint);  }
+.sigAvoid { color: var(--signal-bear); }
+
+.spark { display: inline-flex; align-items: flex-end; gap: 1px; height: 18px; vertical-align: middle; }
+.sparkBar { width: 3px; display: inline-block; }

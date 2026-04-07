@@ -1,27 +1,121 @@
+/* src/app/globals.css — Terminal / Modern Dark system */
+/* Fonts: add to layout.tsx → import { Syne, DM_Sans, DM_Mono } from 'next/font/google' */
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --navy:   #0f1c2e;
-  --navy2:  #162438;
-  --cream:  #f5f0e8;
-  --light:  #e8e2d9;
-  --white:  #ffffff;
-  --gold:   #c8a96e;
-  --gold2:  #dfc08a;
-  --rust:   #b84c2e;
-  --green:  #2a7c5e;
-  --red:    #b83030;
-  --dash-bg: #0d1825;
-  --dash-sidebar: #0a1320;
-  --dash-border: rgba(200,169,110,0.12);
-  --signal-bull: #4eca99;
-  --signal-bear: #e87070;
-  --signal-neut: #e09845;
+  /* ── Brand palette ── */
+  --green:        #4eff91;
+  --green-dim:    rgba(78,255,145,0.55);
+  --green-faint:  rgba(78,255,145,0.07);
+  --red:          #ff4e6a;
+  --amber:        #e09845;
+  --blue:         #5a9af5;
+
+  /* ── Background scale ── */
+  --bg-base:      #040608;   /* page root */
+  --bg-surface:   #02030a;   /* panels, cards */
+  --bg-raised:    #080d18;   /* elevated elements */
+  --bg-overlay:   #0d1525;   /* tooltips, modals */
+
+  /* ── Border scale ── */
+  --border-subtle:  rgba(26,32,48,0.8);
+  --border-default: #1a2030;
+  --border-strong:  #2a3a50;
+  --border-accent:  rgba(78,255,145,0.25);
+
+  /* ── Text scale ── */
+  --text-primary:   #eef0f4;
+  --text-secondary: #8a9aaa;
+  --text-muted:     #4a5568;
+  --text-faint:     #2a3a50;
+  --text-accent:    #4eff91;
+
+  /* ── Signals ── */
+  --signal-bull:    #4eff91;
+  --signal-bear:    #ff4e6a;
+  --signal-neut:    #e09845;
+  --signal-neutral: #e09845;
+
+  /* ── Legacy aliases (keeps old inline styles working) ── */
+  --cream:          #eef0f4;
+  --white:          #eef0f4;
+  --gold:           #4eff91;    /* was warm gold — now terminal green */
+  --gold2:          #7affb0;
+  --rust:           #ff4e6a;
+  --navy:           #eef0f4;    /* used as text colour in light themes → remap to primary */
+  --navy2:          #080d18;
+  --dash-bg:        #040608;
+  --dash-sidebar:   #02030a;
+  --dash-border:    #1a2030;
+  --dash-gold:      #4eff91;
+  --dash-muted:     #4a5568;
+  --dash-text:      #eef0f4;
+
+  /* ── Typography ── */
+  --font-sans:      'DM Sans',    sans-serif;
+  --font-serif:     'Syne',       sans-serif;  /* Syne as display */
+  --font-mono:      'DM Mono',    monospace;
+  --font-dm-sans:   'DM Sans',    sans-serif;
+  --font-dm-mono:   'DM Mono',    monospace;
+  --font-playfair:  'Syne',       sans-serif;  /* remap Playfair → Syne everywhere */
 }
 
-html { scroll-behavior: smooth; }
-body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--cream); color: var(--navy); line-height: 1.6; }
+html, body {
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-a { color: inherit; text-decoration: none; }
-button { cursor: pointer; font-family: inherit; }
-input, textarea, select { font-family: inherit; }
+/* Subtle scanline texture across the whole app */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.025) 2px,
+    rgba(0,0,0,0.025) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* Focus ring */
+:focus-visible { outline: 1px solid var(--green); outline-offset: 2px; }
+
+/* Links */
+a { color: var(--text-accent); text-decoration: none; transition: color 0.15s; }
+a:hover { color: var(--green-dim); }
+
+/* Headings use Syne */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Syne', var(--font-sans);
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+/* Input base reset */
+input, textarea, select, button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Selection */
+::selection {
+  background: rgba(78,255,145,0.18);
+  color: var(--text-primary);
+}
