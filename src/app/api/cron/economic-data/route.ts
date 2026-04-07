@@ -289,48 +289,44 @@ async function buildBlsIndicators(): Promise<IndicatorRow[]> {
       currentYear
     );
 
-    // CPI YoY — compute (current / 12-months-ago - 1) * 100
+    // CPI YoY — (current_index / index_12_months_ago - 1) × 100
     const cpiSeries = bls["CUUR0000SA0"];
-    if (cpiSeries?.length >= 13) {
-      const cur     = cpiSeries[0];
-      const yrAgo   = cpiSeries[12];
-      const yoy     = parseFloat(((cur.value / yrAgo.value - 1) * 100).toFixed(2));
-      const momPrev = cpiSeries[1];
-      const momYoy  = parseFloat(((momPrev.value / cpiSeries[13]?.value - 1) * 100).toFixed(2) ?? "0");
+    if (cpiSeries && cpiSeries.length >= 13) {
+      const cur   = cpiSeries[0];
+      const yrAgo = cpiSeries[12];
+      const yoy   = parseFloat(((cur.value / yrAgo.value - 1) * 100).toFixed(2));
       rows.push({
         indicator:  "cpi_yoy",
         value:      yoy,
-        previous:   isNaN(momYoy) ? null : momYoy,
-        change:     isNaN(momYoy) ? null : parseFloat((yoy - momYoy).toFixed(2)),
+        previous:   null,
+        change:     null,
         period:     cur.period,
         unit:       "% YoY",
         source:     "BLS",
         series_id:  "CUUR0000SA0",
-        direction:  yoy > (isNaN(momYoy) ? yoy : momYoy) ? "rising" : yoy < (isNaN(momYoy) ? yoy : momYoy) ? "falling" : "stable",
-        commentary: `CPI inflation ${yoy}% YoY in ${cur.period} (index: ${cur.value}). ` +
+        direction:  yoy > 3 ? "rising" : yoy < 2 ? "falling" : "stable",
+        commentary: `CPI ${yoy}% YoY in ${cur.period}. ` +
           `${yoy > 3.5 ? "Well above Fed target — persistent inflation pressure." : yoy > 2.5 ? "Above target — Fed remains cautious." : yoy > 2 ? "Near target — inflation cooling." : "At or below target."}`,
       });
-    } else if (cpiSeries?.length >= 2) {
-      // Fallback: store raw index with MoM change if we don't have 13 months
-      const cur  = cpiSeries[0];
-      const prev = cpiSeries[1];
+    } else if (cpiSeries && cpiSeries.length >= 2) {
+      const cur = cpiSeries[0];
       rows.push({
         indicator:  "cpi_yoy",
         value:      cur.value,
-        previous:   prev.value,
-        change:     parseFloat((cur.value - prev.value).toFixed(3)),
+        previous:   null,
+        change:     null,
         period:     cur.period,
-        unit:       "index (1982-84=100) — YoY needs more data",
+        unit:       "index (1982-84=100)",
         source:     "BLS",
         series_id:  "CUUR0000SA0",
-        direction:  direction(cur.value, prev.value, 0.1),
+        direction:  "stable",
         commentary: `CPI index at ${cur.value} in ${cur.period}. Insufficient history for YoY %.`,
       });
     }
 
-    // Core CPI YoY — same approach
+    // Core CPI YoY
     const coreCpi = bls["CUUR0000SA0L1E"];
-    if (coreCpi?.length >= 13) {
+    if (coreCpi && coreCpi.length >= 13) {
       const cur   = coreCpi[0];
       const yrAgo = coreCpi[12];
       const yoy   = parseFloat(((cur.value / yrAgo.value - 1) * 100).toFixed(2));
@@ -347,19 +343,18 @@ async function buildBlsIndicators(): Promise<IndicatorRow[]> {
         commentary: `Core CPI (ex food & energy) ${yoy}% YoY in ${cur.period}. ` +
           `${yoy > 3.5 ? "Sticky core inflation — Fed unlikely to cut." : yoy > 2.5 ? "Above target, gradual moderation." : "Core inflation contained."}`,
       });
-    } else if (coreCpi?.length >= 2) {
-      const cur  = coreCpi[0];
-      const prev = coreCpi[1];
+    } else if (coreCpi && coreCpi.length >= 2) {
+      const cur = coreCpi[0];
       rows.push({
         indicator:  "core_cpi_yoy",
         value:      cur.value,
-        previous:   prev.value,
-        change:     parseFloat((cur.value - prev.value).toFixed(3)),
+        previous:   null,
+        change:     null,
         period:     cur.period,
-        unit:       "index (1982-84=100) — YoY needs more data",
+        unit:       "index (1982-84=100)",
         source:     "BLS",
         series_id:  "CUUR0000SA0L1E",
-        direction:  direction(cur.value, prev.value, 0.05),
+        direction:  "stable",
         commentary: `Core CPI index at ${cur.value} in ${cur.period}.`,
       });
     }
@@ -460,6 +455,7 @@ export async function GET(req: NextRequest) { return handler(req); }
 export async function POST(req: NextRequest) { return handler(req); }
 
 async function handler(req: NextRequest) {
+  try {
   const isVercelCron = req.headers.get("x-vercel-cron") === "1";
   const validSecret  = process.env.CRON_SECRET
     ? req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
@@ -519,4 +515,8 @@ async function handler(req: NextRequest) {
     elapsed_s:   elapsed,
     refreshed_at: new Date().toISOString(),
   });
+  } catch (e: any) {
+    console.error("[economic-data] fatal:", e);
+    return NextResponse.json({ ok: false, error: e.message ?? String(e) }, { status: 500 });
+  }
 }
