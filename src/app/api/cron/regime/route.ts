@@ -375,6 +375,21 @@ async function handler(req: NextRequest) {
 
     if (dbError) throw dbError;
 
+    // Also publish regime to market_intelligence table so strategy prompt can read it
+    // from the unified snapshot without a separate query to market_regime
+    await supabase
+      .from("market_intelligence")
+      .upsert({
+        aspect:      "regime",
+        summary:     regime.label,
+        data:        regime,
+        score:       regime.risk_bias === "risk-on" ? 5 : regime.risk_bias === "defensive" ? -7 : regime.risk_bias === "risk-off" ? -4 : 0,
+        sentiment:   regime.risk_bias === "risk-on" ? "bullish" : (regime.risk_bias === "defensive" || regime.risk_bias === "risk-off") ? "bearish" : "neutral",
+        sources:     ["market_regime"],
+        cron_name:   "regime",
+        refreshed_at: new Date().toISOString(),
+      }, { onConflict: "aspect" });
+
     const elapsed = Math.round((Date.now() - started) / 1000);
     console.log(`[regime] ${elapsed}s — ${regime.label} (confidence: ${regime.confidence}%)`);
 
