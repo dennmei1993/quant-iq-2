@@ -970,14 +970,15 @@ function Step3Allocation({
   // weights are portfolio-level % of total capital
   const totalWeight   = buys.reduce((s, t) => s + Number(t.editWeight || 0), 0);
   const cashWeight    = 100 - totalWeight;              // implied cash %
-  const weightOk      = Math.abs(totalWeight - investablePct) < 1.0;
+  // Valid if: not over the investable ceiling (under-allocation is fine — cash covers it)
+  const weightOk      = totalWeight <= investablePct + 0.5;
 
-  // Group by theme
-  const byTheme = tickers.reduce<Record<string, TickerAllocation[]>>((acc, t) => {
-    if (!acc[t.theme_name]) acc[t.theme_name] = [];
-    acc[t.theme_name].push(t);
-    return acc;
-  }, {});
+  // Flat list — sorted BUY first, then WATCH, included before excluded
+  const sortedTickers = [...tickers].sort((a, b) => {
+    if (a.included !== b.included) return a.included ? -1 : 1;
+    if (a.editSignal !== b.editSignal) return a.editSignal === "BUY" ? -1 : 1;
+    return a.ticker.localeCompare(b.ticker);
+  });
 
   if (loading) return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "3rem 0" }}>
@@ -1033,47 +1034,34 @@ function Step3Allocation({
               {cashReservePct > 0 && ` (min ${cashReservePct}% reserved)`}
             </span>
             <span style={{ fontSize: "0.62rem", color: weightOk ? "#4eca99" : "#fc5c65", fontWeight: 600 }}>
-              {weightOk
-                ? "✓ Allocation valid"
-                : totalWeight > investablePct
-                  ? `⚠ ${(totalWeight - investablePct).toFixed(1)}% over — reduce BUY weights`
-                  : `${(investablePct - totalWeight).toFixed(1)}% unallocated`}
+              {!weightOk
+                ? `⚠ ${(totalWeight - investablePct).toFixed(1)}% over limit — reduce BUY weights`
+                : totalWeight < investablePct - 1
+                  ? `${cashWeight.toFixed(1)}% stays as cash (including WATCH positions)`
+                  : "✓ Fully allocated"}
             </span>
           </div>
         </div>
       </Card>
 
-      {/* Ticker table by theme */}
-      {Object.entries(byTheme).map(([themeName, rows]) => (
-        <div key={themeName}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-            <div style={{ fontSize: "0.72rem", color: T.gold, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              {themeName}
-            </div>
-            {/* Show LLM badge on themes Claude defined from scratch */}
-            {rows[0]?.theme_id == null && mode === "llm" && (
-              <span style={{ fontSize: "0.58rem", color: T.gold, background: "rgba(200,169,110,0.1)", border: "1px solid rgba(200,169,110,0.25)", borderRadius: 4, padding: "0.05rem 0.35rem" }}>
-                LLM-defined
-              </span>
-            )}
-          </div>
-          <div style={{ background: T.navy2, border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden" }}>
-            {/* Header */}
-            <div style={{
-              display: "grid", gridTemplateColumns: "2rem 2fr 1fr 1fr 1fr 1fr 2.5rem",
-              padding: "0.45rem 0.85rem", borderBottom: `1px solid ${T.border}`,
-              fontSize: "0.6rem", color: T.dim, textTransform: "uppercase", letterSpacing: "0.07em",
-            }}>
-              <span />
-              <span>Ticker {mode === "data" ? "· F/T scores" : ""}</span>
-              <span style={{ textAlign: "center" }}>Signal</span>
-              <span style={{ textAlign: "right" }}>Weight %</span>
-              <span style={{ textAlign: "right" }}>Capital</span>
-              <span style={{ textAlign: "right" }}>Price</span>
-              <span />
-            </div>
+      {/* Ticker table — flat list, theme shown per row */}
+      <div style={{ background: T.navy2, border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden" }}>
+        {/* Header */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "2rem 2fr 1fr 1fr 1fr 1fr 2.5rem",
+          padding: "0.45rem 0.85rem", borderBottom: `1px solid ${T.border}`,
+          fontSize: "0.6rem", color: T.dim, textTransform: "uppercase", letterSpacing: "0.07em",
+        }}>
+          <span />
+          <span>Ticker {mode === "data" ? "· F/T scores" : ""}</span>
+          <span style={{ textAlign: "center" }}>Signal</span>
+          <span style={{ textAlign: "right" }}>Weight %</span>
+          <span style={{ textAlign: "right" }}>Capital</span>
+          <span style={{ textAlign: "right" }}>Price</span>
+          <span />
+        </div>
 
-            {rows.map((t, idx) => {
+        {sortedTickers.map((t, idx) => {
               // weight is portfolio-level % of total capital
               const capital = (Number(t.editWeight || 0) / 100) * totalCapital;
               const price   = t.price;
@@ -1101,11 +1089,21 @@ function Step3Allocation({
                     {t.included && "✓"}
                   </button>
 
-                  {/* Ticker + name + rationale + signal strength (data mode) */}
+                  {/* Ticker + name + theme + rationale + signal strength (data mode) */}
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 700, color: T.cream, fontSize: "0.85rem", fontFamily: "monospace" }}>{t.ticker}</span>
                       <span style={{ fontSize: "0.65rem", color: T.dim }}>{t.name}</span>
+                      {/* Theme tag */}
+                      {t.theme_name && (
+                        <span style={{
+                          fontSize: "0.58rem", color: "rgba(200,169,110,0.6)",
+                          background: "rgba(200,169,110,0.08)", border: "1px solid rgba(200,169,110,0.2)",
+                          borderRadius: 4, padding: "0.05rem 0.35rem",
+                        }}>
+                          {t.theme_name}
+                        </span>
+                      )}
                       {/* DB signal badge — data mode only */}
                       {mode === "data" && t.db_signal && (
                         <span style={{
@@ -1205,10 +1203,8 @@ function Step3Allocation({
                   </button>
                 </div>
               );
-            })}
-          </div>
-        </div>
-      ))}
+        })}
+      </div>
 
       {/* Actions */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "0.5rem" }}>
