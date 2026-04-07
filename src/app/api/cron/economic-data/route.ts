@@ -52,11 +52,21 @@ async function fetchFred(seriesId: string, limit = 2): Promise<{ value: number; 
   url.searchParams.set("limit",      String(limit));
 
   const res  = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
-  const data = await res.json();
-
-  return (data.observations ?? [])
-    .filter((o: any) => o.value !== ".")
-    .map((o: any) => ({ value: parseFloat(o.value), date: o.date }));
+  const text = await res.text();
+  let data: any = {};
+  try { data = JSON.parse(text); } catch {
+    console.error("FRED JSON parse failed:", text.slice(0, 200));
+    return [];
+  }
+  const obs = data.observations;
+  if (!Array.isArray(obs)) {
+    console.error("FRED unexpected response:", JSON.stringify(data).slice(0, 200));
+    return [];
+  }
+  return obs
+    .filter((o: any) => o.value !== "." && o.value != null)
+    .map((o: any) => ({ value: parseFloat(o.value), date: o.date }))
+    .filter((o: any) => !isNaN(o.value));
 }
 
 // ─── BLS fetcher ──────────────────────────────────────────────────────────────
@@ -75,16 +85,26 @@ async function fetchBls(seriesIds: string[], startYear: number, endYear: number)
     signal: AbortSignal.timeout(15000),
   });
 
-  const data = await res.json();
+  const text = await res.text();
+  let data: any = {};
+  try { data = JSON.parse(text); } catch { 
+    console.error("BLS JSON parse failed:", text.slice(0, 200));
+    return {};
+  }
   const result: Record<string, { value: number; period: string }[]> = {};
-
-  for (const series of (data.Results?.series ?? [])) {
-    result[series.seriesID] = (series.data ?? [])
+  const series = data.Results?.series;
+  if (!Array.isArray(series)) {
+    console.error("BLS unexpected response:", JSON.stringify(data).slice(0, 300));
+    return {};
+  }
+  for (const s of series) {
+    result[s.seriesID] = (Array.isArray(s.data) ? s.data : [])
       .slice(0, 14)
       .map((d: any) => ({
         value:  parseFloat(d.value),
         period: `${d.periodName} ${d.year}`,
-      }));
+      }))
+      .filter((d: any) => !isNaN(d.value));
   }
   return result;
 }
