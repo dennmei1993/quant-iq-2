@@ -1072,7 +1072,7 @@ function Step3Allocation({
                 <div key={t.ticker} style={{
                   display: "grid", gridTemplateColumns: "2rem 2fr 1fr 1fr 1fr 1fr 2.5rem",
                   padding: "0.6rem 0.85rem", alignItems: "center",
-                  borderBottom: idx < rows.length - 1 ? `1px solid rgba(255,255,255,0.04)` : "none",
+                  borderBottom: idx < sortedTickers.length - 1 ? `1px solid rgba(255,255,255,0.04)` : "none",
                   background: !t.included ? "rgba(0,0,0,0.15)" : "transparent",
                   opacity: t.included ? 1 : 0.4,
                   transition: "all 0.15s",
