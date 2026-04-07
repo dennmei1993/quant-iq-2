@@ -137,6 +137,7 @@ async function buildFredIndicators(): Promise<{ rows: IndicatorRow[]; errors: st
     if (obs.length >= 1) {
       const cur  = obs[0];
       const prev = obs[1] ?? obs[0];
+      console.log("[economic-data] pushing FEDFUNDS row, cur.value:", cur.value, "type:", typeof cur.value);
       rows.push({
         indicator:  "fed_funds_rate",
         value:      cur.value,
