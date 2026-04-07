@@ -389,7 +389,7 @@ async function handler(req: NextRequest) {
   const { data: regimeRows } = await supabase
     .from("market_regime")
     .select("*")
-    .limit(1);
+    .limit(2);
   const regimeRow = regimeRows?.[0] ?? null;
 
   const aspects = [
