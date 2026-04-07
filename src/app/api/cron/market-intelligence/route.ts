@@ -83,7 +83,7 @@ async function buildMacroIndicators(supabase: any): Promise<AspectRow> {
     commentary: string;
   }
   const econMap = new Map<string, EconIndicator>(
-    (econ as EconIndicator[]).map(e => [e.indicator, e])
+    (Array.isArray(econ) ? econ as EconIndicator[] : []).map(e => [e.indicator, e])
   );
   const fedRate    = econMap.get("fed_funds_rate");
   const t10y       = econMap.get("treasury_10y");
@@ -97,7 +97,7 @@ async function buildMacroIndicators(supabase: any): Promise<AspectRow> {
   const cpi        = econMap.get("cpi_yoy");
 
   const macroScoreText = scores
-    .map((m: any) => `${m.aspect}: ${m.score > 0 ? "+" : ""}${m.score}/10 (${m.direction}) — ${m.commentary}`)
+    .map((m: any) => `${m.aspect}: ${m.score > 0 ? "+" : ""}${m.score}/10 (${m.direction}) — ${m.commentary ?? ""}`)
     .join("\n");
 
   const econText = [
@@ -227,7 +227,7 @@ async function buildSectorMomentum(supabase: any): Promise<AspectRow> {
     .not("assets.sector", "is", null);
 
   const sectorMap: Record<string, { buy: number; avoid: number; f: number; t: number; n: number }> = {};
-  for (const s of (signals ?? [])) {
+  for (const s of (Array.isArray(signals) ? signals : [])) {
     const sector = (s as any).assets?.sector ?? "Unknown";
     if (!sectorMap[sector]) sectorMap[sector] = { buy: 0, avoid: 0, f: 0, t: 0, n: 0 };
     const r = sectorMap[sector];
@@ -344,7 +344,7 @@ async function buildRecentEvents(supabase: any): Promise<AspectRow> {
     : 0;
 
   const byType: Record<string, any[]> = {};
-  for (const e of rows) {
+  for (const e of (Array.isArray(rows) ? rows : [])) {
     const t = e.event_type ?? "general";
     if (!byType[t]) byType[t] = [];
     byType[t].push(e);

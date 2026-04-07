@@ -80,7 +80,6 @@ async function fetchBls(seriesIds: string[], startYear: number, endYear: number)
       startyear:      String(startYear),
       endyear:        String(endYear),
       registrationkey: process.env.BLS_API_KEY!,
-      calculations:   true,
     }),
     signal: AbortSignal.timeout(15000),
   });
@@ -430,6 +429,7 @@ export async function POST(req: NextRequest) { return handler(req); }
 
 async function handler(req: NextRequest) {
   try {
+  console.log("[economic-data] handler started");
   const isVercelCron = req.headers.get("x-vercel-cron") === "1";
   const validSecret  = process.env.CRON_SECRET
     ? req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
@@ -443,6 +443,7 @@ async function handler(req: NextRequest) {
   const started  = Date.now();
 
   // Fetch all sources in parallel
+  console.log("[economic-data] starting parallel fetch");
   const [fredRes, blsRows, finnhubRows] = await Promise.allSettled([
     buildFredIndicators(),
     buildBlsIndicators(),
@@ -452,6 +453,7 @@ async function handler(req: NextRequest) {
   const fredRows   = fredRes.status === "fulfilled" ? fredRes.value.rows   : [];
   const fredErrors = fredRes.status === "fulfilled" ? fredRes.value.errors : [`FRED builder crashed: ${(fredRes as any).reason?.message}`];
 
+  console.log("[economic-data] fetch complete, building rows");
   const allRows: IndicatorRow[] = [
     ...fredRows,
     ...(blsRows.status     === "fulfilled" ? blsRows.value     : []),
