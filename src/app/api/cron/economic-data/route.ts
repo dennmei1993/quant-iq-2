@@ -450,18 +450,31 @@ async function handler(req: NextRequest) {
     buildFinnhubIndicators(),
   ]);
 
-  const fredRows   = fredRes.status === "fulfilled" ? fredRes.value.rows   : [];
-  const fredErrors = fredRes.status === "fulfilled" ? fredRes.value.errors : [`FRED builder crashed: ${(fredRes as any).reason?.message}`];
-
   console.log("[economic-data] fetch complete, building rows");
+  console.log("[economic-data] fredRes status:", fredRes.status);
+  console.log("[economic-data] blsRows status:", blsRows.status);
+  console.log("[economic-data] finnhubRows status:", finnhubRows.status);
+  
+  const fredRows   = fredRes.status === "fulfilled" ? fredRes.value.rows   : [];
+  const fredErrors = fredRes.status === "fulfilled" ? fredRes.value.errors : [`FRED: ${(fredRes as any).reason?.message}`];
+  console.log("[economic-data] fredRows length:", Array.isArray(fredRows) ? fredRows.length : "NOT ARRAY", typeof fredRows);
+  console.log("[economic-data] fredErrors:", fredErrors);
+
+  const blsValue = blsRows.status === "fulfilled" ? blsRows.value : [];
+  console.log("[economic-data] blsValue length:", Array.isArray(blsValue) ? blsValue.length : "NOT ARRAY", typeof blsValue);
+
+  const finnhubValue = finnhubRows.status === "fulfilled" ? finnhubRows.value : [];
+  console.log("[economic-data] finnhubValue length:", Array.isArray(finnhubValue) ? finnhubValue.length : "NOT ARRAY", typeof finnhubValue);
+
   const allRows: IndicatorRow[] = [
-    ...fredRows,
-    ...(blsRows.status     === "fulfilled" ? blsRows.value     : []),
-    ...(finnhubRows.status === "fulfilled" ? finnhubRows.value : []),
+    ...(Array.isArray(fredRows)     ? fredRows     : []),
+    ...(Array.isArray(blsValue)     ? blsValue     : []),
+    ...(Array.isArray(finnhubValue) ? finnhubValue : []),
   ];
+  console.log("[economic-data] allRows length:", allRows.length);
 
   const errors: string[] = [
-    ...fredErrors,
+    ...(Array.isArray(fredErrors) ? fredErrors : []),
     ...(blsRows.status     === "rejected" ? [`BLS: ${blsRows.reason?.message}`]         : []),
     ...(finnhubRows.status === "rejected" ? [`Finnhub: ${finnhubRows.reason?.message}`] : []),
   ];
