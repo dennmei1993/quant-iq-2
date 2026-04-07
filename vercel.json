@@ -1,7 +1,7 @@
 {
   "crons": [
-    {  "path": "/api/cron/economic-data",        "schedule": "0 6 * * *" },
-       { "path": "/api/cron/regime",             "schedule": "0 11 * * *" },
+    { "path": "/api/cron/economic-data",        "schedule": "0 6 * * *" },
+    { "path": "/api/cron/regime",               "schedule": "0 11 * * *" },
     { "path": "/api/cron/financials",           "schedule": "0 6 * * 1"  }
   ],
   "functions": {
