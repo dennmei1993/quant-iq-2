@@ -80,7 +80,7 @@ async function fetchBls(seriesIds: string[], startYear: number, endYear: number)
 
   for (const series of (data.Results?.series ?? [])) {
     result[series.seriesID] = (series.data ?? [])
-      .slice(0, 3)
+      .slice(0, 14)
       .map((d: any) => ({
         value:  parseFloat(d.value),
         period: `${d.periodName} ${d.year}`,
@@ -107,8 +107,13 @@ function direction(current: number, previous: number, threshold = 0.05): "rising
 
 // ─── Indicator builders ───────────────────────────────────────────────────────
 
-async function buildFredIndicators(): Promise<IndicatorRow[]> {
-  const rows: IndicatorRow[] = [];
+async function buildFredIndicators(): Promise<{ rows: IndicatorRow[]; errors: string[] }> {
+  const rows:   IndicatorRow[] = [];
+  const errors: string[]       = [];
+
+  if (!process.env.FRED_API_KEY) {
+    return { rows, errors: ["FRED_API_KEY not set — add to Vercel environment variables"] };
+  }
 
   // Fed funds rate (monthly effective rate)
   try {
@@ -130,7 +135,7 @@ async function buildFredIndicators(): Promise<IndicatorRow[]> {
           `${cur.value >= 5 ? "Restrictive territory — weighing on rate-sensitive sectors." : cur.value >= 4 ? "Moderately restrictive — balanced policy stance." : "Accommodative — supportive for equities."}`,
       });
     }
-  } catch (e) { console.error("FRED FEDFUNDS:", e); }
+  } catch (e: any) { errors.push("fed_funds_rate: " + (e.message ?? String(e))); }
 
   // 10Y Treasury yield
   try {
@@ -152,7 +157,7 @@ async function buildFredIndicators(): Promise<IndicatorRow[]> {
           `${cur.value > 4.5 ? "Elevated yields — headwind for growth/tech equities and REITs." : cur.value > 3.5 ? "Moderate yield environment." : "Low yields — supportive for long-duration assets."}`,
       });
     }
-  } catch (e) { console.error("FRED DGS10:", e); }
+  } catch (e: any) { errors.push("treasury_10y: " + (e.message ?? String(e))); }
 
   // 2Y Treasury yield
   try {
@@ -173,7 +178,7 @@ async function buildFredIndicators(): Promise<IndicatorRow[]> {
         commentary: `2Y Treasury at ${cur.value}%.`,
       });
     }
-  } catch (e) { console.error("FRED DGS2:", e); }
+  } catch (e: any) { errors.push("treasury_2y: " + (e.message ?? String(e))); }
 
   // Yield curve spread (10Y - 2Y)
   const t10 = rows.find(r => r.indicator === "treasury_10y");
@@ -218,7 +223,7 @@ async function buildFredIndicators(): Promise<IndicatorRow[]> {
           `${cur.value < 0 ? "Contraction — recessionary signal." : cur.value < 1.5 ? "Sluggish growth — late-cycle conditions." : cur.value < 3 ? "Moderate growth — mid-cycle." : "Strong growth — early-to-mid cycle."}`,
       });
     }
-  } catch (e) { console.error("FRED GDP:", e); }
+  } catch (e: any) { errors.push("gdp_growth_real: " + (e.message ?? String(e))); }
 
   // PCE inflation (Fed's preferred measure)
   try {
@@ -241,7 +246,7 @@ async function buildFredIndicators(): Promise<IndicatorRow[]> {
           `${yoy > 3 ? "Well above target — pressure for hawkish policy." : yoy > 2 ? "Above target — Fed remains cautious." : "Near or below target — accommodative policy possible."}`,
       });
     }
-  } catch (e) { console.error("FRED PCE:", e); }
+  } catch (e: any) { errors.push("pce_yoy: " + (e.message ?? String(e))); }
 
   // University of Michigan consumer sentiment
   try {
@@ -263,7 +268,7 @@ async function buildFredIndicators(): Promise<IndicatorRow[]> {
           `${cur.value < 70 ? "Very weak — consumer stress, cautious on discretionary." : cur.value < 80 ? "Below average — subdued consumer confidence." : cur.value < 90 ? "Near normal." : "Strong — positive for consumer discretionary."}`,
       });
     }
-  } catch (e) { console.error("FRED UMCSENT:", e); }
+  } catch (e: any) { errors.push("consumer_sentiment: " + (e.message ?? String(e))); }
 
   return rows;
 }
@@ -280,49 +285,82 @@ async function buildBlsIndicators(): Promise<IndicatorRow[]> {
         "LNS14000000",    // Unemployment rate
         "CES0000000001",  // Nonfarm payrolls (total)
       ],
-      currentYear - 1,
+      currentYear - 2,
       currentYear
     );
 
-    // CPI YoY
+    // CPI YoY — compute (current / 12-months-ago - 1) * 100
     const cpiSeries = bls["CUUR0000SA0"];
-    if (cpiSeries?.length >= 2) {
+    if (cpiSeries?.length >= 13) {
+      const cur     = cpiSeries[0];
+      const yrAgo   = cpiSeries[12];
+      const yoy     = parseFloat(((cur.value / yrAgo.value - 1) * 100).toFixed(2));
+      const momPrev = cpiSeries[1];
+      const momYoy  = parseFloat(((momPrev.value / cpiSeries[13]?.value - 1) * 100).toFixed(2) ?? "0");
+      rows.push({
+        indicator:  "cpi_yoy",
+        value:      yoy,
+        previous:   isNaN(momYoy) ? null : momYoy,
+        change:     isNaN(momYoy) ? null : parseFloat((yoy - momYoy).toFixed(2)),
+        period:     cur.period,
+        unit:       "% YoY",
+        source:     "BLS",
+        series_id:  "CUUR0000SA0",
+        direction:  yoy > (isNaN(momYoy) ? yoy : momYoy) ? "rising" : yoy < (isNaN(momYoy) ? yoy : momYoy) ? "falling" : "stable",
+        commentary: `CPI inflation ${yoy}% YoY in ${cur.period} (index: ${cur.value}). ` +
+          `${yoy > 3.5 ? "Well above Fed target — persistent inflation pressure." : yoy > 2.5 ? "Above target — Fed remains cautious." : yoy > 2 ? "Near target — inflation cooling." : "At or below target."}`,
+      });
+    } else if (cpiSeries?.length >= 2) {
+      // Fallback: store raw index with MoM change if we don't have 13 months
       const cur  = cpiSeries[0];
       const prev = cpiSeries[1];
-      // BLS calculations.net_changes gives MoM; we need YoY from index values
-      // Use the 12-period net change if available, else approximate
       rows.push({
         indicator:  "cpi_yoy",
         value:      cur.value,
         previous:   prev.value,
         change:     parseFloat((cur.value - prev.value).toFixed(3)),
         period:     cur.period,
-        unit:       "index (1982-84=100)",
+        unit:       "index (1982-84=100) — YoY needs more data",
         source:     "BLS",
         series_id:  "CUUR0000SA0",
         direction:  direction(cur.value, prev.value, 0.1),
-        commentary: `CPI index at ${cur.value} in ${cur.period}. ` +
-          `Month-over-month change: ${(cur.value - prev.value).toFixed(3)} points.`,
+        commentary: `CPI index at ${cur.value} in ${cur.period}. Insufficient history for YoY %.`,
       });
     }
 
-    // Core CPI
+    // Core CPI YoY — same approach
     const coreCpi = bls["CUUR0000SA0L1E"];
-    if (coreCpi?.length >= 2) {
+    if (coreCpi?.length >= 13) {
+      const cur   = coreCpi[0];
+      const yrAgo = coreCpi[12];
+      const yoy   = parseFloat(((cur.value / yrAgo.value - 1) * 100).toFixed(2));
+      rows.push({
+        indicator:  "core_cpi_yoy",
+        value:      yoy,
+        previous:   null,
+        change:     null,
+        period:     cur.period,
+        unit:       "% YoY",
+        source:     "BLS",
+        series_id:  "CUUR0000SA0L1E",
+        direction:  yoy > 3 ? "rising" : yoy < 2 ? "falling" : "stable",
+        commentary: `Core CPI (ex food & energy) ${yoy}% YoY in ${cur.period}. ` +
+          `${yoy > 3.5 ? "Sticky core inflation — Fed unlikely to cut." : yoy > 2.5 ? "Above target, gradual moderation." : "Core inflation contained."}`,
+      });
+    } else if (coreCpi?.length >= 2) {
       const cur  = coreCpi[0];
       const prev = coreCpi[1];
       rows.push({
-        indicator:  "core_cpi",
+        indicator:  "core_cpi_yoy",
         value:      cur.value,
         previous:   prev.value,
         change:     parseFloat((cur.value - prev.value).toFixed(3)),
         period:     cur.period,
-        unit:       "index (1982-84=100)",
+        unit:       "index (1982-84=100) — YoY needs more data",
         source:     "BLS",
         series_id:  "CUUR0000SA0L1E",
         direction:  direction(cur.value, prev.value, 0.05),
-        commentary: `Core CPI (ex food & energy) at ${cur.value} in ${cur.period}. ` +
-          `Strips volatile components — closer to underlying inflation trend.`,
+        commentary: `Core CPI index at ${cur.value} in ${cur.period}.`,
       });
     }
 
@@ -435,21 +473,24 @@ async function handler(req: NextRequest) {
   const started  = Date.now();
 
   // Fetch all sources in parallel
-  const [fredRows, blsRows, finnhubRows] = await Promise.allSettled([
+  const [fredRes, blsRows, finnhubRows] = await Promise.allSettled([
     buildFredIndicators(),
     buildBlsIndicators(),
     buildFinnhubIndicators(),
   ]);
 
+  const fredRows   = fredRes.status === "fulfilled" ? fredRes.value.rows   : [];
+  const fredErrors = fredRes.status === "fulfilled" ? fredRes.value.errors : [`FRED builder crashed: ${(fredRes as any).reason?.message}`];
+
   const allRows: IndicatorRow[] = [
-    ...(fredRows.status    === "fulfilled" ? fredRows.value    : []),
+    ...fredRows,
     ...(blsRows.status     === "fulfilled" ? blsRows.value     : []),
     ...(finnhubRows.status === "fulfilled" ? finnhubRows.value : []),
   ];
 
   const errors: string[] = [
-    ...(fredRows.status    === "rejected" ? [`FRED: ${fredRows.reason?.message}`]    : []),
-    ...(blsRows.status     === "rejected" ? [`BLS: ${blsRows.reason?.message}`]      : []),
+    ...fredErrors,
+    ...(blsRows.status     === "rejected" ? [`BLS: ${blsRows.reason?.message}`]         : []),
     ...(finnhubRows.status === "rejected" ? [`Finnhub: ${finnhubRows.reason?.message}`] : []),
   ];
 
