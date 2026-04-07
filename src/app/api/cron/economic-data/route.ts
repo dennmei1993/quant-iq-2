@@ -60,13 +60,16 @@ async function fetchFred(seriesId: string, limit = 2): Promise<{ value: number; 
   }
   const obs = data.observations;
   if (!Array.isArray(obs)) {
-    console.error("FRED unexpected response:", JSON.stringify(data).slice(0, 200));
+    console.error("FRED unexpected response:", JSON.stringify(data).slice(0, 300));
     return [];
   }
-  return obs
+  console.log("[economic-data] FRED", seriesId, "raw obs:", JSON.stringify(obs.slice(0, 2)));
+  const filtered = obs
     .filter((o: any) => o.value !== "." && o.value != null)
     .map((o: any) => ({ value: parseFloat(o.value), date: o.date }))
     .filter((o: any) => !isNaN(o.value));
+  console.log("[economic-data] FRED", seriesId, "filtered count:", filtered.length);
+  return filtered;
 }
 
 // ─── BLS fetcher ──────────────────────────────────────────────────────────────
@@ -126,9 +129,11 @@ async function buildFredIndicators(): Promise<{ rows: IndicatorRow[]; errors: st
     return { rows, errors: ["FRED_API_KEY not set — add to Vercel environment variables"] };
   }
 
+  console.log("[economic-data] FRED key present, fetching FEDFUNDS");
   // Fed funds rate (monthly effective rate)
   try {
     const obs = await fetchFred("FEDFUNDS", 2);
+    console.log("[economic-data] FEDFUNDS obs count:", obs.length, obs[0] ?? "empty");
     if (obs.length >= 1) {
       const cur  = obs[0];
       const prev = obs[1] ?? obs[0];
