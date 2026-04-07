@@ -1,5 +1,9 @@
 'use client'
-// src/components/landing/LandingPage.tsx — Terminal / Minimal Dark
+// src/components/landing/LandingPage.tsx — Terminal / Modern Font
+// Font setup: add Syne to your Next.js layout.tsx alongside DM Sans + DM Mono
+// import { Syne, DM_Sans, DM_Mono } from 'next/font/google'
+// const syne = Syne({ subsets: ['latin'], variable: '--font-syne' })
+// Then add className={`${syne.variable} ...`} to your root <html>
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './landing.module.css'
@@ -222,14 +226,14 @@ export default function LandingPage() {
           QUANT_IQ
         </a>
         <ul className={styles.navLinks}>
-          <li><a href="#how">// how_it_works</a></li>
-          <li><a href="#demo">// dashboard</a></li>
-          <li><a href="#features">// features</a></li>
-          <li><a href="#pricing">// pricing</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#demo">Dashboard</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing</a></li>
         </ul>
         <div className={styles.navActions}>
-          <a href="/auth/login" className={styles.navSignIn}>sign_in</a>
-          <a href="#signup" className={styles.navCta}>early_access</a>
+          <a href="/auth/login" className={styles.navSignIn}>Sign in</a>
+          <a href="#signup" className={styles.navCta}>Early Access</a>
         </div>
         <button className={styles.hamburger} onClick={() => setNavOpen(!navOpen)} aria-label="menu">
           <span /><span /><span />
@@ -246,7 +250,7 @@ export default function LandingPage() {
             <div className={styles.heroPrompt}>
               <span className={styles.heroPromptPath}>~/quant-iq</span>
               <span className={styles.heroPromptSymbol}>$</span>
-              <span style={{ color: '#2a3a50' }}>run market_intelligence --live --us</span>
+              <span style={{ color: '#2a3a50' }}>market_intelligence · live · us_markets</span>
             </div>
 
             <h1 className={styles.heroTitle}>
@@ -261,8 +265,8 @@ export default function LandingPage() {
             </p>
 
             <div className={styles.heroActions}>
-              <a href="#signup" className={styles.btnPrimary}>./get_access</a>
-              <a href="#demo" className={styles.btnOutline}>./view_dashboard</a>
+              <a href="#signup" className={styles.btnPrimary}>Get Access</a>
+              <a href="#demo" className={styles.btnOutline}>View Dashboard</a>
             </div>
           </div>
 
@@ -426,7 +430,7 @@ export default function LandingPage() {
                       </div>
                     </div>
                     <div className={styles.kpiCell}>
-                      <div className={styles.kpiLabel}>active_themes</div>
+                      <div className={styles.kpiLabel}>Active Themes</div>
                       <div className={styles.kpiVal}>{themes.length}</div>
                       <div className={`${styles.kpiDelta} ${styles.up}`}>
                         {themes.filter(t => t.timeframe === '1m').length} near_term
@@ -442,7 +446,7 @@ export default function LandingPage() {
                   </div>
                   <div className={styles.demoGrid2}>
                     <div className={styles.demoPanel}>
-                      <div className={styles.demoPanelTitle}>top_signals <span>LIVE</span></div>
+                      <div className={styles.demoPanelTitle}>Top Signals <span>LIVE</span></div>
                       {topEvents.map(e => (
                         <div key={e.id} className={styles.eventItem}>
                           <div className={styles.eventDot} style={{ background: sentimentColor(e.sentiment_score) }} />
@@ -461,7 +465,7 @@ export default function LandingPage() {
                       {!events.length && <div style={{ color: '#1a2030', fontSize: '0.72rem' }}>// loading…</div>}
                     </div>
                     <div className={styles.demoPanel}>
-                      <div className={styles.demoPanelTitle}>active_themes</div>
+                      <div className={styles.demoPanelTitle}>Active Themes</div>
                       {themes.slice(0, 5).map(t => (
                         <div key={t.id} className={styles.gaugeItem}>
                           <div className={styles.gaugeLabel}>{t.name}</div>
@@ -480,7 +484,7 @@ export default function LandingPage() {
               {/* EVENTS */}
               {activeTab === 'events' && (
                 <div className={styles.demoPanel}>
-                  <div className={styles.demoPanelTitle}>event_intelligence_feed <span>LIVE</span></div>
+                  <div className={styles.demoPanelTitle}>Event Feed <span>LIVE</span></div>
                   {events.map(e => (
                     <div key={e.id}>
                       <div
@@ -521,19 +525,19 @@ export default function LandingPage() {
                           )}
                           <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                             <span style={{
-                              fontFamily: 'monospace', fontSize: '0.6rem', fontWeight: 300,
+                              fontFamily: 'DM Mono, monospace', fontSize: '0.6rem', fontWeight: 300,
                               padding: '0.1rem 0.35rem', letterSpacing: '0.08em',
                               color: (e.impact_score ?? 0) >= 7 ? '#ff4e6a' : '#e09845',
                             }}>
                               IMPACT:{e.impact_score ?? 1}/10
                             </span>
                             {(e.sectors ?? []).map((s: string) => (
-                              <span key={s} style={{ fontFamily: 'monospace', fontSize: '0.6rem', padding: '0.1rem 0.35rem', color: '#2a3a50', letterSpacing: '0.06em' }}>
+                              <span key={s} style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6rem', padding: '0.1rem 0.35rem', color: '#2a3a50', letterSpacing: '0.06em' }}>
                                 [{s}]
                               </span>
                             ))}
                             {(e.tickers ?? []).map((t: string) => (
-                              <span key={t} style={{ fontFamily: 'monospace', fontSize: '0.6rem', fontWeight: 300, padding: '0.1rem 0.35rem', color: '#4eff91', letterSpacing: '0.08em' }}>
+                              <span key={t} style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6rem', fontWeight: 300, padding: '0.1rem 0.35rem', color: '#4eff91', letterSpacing: '0.08em' }}>
                                 ${t}
                               </span>
                             ))}
@@ -582,7 +586,7 @@ export default function LandingPage() {
                   </div>
                   {currentTheme && (
                     <div className={styles.demoPanel} style={{ marginTop: '1px' }}>
-                      <div className={styles.demoPanelTitle}>theme_brief — <span style={{ color: '#4eff91' }}>{currentTheme.name}</span></div>
+                      <div className={styles.demoPanelTitle}>Theme Brief — <span style={{ color: '#4eff91' }}>{currentTheme.name}</span></div>
                       <p className={styles.themeBrief}>{currentTheme.brief}</p>
                       <div className={styles.tickerRow}>
                         {(currentTheme.candidate_tickers ?? []).map(a => (
@@ -625,7 +629,7 @@ export default function LandingPage() {
                                 {(a.signal?.signal ?? 'hold').toUpperCase()}
                               </span>
                             </td>
-                            <td style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: (a.signal?.score ?? 50) >= 50 ? '#4eff91' : '#ff4e6a' }}>
+                            <td style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.72rem', color: (a.signal?.score ?? 50) >= 50 ? '#4eff91' : '#ff4e6a' }}>
                               {a.signal?.score != null ? `${a.signal.score >= 50 ? '+' : ''}${(a.signal.score / 100).toFixed(2)}` : '——'}
                             </td>
                             <td><Sparkline score={a.signal?.score ?? null} /></td>
@@ -643,7 +647,7 @@ export default function LandingPage() {
               {/* PORTFOLIO */}
               {activeTab === 'portfolio' && (
                 <div className={styles.demoPanel} style={{ textAlign: 'center', padding: '3.5rem 2rem' }}>
-                  <div style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#2a3a50', marginBottom: '1rem', letterSpacing: '0.1em' }}>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.78rem', color: '#2a3a50', marginBottom: '1rem', letterSpacing: '0.1em' }}>
                     ERROR: authentication_required
                   </div>
                   <div style={{ color: '#4a5568', fontSize: '0.78rem', marginBottom: '0.4rem' }}>
@@ -653,7 +657,7 @@ export default function LandingPage() {
                     sign up to track holdings and receive AI advisory memos.
                   </div>
                   <a href="/auth/signup" className={styles.btnPrimary} style={{ display: 'inline-block', fontSize: '0.72rem' }}>
-                    ./create_account
+                    Create Account
                   </a>
                 </div>
               )}
@@ -711,7 +715,7 @@ export default function LandingPage() {
               <li>3 watchlist assets</li>
               <li>Daily digest email</li>
             </ul>
-            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnOutline}`}>./get_started</a>
+            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnOutline}`}>Get Started</a>
           </div>
           <div className={`${styles.priceCard} ${styles.priceFeatured} ${styles.reveal}`}>
             <div className={styles.priceName}>pro</div>
@@ -725,7 +729,7 @@ export default function LandingPage() {
               <li>Real-time alerts</li>
               <li>Advisory memos (AI)</li>
             </ul>
-            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnGold}`}>./start_trial</a>
+            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnGold}`}>Start Free Trial</a>
           </div>
           <div className={`${styles.priceCard} ${styles.reveal}`}>
             <div className={styles.priceName}>advisor</div>
@@ -738,7 +742,7 @@ export default function LandingPage() {
               <li>Custom alert rules</li>
               <li>Priority support</li>
             </ul>
-            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnOutline}`}>./contact_sales</a>
+            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnOutline}`}>Contact Sales</a>
           </div>
         </div>
       </section>
@@ -746,7 +750,7 @@ export default function LandingPage() {
       {/* ── SIGNUP ── */}
       <section id="signup" className={styles.sectionSignup}>
         <div className={`${styles.sectionHeader} ${styles.reveal}`} style={{ margin: '0 auto 2.5rem', textAlign: 'center' }}>
-          <span className={styles.sectionLabel} style={{ justifyContent: 'center' }}>early_access</span>
+          <span className={styles.sectionLabel} style={{ justifyContent: 'center' }}>Early Access</span>
           <h2 className={`${styles.sectionTitle} ${styles.light}`}>join_waitlist()<br />get_ahead(market)</h2>
           <div className={styles.divider} style={{ margin: '1rem auto 1.5rem', justifyContent: 'center' }} />
           <p className={`${styles.sectionSubtitle} ${styles.muted}`} style={{ margin: '0 auto' }}>
@@ -763,11 +767,11 @@ export default function LandingPage() {
             style={{ borderColor: emailError ? '#ff4e6a' : undefined }}
           />
           <button type="submit" className={styles.btnPrimary} style={{ whiteSpace: 'nowrap' }}>
-            ./claim_access
+            Claim Access
           </button>
         </form>
         <p className={`${styles.signupNote} ${styles.reveal}`}>
-          // no_credit_card · 60d_pro_free · cancel_anytime
+          No credit card · 60 days Pro free · Cancel anytime
         </p>
       </section>
 
@@ -792,8 +796,8 @@ export default function LandingPage() {
           ))}
         </div>
         <div className={styles.footerBottom}>
-          <span>// © 2026 Quant IQ Inc.</span>
-          <span>US_markets_only · not_financial_advice</span>
+          <span>© 2026 Quant IQ Inc.</span>
+          <span>US Markets Only · Not Financial Advice</span>
         </div>
         <p className={styles.footerDisc}>
           Quant IQ is an information and analytics platform. Nothing on this site constitutes financial, investment, legal, or tax advice. All content is for informational purposes only. Past signal performance does not guarantee future results. Always conduct your own research and consult a qualified financial advisor before making investment decisions.

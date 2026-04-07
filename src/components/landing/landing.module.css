@@ -1,8 +1,11 @@
+/* Syne + DM Sans — add to your Next.js layout: */
+/* import { Syne, DM_Sans, DM_Mono } from 'next/font/google' */
+
 /* src/components/landing/landing.module.css — Terminal / Minimal Dark */
 
 /* ── BASE ── */
 .page {
-  font-family: var(--font-dm-mono), 'DM Mono', 'Courier New', monospace;
+  font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
   background: #040608;
   color: #c8cdd6;
   overflow-x: hidden;
@@ -43,7 +46,7 @@
 .navScrolled { border-bottom-color: #2a3a50; }
 
 .navLogo {
-  font-family: var(--font-dm-mono), monospace;
+  font-family: 'Syne', var(--font-dm-sans), sans-serif;
   font-weight: 500;
   font-size: 0.85rem;
   color: #4eff91;
@@ -72,10 +75,9 @@
 .navLinks a {
   color: #4a5568;
   text-decoration: none;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 300;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   transition: color 0.15s;
 }
 .navLinks a:hover { color: #4eff91; }
@@ -96,7 +98,7 @@
   color: #4eff91;
   padding: 0.38rem 1rem;
   border: 1px solid #4eff91;
-  font-family: var(--font-dm-mono), monospace;
+  font-family: var(--font-dm-sans), sans-serif;
   font-size: 0.72rem;
   font-weight: 500;
   letter-spacing: 0.12em;
@@ -190,7 +192,7 @@
 @keyframes fadeIn { from{opacity:0}to{opacity:1} }
 
 .heroTitle {
-  font-family: var(--font-dm-mono), monospace;
+  font-family: 'Syne', var(--font-dm-sans), sans-serif;
   font-weight: 500;
   font-size: clamp(1.8rem, 3.5vw, 3.2rem);
   color: #eef0f4;
@@ -344,6 +346,7 @@
 .heroStatItem:last-child { border-right: none; }
 
 .heroStatVal {
+  font-family: 'Syne', sans-serif;
   font-size: 1.5rem;
   font-weight: 400;
   color: #4eff91;
@@ -370,7 +373,7 @@
   background: #4eff91;
   color: #040608;
   padding: 0.68rem 1.6rem;
-  font-family: var(--font-dm-mono), monospace;
+  font-family: var(--font-dm-sans), sans-serif;
   font-weight: 500;
   font-size: 0.76rem;
   letter-spacing: 0.12em;
@@ -387,7 +390,7 @@
   background: transparent;
   color: #4a5568;
   padding: 0.68rem 1.6rem;
-  font-family: var(--font-dm-mono), monospace;
+  font-family: var(--font-dm-sans), sans-serif;
   font-weight: 300;
   font-size: 0.76rem;
   letter-spacing: 0.12em;
@@ -406,9 +409,9 @@
 
 /* ── SECTION COMMONS ── */
 .sectionLabel {
-  font-size: 0.62rem;
-  font-weight: 300;
-  letter-spacing: 0.25em;
+  font-size: 0.68rem;
+  font-weight: 400;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #4eff91;
   margin-bottom: 0.5rem;
@@ -416,13 +419,10 @@
   align-items: center;
   gap: 0.6rem;
 }
-.sectionLabel::before {
-  content: '//';
-  color: #2a3a50;
-}
+
 
 .sectionTitle {
-  font-family: var(--font-dm-mono), monospace;
+  font-family: 'Syne', var(--font-dm-sans), sans-serif;
   font-weight: 500;
   font-size: clamp(1.4rem, 2.8vw, 2.2rem);
   line-height: 1.2;
@@ -498,7 +498,7 @@
 
 .howRowRight { padding-right: 2rem; }
 .howRowRight h3 {
-  font-family: var(--font-dm-mono), monospace;
+  font-family: 'Syne', var(--font-dm-sans), sans-serif;
   font-size: 0.9rem;
   font-weight: 300;
   margin-bottom: 0.45rem;
@@ -605,13 +605,12 @@
 }
 
 .demoTopbarTitle {
-  font-size: 0.76rem;
-  font-weight: 500;
+  font-size: 0.82rem;
+  font-weight: 400;
   color: #8a9aaa;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
-.demoTopbarTitle::before { content: '> '; color: #4eff91; }
+
 
 .demoBadge {
   font-size: 0.6rem;
@@ -767,7 +766,7 @@
 }
 .tfBtn {
   padding: 0.22rem 0.55rem;
-  font-family: var(--font-dm-mono), monospace;
+  font-family: var(--font-dm-sans), sans-serif;
   font-size: 0.65rem;
   font-weight: 400;
   color: #2a3a50;
@@ -881,7 +880,7 @@
   transition: opacity 0.2s;
 }
 .featCard h3 {
-  font-family: var(--font-dm-mono), monospace;
+  font-family: 'Syne', var(--font-dm-sans), sans-serif;
   font-size: 0.85rem;
   font-weight: 300;
   margin-bottom: 0.5rem;
@@ -943,11 +942,12 @@
   margin-bottom: 0.6rem;
 }
 .priceVal {
+  font-family: 'Syne', sans-serif;
   font-size: 2.2rem;
   font-weight: 500;
   line-height: 1;
   color: #eef0f4;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 .pricePer {
   font-size: 0.72rem;
@@ -964,7 +964,7 @@
   display: block;
   text-align: center;
   padding: 0.65rem;
-  font-family: var(--font-dm-mono), monospace;
+  font-family: var(--font-dm-sans), sans-serif;
   font-size: 0.72rem;
   font-weight: 400;
   letter-spacing: 0.1em;
@@ -1023,8 +1023,8 @@
   border-right: none;
   background: #040608;
   color: #c8cdd6;
-  font-family: var(--font-dm-mono), monospace;
-  font-size: 0.82rem;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 0.85rem;
   outline: none;
   transition: border-color 0.15s;
   letter-spacing: 0.04em;
