@@ -124,10 +124,31 @@ function buildIntelSection(ctx: IntelCtx): string {
   if (ctx.macro_intel) {
     const d = ctx.macro_intel.data ?? {};
     lines.push("── MACRO INDICATORS ──");
-    lines.push(`Overall macro score: ${d.avg_score ?? ctx.macro_intel.score}/10 | Fed stance: ${d.fed_stance ?? "unknown"}`);
+
+    // Hard economic data from FRED/BLS (authoritative numbers)
+    const econLines: string[] = [];
+    if (d.fed_funds_rate    != null) econLines.push(`Fed funds rate:     ${d.fed_funds_rate}%`);
+    if (d.treasury_10y      != null) econLines.push(`10Y Treasury yield: ${d.treasury_10y}%`);
+    if (d.treasury_2y       != null) econLines.push(`2Y Treasury yield:  ${d.treasury_2y}%`);
+    if (d.yield_spread      != null) econLines.push(`Yield curve (10Y-2Y): ${d.yield_spread}% ${d.yield_spread < 0 ? "⚠ INVERTED" : ""}`);
+    if (d.gdp_growth        != null) econLines.push(`Real GDP growth:    ${d.gdp_growth}% annualised`);
+    if (d.pce_yoy           != null) econLines.push(`PCE inflation:      ${d.pce_yoy}% YoY`);
+    if (d.unemployment      != null) econLines.push(`Unemployment rate:  ${d.unemployment}%`);
+    if (d.nonfarm_payrolls  != null) econLines.push(`Nonfarm payrolls:   ${d.nonfarm_payrolls > 0 ? "+" : ""}${d.nonfarm_payrolls}k MoM`);
+    if (d.consumer_sentiment != null) econLines.push(`Consumer sentiment: ${d.consumer_sentiment}`);
+
+    if (econLines.length) {
+      lines.push("Authoritative economic data (FRED/BLS):");
+      econLines.forEach(l => lines.push(`  ${l}`));
+    }
+
+    lines.push(`Fed stance: ${d.fed_stance ?? "unknown"} | Inflation regime: ${d.inflation_regime ?? "unknown"} | Cycle: ${d.cycle_phase ?? "unknown"}`);
     lines.push(`Key risk: ${d.key_risk ?? "not assessed"}`);
-    // Individual macro aspect scores
+    lines.push(`Macro score: ${d.avg_score ?? ctx.macro_intel.score}/10`);
+
+    // Sentiment scores from news analysis
     if (d.scores?.length) {
+      lines.push("News-derived sentiment scores:");
       for (const s of d.scores) {
         lines.push(`  ${s.aspect}: ${s.score > 0 ? "+" : ""}${s.score}/10 (${s.direction}) — ${s.commentary}`);
       }

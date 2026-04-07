@@ -1,8 +1,10 @@
 {
   "crons": [
+    {  "path": "/api/cron/economic-data",        "schedule": "0 6 * * *" },
     { "path": "/api/cron/financials",           "schedule": "0 6 * * 1"  }
   ],
   "functions": {
+    "src/app/api/cron/economic-data/route.ts":        { "maxDuration": 60  },
     "src/app/api/cron/ingest/route.ts":               { "maxDuration": 300 },
     "src/app/api/cron/themes/route.ts":               { "maxDuration": 300 },
     "src/app/api/cron/macro/route.ts":                { "maxDuration": 300 },

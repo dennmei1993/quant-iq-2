@@ -51,50 +51,114 @@ async function askClaude(prompt: string, max_tokens = 500): Promise<any> {
 // Reads from our macro_scores table + asks Claude for macro narrative
 
 async function buildMacroIndicators(supabase: any): Promise<AspectRow> {
-  const { data: scores } = await supabase
-    .from("macro_scores")
-    .select("aspect, score, direction, commentary")
-    .order("scored_at", { ascending: false })
-    .limit(6);
+  // Fetch both macro sentiment scores AND authoritative economic indicators
+  const [scoresRes, econRes] = await Promise.all([
+    supabase
+      .from("macro_scores")
+      .select("aspect, score, direction, commentary")
+      .order("scored_at", { ascending: false })
+      .limit(6),
+    supabase
+      .from("economic_indicators")
+      .select("indicator, value, previous, change, period, unit, direction, commentary")
+      .order("refreshed_at", { ascending: false }),
+  ]);
 
-  const macroText = (scores ?? [])
-    .map((m: any) => `${m.aspect}: ${m.score > 0 ? "+" : ""}${m.score}/10 (${m.direction}) — ${m.commentary}`)
-    .join("\n");
+  const scores = scoresRes.data ?? [];
+  const econ   = econRes.data   ?? [];
 
-  const avgScore = scores?.length
+  const avgScore = scores.length
     ? scores.reduce((s: number, m: any) => s + m.score, 0) / scores.length
     : 0;
 
-  let data: any = { scores, avg_score: avgScore };
+  // Build structured economic data summary
+  interface EconIndicator {
+    indicator: string;
+    value:     number | null;
+    previous:  number | null;
+    change:    number | null;
+    period:    string | null;
+    unit:      string;
+    direction: string;
+    commentary: string;
+  }
+  const econMap = new Map<string, EconIndicator>(
+    (econ as EconIndicator[]).map(e => [e.indicator, e])
+  );
+  const fedRate    = econMap.get("fed_funds_rate");
+  const t10y       = econMap.get("treasury_10y");
+  const t2y        = econMap.get("treasury_2y");
+  const spread     = econMap.get("yield_spread_10y2y");
+  const gdp        = econMap.get("gdp_growth_real");
+  const pce        = econMap.get("pce_yoy");
+  const unemp      = econMap.get("unemployment_rate");
+  const payrolls   = econMap.get("nonfarm_payrolls");
+  const sentiment  = econMap.get("consumer_sentiment");
+  const cpi        = econMap.get("cpi_yoy");
+
+  const macroScoreText = scores
+    .map((m: any) => `${m.aspect}: ${m.score > 0 ? "+" : ""}${m.score}/10 (${m.direction}) — ${m.commentary}`)
+    .join("\n");
+
+  const econText = [
+    fedRate   ? `Fed funds rate: ${fedRate.value}% (${fedRate.direction})` : null,
+    t10y      ? `10Y Treasury: ${t10y.value}% (${t10y.direction})` : null,
+    t2y       ? `2Y Treasury: ${t2y.value}%` : null,
+    spread?.value != null ? `Yield curve (10Y-2Y): ${spread.value}% ${spread.value < 0 ? "INVERTED" : ""}` : null,
+    gdp       ? `Real GDP growth: ${gdp.value}% annualised (${gdp.direction})` : null,
+    pce       ? `PCE inflation: ${pce.value}% YoY (${pce.direction})` : null,
+    cpi       ? `CPI index: ${cpi.value} in ${cpi.period}` : null,
+    unemp     ? `Unemployment: ${unemp.value}% (${unemp.direction})` : null,
+    payrolls?.value != null ? `Nonfarm payrolls: ${payrolls.value > 0 ? "+" : ""}${payrolls.value}k (${payrolls.period})` : null,
+    sentiment ? `Consumer sentiment: ${sentiment.value} (${sentiment.direction})` : null,
+  ].filter(Boolean).join("\n");
+
+  let data: any = { scores, econ_indicators: econ, avg_score: avgScore };
   try {
     data = await askClaude(
-      `You are a macro analyst. Based on these internal macro scores, provide a brief investment narrative.
+      `You are a macro analyst. Synthesise these authoritative economic data points and sentiment scores into a brief investment narrative.
 
-MACRO SCORES:
-${macroText || "No macro scores available yet."}
+AUTHORITATIVE ECONOMIC DATA:
+${econText || "Economic data not yet available — using sentiment scores only."}
+
+INTERNAL MACRO SENTIMENT SCORES (from news analysis):
+${macroScoreText || "No scores available yet."}
 
 Return ONLY valid JSON:
 {
-  "summary": "2 sentence narrative on the macro environment and implication for US equities",
+  "summary": "2-3 sentence narrative combining the hard economic data and sentiment signals, with specific numbers",
   "fed_stance": "hawkish|neutral|dovish",
-  "key_risk": "the single biggest macro risk right now in one phrase",
+  "inflation_regime": "deflationary|stable|elevated|higher-for-longer|stagflation",
+  "cycle_phase": "early|mid|late|recession",
+  "key_risk": "the single biggest macro risk in one specific phrase with numbers",
   "avg_score": ${avgScore.toFixed(1)}
 }`,
-      400
+      500
     );
-    data.scores = scores;
+    data.scores          = scores;
+    data.econ_indicators = econ;
+    // Attach key economic values directly for easy access by strategy prompt
+    if (fedRate)   data.fed_funds_rate    = fedRate.value;
+    if (t10y)      data.treasury_10y      = t10y.value;
+    if (t2y)       data.treasury_2y       = t2y.value;
+    if (spread)    data.yield_spread      = spread.value;
+    if (gdp)       data.gdp_growth        = gdp.value;
+    if (pce)       data.pce_yoy           = pce.value;
+    if (unemp)     data.unemployment      = unemp.value;
+    if (payrolls)  data.nonfarm_payrolls  = payrolls.value;
+    if (sentiment) data.consumer_sentiment = sentiment.value;
   } catch {
-    data = { summary: macroText.slice(0, 300), scores, avg_score: avgScore };
+    data = { summary: econText.slice(0, 400) || macroScoreText.slice(0, 300), scores, econ_indicators: econ, avg_score: avgScore };
   }
 
   const score = Math.max(-10, Math.min(10, Math.round(avgScore)));
   return {
     aspect:    "macro_indicators",
-    summary:   data.summary ?? macroText.slice(0, 300),
+    summary:   data.summary ?? econText.slice(0, 400),
     data,
     score,
     sentiment: score >= 2 ? "bullish" : score <= -2 ? "bearish" : "neutral",
-    sources:   ["macro_scores"],
+    sources:   ["macro_scores", "economic_indicators"],
     cron_name: "market-intelligence",
   };
 }
