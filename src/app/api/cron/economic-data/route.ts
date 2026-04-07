@@ -89,14 +89,6 @@ async function fetchBls(seriesIds: string[], startYear: number, endYear: number)
   return result;
 }
 
-// ─── Finnhub fetcher ──────────────────────────────────────────────────────────
-
-async function fetchFinnhub(endpoint: string): Promise<any> {
-  const url = `https://finnhub.io/api/v1/${endpoint}&token=${process.env.FINNHUB_API_KEY}`;
-  const res  = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  return res.json();
-}
-
 // ─── Direction helper ─────────────────────────────────────────────────────────
 
 function direction(current: number, previous: number, threshold = 0.05): "rising" | "falling" | "stable" {
@@ -405,48 +397,10 @@ async function buildBlsIndicators(): Promise<IndicatorRow[]> {
   return rows;
 }
 
+// Finnhub economic calendar is unreliable — FRED covers fed funds rate and yields.
+// Keeping this stub for future use (e.g. earnings calendar, IPO calendar).
 async function buildFinnhubIndicators(): Promise<IndicatorRow[]> {
-  const rows: IndicatorRow[] = [];
-
-  // Finnhub economic data — US economic indicators
-  try {
-    const data = await fetchFinnhub("indicator?symbol=EURUSD&resolution=M&from=1&to=9999999999&indicator=sma&timeperiod=1");
-    // Note: Finnhub's economic calendar endpoint is more useful
-    const cal = await fetchFinnhub("calendar/economic?from=" +
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] +
-      "&to=" + new Date().toISOString().split("T")[0]);
-
-    // Extract key US indicators from recent economic calendar
-    const usEvents = (cal.economicCalendar ?? [])
-      .filter((e: any) => e.country === "US" && e.actual != null)
-      .sort((a: any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime());
-
-    // Look for Fed funds target
-    const fedEvent = usEvents.find((e: any) =>
-      e.event?.toLowerCase().includes("fed funds") ||
-      e.event?.toLowerCase().includes("interest rate")
-    );
-    if (fedEvent?.actual != null) {
-      rows.push({
-        indicator:  "fed_funds_target",
-        value:      parseFloat(fedEvent.actual),
-        previous:   fedEvent.prev != null ? parseFloat(fedEvent.prev) : null,
-        change:     fedEvent.prev != null
-          ? parseFloat((parseFloat(fedEvent.actual) - parseFloat(fedEvent.prev)).toFixed(2))
-          : null,
-        period:     fedEvent.time?.split("T")[0] ?? "",
-        unit:       "%",
-        source:     "FINNHUB",
-        series_id:  "FED_FUNDS_TARGET",
-        direction:  fedEvent.prev != null
-          ? direction(parseFloat(fedEvent.actual), parseFloat(fedEvent.prev), 0.01)
-          : "stable",
-        commentary: `Fed funds target rate: ${fedEvent.actual}% (${fedEvent.event}).`,
-      });
-    }
-  } catch (e) { console.error("Finnhub error:", e); }
-
-  return rows;
+  return [];
 }
 
 // ─── GET / POST handler ───────────────────────────────────────────────────────
