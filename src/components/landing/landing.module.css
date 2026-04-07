@@ -44,7 +44,7 @@
 
 .navLogo {
   font-family: var(--font-dm-mono), monospace;
-  font-weight: 700;
+  font-weight: 500;
   font-size: 0.85rem;
   color: #4eff91;
   text-decoration: none;
@@ -73,7 +73,7 @@
   color: #4a5568;
   text-decoration: none;
   font-size: 0.72rem;
-  font-weight: 400;
+  font-weight: 300;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   transition: color 0.15s;
@@ -98,7 +98,7 @@
   border: 1px solid #4eff91;
   font-family: var(--font-dm-mono), monospace;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   text-decoration: none;
@@ -191,7 +191,7 @@
 
 .heroTitle {
   font-family: var(--font-dm-mono), monospace;
-  font-weight: 700;
+  font-weight: 500;
   font-size: clamp(1.8rem, 3.5vw, 3.2rem);
   color: #eef0f4;
   line-height: 1.15;
@@ -231,7 +231,7 @@
   line-height: 1.9;
   max-width: 520px;
   margin-bottom: 2.5rem;
-  font-weight: 400;
+  font-weight: 300;
   letter-spacing: 0.02em;
   animation: fadeIn 0.4s 0.15s ease both;
 }
@@ -323,7 +323,7 @@
 
 .heroFeedScore {
   font-size: 0.65rem;
-  font-weight: 700;
+  font-weight: 400;
   text-align: right;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
@@ -345,7 +345,7 @@
 
 .heroStatVal {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 400;
   color: #4eff91;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -371,7 +371,7 @@
   color: #040608;
   padding: 0.68rem 1.6rem;
   font-family: var(--font-dm-mono), monospace;
-  font-weight: 700;
+  font-weight: 500;
   font-size: 0.76rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -388,7 +388,7 @@
   color: #4a5568;
   padding: 0.68rem 1.6rem;
   font-family: var(--font-dm-mono), monospace;
-  font-weight: 400;
+  font-weight: 300;
   font-size: 0.76rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -407,7 +407,7 @@
 /* ── SECTION COMMONS ── */
 .sectionLabel {
   font-size: 0.62rem;
-  font-weight: 400;
+  font-weight: 300;
   letter-spacing: 0.25em;
   text-transform: uppercase;
   color: #4eff91;
@@ -423,7 +423,7 @@
 
 .sectionTitle {
   font-family: var(--font-dm-mono), monospace;
-  font-weight: 700;
+  font-weight: 500;
   font-size: clamp(1.4rem, 2.8vw, 2.2rem);
   line-height: 1.2;
   margin-bottom: 0.7rem;
@@ -436,7 +436,7 @@
   color: #4a5568;
   max-width: 480px;
   line-height: 1.85;
-  font-weight: 400;
+  font-weight: 300;
 }
 
 .sectionHeader { max-width: 600px; margin-bottom: 3rem; }
@@ -500,7 +500,7 @@
 .howRowRight h3 {
   font-family: var(--font-dm-mono), monospace;
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 300;
   margin-bottom: 0.45rem;
   color: #c8cdd6;
   letter-spacing: 0.02em;
@@ -509,7 +509,7 @@
   font-size: 0.78rem;
   color: #4a5568;
   line-height: 1.85;
-  font-weight: 400;
+  font-weight: 300;
 }
 
 /* ── DEMO SECTION ── */
@@ -581,7 +581,7 @@
   width: 26px; height: 26px;
   border: 1px solid #4eff91;
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.6rem; font-weight: 700; color: #4eff91;
+  font-size: 0.6rem; font-weight: 300; color: #4eff91;
   flex-shrink: 0;
   letter-spacing: 0.05em;
 }
@@ -606,7 +606,7 @@
 
 .demoTopbarTitle {
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #8a9aaa;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -652,14 +652,14 @@
 }
 .kpiVal {
   font-size: 1.55rem;
-  font-weight: 700;
+  font-weight: 400;
   color: #eef0f4;
   line-height: 1;
   letter-spacing: -0.02em;
 }
 .kpiDelta {
   font-size: 0.64rem;
-  font-weight: 400;
+  font-weight: 300;
   margin-top: 0.3rem;
   letter-spacing: 0.05em;
 }
@@ -695,7 +695,7 @@
 
 .demoPanelTitle {
   font-size: 0.58rem;
-  font-weight: 400;
+  font-weight: 300;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #2a3a50;
@@ -723,7 +723,7 @@
 .eventBody { flex: 1; min-width: 0; }
 .eventHeadline {
   font-size: 0.72rem;
-  font-weight: 400;
+  font-weight: 300;
   color: #8a9aaa;
   line-height: 1.4;
   margin-bottom: 0.15rem;
@@ -740,7 +740,7 @@
 }
 .eventScore {
   font-size: 0.64rem;
-  font-weight: 700;
+  font-weight: 400;
   flex-shrink: 0;
   padding: 0.1rem 0.32rem;
   letter-spacing: 0.06em;
@@ -755,7 +755,7 @@
 .gaugeLabel { font-size: 0.62rem; color: #2a3a50; margin-bottom: 0.25rem; letter-spacing: 0.04em; }
 .gaugeBar { height: 2px; background: #1a2030; margin-bottom: 0.22rem; }
 .gaugeFill { height: 100%; }
-.gaugeVal { font-size: 0.7rem; font-weight: 700; color: #4eff91; }
+.gaugeVal { font-size: 0.7rem; font-weight: 400; color: #4eff91; }
 
 /* Themes */
 .tfRow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
@@ -790,11 +790,11 @@
 .themeCard:hover { background: rgba(78,255,145,0.02); }
 .themeSelected { border-left-color: #4eff91 !important; background: rgba(78,255,145,0.04) !important; }
 .themeLabel { font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.3rem; }
-.themeName { font-size: 0.82rem; font-weight: 700; color: #8a9aaa; line-height: 1.3; margin-bottom: 0.4rem; }
+.themeName { font-size: 0.82rem; font-weight: 400; color: #8a9aaa; line-height: 1.3; margin-bottom: 0.4rem; }
 .themeConf { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; font-size: 0.62rem; color: #2a3a50; }
 .confBar { flex: 1; height: 1px; background: #1a2030; }
 .confFill { height: 100%; }
-.themeMomentum { display: inline-block; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em; }
+.themeMomentum { display: inline-block; font-size: 0.6rem; font-weight: 300; letter-spacing: 0.06em; }
 .themeBrief { font-size: 0.74rem; color: #4a5568; line-height: 1.75; margin-bottom: 0.6rem; }
 .tickerRow { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .tickerPill {
@@ -826,7 +826,7 @@
 .assetTable { width: 100%; border-collapse: collapse; }
 .assetTable th {
   font-size: 0.58rem;
-  font-weight: 400;
+  font-weight: 300;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: #2a3a50;
@@ -842,9 +842,9 @@
   vertical-align: middle;
 }
 .assetTable tr:hover td { background: rgba(78,255,145,0.02); }
-.assetTicker { font-weight: 700; color: #4eff91; font-size: 0.74rem; letter-spacing: 0.06em; }
+.assetTicker { font-weight: 400; color: #4eff91; font-size: 0.74rem; letter-spacing: 0.06em; }
 .assetName { font-size: 0.7rem; color: #4a5568; }
-.typeBadge { font-size: 0.58rem; padding: 0.1rem 0.35rem; font-weight: 700; letter-spacing: 0.08em; }
+.typeBadge { font-size: 0.58rem; padding: 0.1rem 0.35rem; font-weight: 300; letter-spacing: 0.08em; }
 .typeStock  { color: #5a9af5; }
 .typeEtf    { color: #4eff91; }
 .typeCrypto { color: #e09845; }
@@ -883,7 +883,7 @@
 .featCard h3 {
   font-family: var(--font-dm-mono), monospace;
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 300;
   margin-bottom: 0.5rem;
   color: #8a9aaa;
   letter-spacing: 0.04em;
@@ -893,7 +893,7 @@
   display: inline-block;
   margin-top: 0.8rem;
   font-size: 0.58rem;
-  font-weight: 700;
+  font-weight: 300;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #4eff91;
@@ -936,7 +936,7 @@
 
 .priceName {
   font-size: 0.6rem;
-  font-weight: 400;
+  font-weight: 300;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: #4eff91;
@@ -944,7 +944,7 @@
 }
 .priceVal {
   font-size: 2.2rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1;
   color: #eef0f4;
   letter-spacing: -0.03em;
@@ -958,7 +958,7 @@
 }
 .priceCard ul { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.8rem; }
 .priceCard li { font-size: 0.78rem; color: #4a5568; display: flex; align-items: flex-start; gap: 0.45rem; }
-.priceCard li::before { content: '+'; color: #4eff91; font-weight: 700; flex-shrink: 0; }
+.priceCard li::before { content: '+'; color: #4eff91; font-weight: 300; flex-shrink: 0; }
 .priceFeatured li { color: #8a9aaa !important; }
 .priceBtn {
   display: block;
@@ -966,7 +966,7 @@
   padding: 0.65rem;
   font-family: var(--font-dm-mono), monospace;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   text-decoration: none;
@@ -1056,7 +1056,7 @@
 .footerBrand p { font-size: 0.76rem; line-height: 1.82; max-width: 220px; margin-top: 0.5rem; }
 .footerCol h4 {
   font-size: 0.6rem;
-  font-weight: 700;
+  font-weight: 300;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: #4eff91;

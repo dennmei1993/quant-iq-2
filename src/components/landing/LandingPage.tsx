@@ -366,7 +366,7 @@ export default function LandingPage() {
           {/* Sidebar */}
           <aside className={styles.demoNav}>
             <div className={styles.demoNavHeader}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4eff91', letterSpacing: '0.12em' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 300, color: '#4eff91', letterSpacing: '0.12em' }}>
                 <span style={{ marginRight: '0.4rem', fontSize: '0.65rem', opacity: 0.5 }}>$</span>
                 QUANT_IQ
               </div>
@@ -521,7 +521,7 @@ export default function LandingPage() {
                           )}
                           <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                             <span style={{
-                              fontFamily: 'monospace', fontSize: '0.6rem', fontWeight: 700,
+                              fontFamily: 'monospace', fontSize: '0.6rem', fontWeight: 300,
                               padding: '0.1rem 0.35rem', letterSpacing: '0.08em',
                               color: (e.impact_score ?? 0) >= 7 ? '#ff4e6a' : '#e09845',
                             }}>
@@ -533,7 +533,7 @@ export default function LandingPage() {
                               </span>
                             ))}
                             {(e.tickers ?? []).map((t: string) => (
-                              <span key={t} style={{ fontFamily: 'monospace', fontSize: '0.6rem', fontWeight: 700, padding: '0.1rem 0.35rem', color: '#4eff91', letterSpacing: '0.08em' }}>
+                              <span key={t} style={{ fontFamily: 'monospace', fontSize: '0.6rem', fontWeight: 300, padding: '0.1rem 0.35rem', color: '#4eff91', letterSpacing: '0.08em' }}>
                                 ${t}
                               </span>
                             ))}
@@ -621,7 +621,7 @@ export default function LandingPage() {
                               </span>
                             </td>
                             <td>
-                              <span style={{ color: signalColor(a.signal?.signal ?? 'hold'), fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em' }}>
+                              <span style={{ color: signalColor(a.signal?.signal ?? 'hold'), fontSize: '0.68rem', fontWeight: 400, letterSpacing: '0.08em' }}>
                                 {(a.signal?.signal ?? 'hold').toUpperCase()}
                               </span>
                             </td>
