@@ -63,12 +63,10 @@ async function fetchFred(seriesId: string, limit = 2): Promise<{ value: number; 
     console.error("FRED unexpected response:", JSON.stringify(data).slice(0, 300));
     return [];
   }
-  console.log("[economic-data] FRED", seriesId, "raw obs:", JSON.stringify(obs.slice(0, 2)));
   const filtered = obs
     .filter((o: any) => o.value !== "." && o.value != null)
     .map((o: any) => ({ value: parseFloat(o.value), date: o.date }))
     .filter((o: any) => !isNaN(o.value));
-  console.log("[economic-data] FRED", seriesId, "filtered count:", filtered.length);
   return filtered;
 }
 
@@ -129,15 +127,12 @@ async function buildFredIndicators(): Promise<{ rows: IndicatorRow[]; errors: st
     return { rows, errors: ["FRED_API_KEY not set — add to Vercel environment variables"] };
   }
 
-  console.log("[economic-data] FRED key present, fetching FEDFUNDS");
   // Fed funds rate (monthly effective rate)
   try {
     const obs = await fetchFred("FEDFUNDS", 2);
-    console.log("[economic-data] FEDFUNDS obs count:", obs.length, obs[0] ?? "empty");
     if (obs.length >= 1) {
       const cur  = obs[0];
       const prev = obs[1] ?? obs[0];
-      console.log("[economic-data] pushing FEDFUNDS row, cur.value:", cur.value, "type:", typeof cur.value);
       rows.push({
         indicator:  "fed_funds_rate",
         value:      cur.value,
@@ -287,7 +282,6 @@ async function buildFredIndicators(): Promise<{ rows: IndicatorRow[]; errors: st
     }
   } catch (e: any) { errors.push("consumer_sentiment: " + (e.message ?? String(e))); }
 
-  console.log("[economic-data] buildFredIndicators complete, rows:", rows.length, "errors:", errors.length);
   return { rows, errors };
 }
 
@@ -436,7 +430,6 @@ export async function POST(req: NextRequest) { return handler(req); }
 
 async function handler(req: NextRequest) {
   try {
-  console.log("[economic-data] handler started");
   const isVercelCron = req.headers.get("x-vercel-cron") === "1";
   const validSecret  = process.env.CRON_SECRET
     ? req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
@@ -450,35 +443,25 @@ async function handler(req: NextRequest) {
   const started  = Date.now();
 
   // Fetch all sources in parallel
-  console.log("[economic-data] starting parallel fetch");
   const [fredRes, blsRows, finnhubRows] = await Promise.allSettled([
     buildFredIndicators(),
     buildBlsIndicators(),
     buildFinnhubIndicators(),
   ]);
 
-  console.log("[economic-data] fetch complete, building rows");
-  console.log("[economic-data] fredRes status:", fredRes.status);
-  console.log("[economic-data] blsRows status:", blsRows.status);
-  console.log("[economic-data] finnhubRows status:", finnhubRows.status);
   
   const fredRows   = fredRes.status === "fulfilled" ? fredRes.value.rows   : [];
   const fredErrors = fredRes.status === "fulfilled" ? fredRes.value.errors : [`FRED: ${(fredRes as any).reason?.message}`];
-  console.log("[economic-data] fredRows length:", Array.isArray(fredRows) ? fredRows.length : "NOT ARRAY", typeof fredRows);
-  console.log("[economic-data] fredErrors:", fredErrors);
 
   const blsValue = blsRows.status === "fulfilled" ? blsRows.value : [];
-  console.log("[economic-data] blsValue length:", Array.isArray(blsValue) ? blsValue.length : "NOT ARRAY", typeof blsValue);
 
   const finnhubValue = finnhubRows.status === "fulfilled" ? finnhubRows.value : [];
-  console.log("[economic-data] finnhubValue length:", Array.isArray(finnhubValue) ? finnhubValue.length : "NOT ARRAY", typeof finnhubValue);
 
   const allRows: IndicatorRow[] = [
     ...(Array.isArray(fredRows)     ? fredRows     : []),
     ...(Array.isArray(blsValue)     ? blsValue     : []),
     ...(Array.isArray(finnhubValue) ? finnhubValue : []),
   ];
-  console.log("[economic-data] allRows length:", allRows.length);
 
   const errors: string[] = [
     ...(Array.isArray(fredErrors) ? fredErrors : []),

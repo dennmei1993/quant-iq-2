@@ -385,6 +385,13 @@ async function handler(req: NextRequest) {
   const started  = Date.now();
 
   // All 5 aspects in parallel
+  // Read current regime classification (set by regime cron)
+  const { data: regimeRow } = await supabase
+    .from("market_regime")
+    .select("*")
+    .limit(1)
+    .single();
+
   const aspects = [
     { name: "macro_indicators", fn: () => buildMacroIndicators(supabase) },
     { name: "geopolitical",     fn: () => buildGeopolitical(supabase)    },

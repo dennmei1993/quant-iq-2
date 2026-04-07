@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     const sector_intel    = intelligence.get("sector_momentum");
     const sentiment_intel = intelligence.get("market_sentiment");
     const events_intel    = intelligence.get("recent_events");
+    const regime_intel    = intelligence.get("regime");
 
     const refreshedAt = macro_intel?.refreshed_at
       ? new Date(macro_intel.refreshed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
@@ -79,8 +80,8 @@ export async function POST(req: NextRequest) {
 
     // ── Build prompt ──────────────────────────────────────────────────────────
     const prompt = mode === "llm"
-      ? buildLlmPrompt(p, { macro_intel, geo_intel, sector_intel, sentiment_intel, events_intel, refreshedAt })
-      : buildDataPrompt(p, macro, { macro_intel, geo_intel, sector_intel, sentiment_intel, events_intel, refreshedAt });
+      ? buildLlmPrompt(p, { macro_intel, geo_intel, sector_intel, sentiment_intel, events_intel, regime_intel, refreshedAt })
+      : buildDataPrompt(p, macro, { macro_intel, geo_intel, sector_intel, sentiment_intel, events_intel, regime_intel, refreshedAt });
 
     const llmStart  = Date.now();
     const llmResult = await callLlm({ provider, model_id, prompt, max_tokens: 1200 });
@@ -109,6 +110,7 @@ interface IntelCtx {
   sector_intel?:    MarketIntelligence;
   sentiment_intel?: MarketIntelligence;
   events_intel?:    MarketIntelligence;
+  regime_intel?:    MarketIntelligence;
   refreshedAt:      string;
 }
 
@@ -119,6 +121,27 @@ function buildIntelSection(ctx: IntelCtx): string {
     "You MUST reference specific facts from this snapshot in your rationale and macro_context.",
     "",
   ];
+
+  // ── Regime — always first, acts as primary constraint ─────────────────────
+  if (ctx.regime_intel?.data) {
+    const r = ctx.regime_intel.data;
+    lines.push("══ MARKET REGIME (primary constraint — read this first) ══");
+    lines.push(`REGIME LABEL:      ${r.label}`);
+    lines.push(`Cycle phase:       ${r.cycle_phase}`);
+    lines.push(`Inflation regime:  ${r.inflation_regime}`);
+    lines.push(`Monetary stance:   ${r.monetary_stance}`);
+    lines.push(`Risk bias:         ${r.risk_bias}`);
+    lines.push(`Growth trajectory: ${r.growth_trajectory}`);
+    lines.push(`Style bias:        ${r.style_bias} (recommended portfolio style)`);
+    lines.push(`Cash bias:         ${r.cash_bias}`);
+    lines.push(`Duration bias:     ${r.duration_bias}`);
+    if (r.favoured_sectors?.length) lines.push(`Favoured sectors:  ${r.favoured_sectors.join(", ")}`);
+    if (r.avoid_sectors?.length)    lines.push(`Avoid sectors:     ${r.avoid_sectors.join(", ")}`);
+    lines.push(`Confidence:        ${r.confidence}%`);
+    lines.push(`Rationale:         ${r.rationale}`);
+    lines.push("══════════════════════════════════════════════════════════");
+    lines.push("");
+  }
 
   // ── Macro indicators ──────────────────────────────────────────────────────
   if (ctx.macro_intel) {
