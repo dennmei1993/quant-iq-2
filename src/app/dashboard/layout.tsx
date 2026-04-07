@@ -36,7 +36,7 @@ function DashboardSidebar({ user }: { user: { email: string; fullName: string | 
       position: "sticky", top: 0, height: "100vh"
     }}>
       <div style={{ padding: "0 1.2rem 1.5rem", borderBottom: "1px solid var(--dash-border)" }}>
-        <div style={{ fontFamily: "serif", fontWeight: 900, color: "var(--gold)", fontSize: "1.1rem" }}>
+        <div style={{ fontFamily: "'Syne', var(--font-sans)", fontWeight: 900, color: "var(--gold)", fontSize: "1.1rem" }}>
           Quant IQ
         </div>
       </div>

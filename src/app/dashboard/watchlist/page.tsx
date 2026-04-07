@@ -75,7 +75,7 @@ export default async function WatchlistPage() {
   if (watchlist.length === 0) {
     return (
       <div>
-        <h1 style={{ color: 'var(--cream)', fontFamily: 'serif', fontSize: '1.8rem', marginBottom: '0.4rem' }}>
+        <h1 style={{ color: 'var(--cream)', fontFamily: "'Syne', var(--font-sans)", fontSize: '1.8rem', marginBottom: '0.4rem' }}>
           Watchlist
         </h1>
         <p style={{ color: 'rgba(232,226,217,0.35)', fontSize: '0.82rem', marginBottom: '2rem' }}>
@@ -174,7 +174,7 @@ export default async function WatchlistPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
         <div>
-          <h1 style={{ color: 'var(--cream)', fontFamily: 'serif', fontSize: '1.8rem', marginBottom: '0.3rem' }}>
+          <h1 style={{ color: 'var(--cream)', fontFamily: "'Syne', var(--font-sans)", fontSize: '1.8rem', marginBottom: '0.3rem' }}>
             Watchlist
           </h1>
           <p style={{ color: 'rgba(232,226,217,0.35)', fontSize: '0.82rem', margin: 0 }}>
@@ -219,7 +219,7 @@ export default async function WatchlistPage() {
 
               {/* Ticker */}
               <Link href={`/dashboard/tickers/${row.ticker}`} style={{ textDecoration: 'none' }}>
-                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'monospace' }}>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--gold)', fontFamily: "'DM Mono', monospace" }}>
                   {row.ticker}
                 </div>
                 <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.2)', marginTop: '0.1rem' }}>
@@ -228,7 +228,7 @@ export default async function WatchlistPage() {
               </Link>
 
               {/* Price */}
-              <div style={{ fontSize: '0.85rem', color: 'var(--cream)', fontFamily: 'monospace' }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--cream)', fontFamily: "'DM Mono', monospace" }}>
                 {sig?.price_usd != null ? `$${Number(sig.price_usd).toFixed(2)}` : '—'}
               </div>
 
@@ -251,7 +251,7 @@ export default async function WatchlistPage() {
                       {sig.signal}
                     </span>
                     {sig.score != null && (
-                      <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', fontFamily: 'monospace' }}>
+                      <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', fontFamily: "'DM Mono', monospace" }}>
                         {sig.score}/100
                       </div>
                     )}
