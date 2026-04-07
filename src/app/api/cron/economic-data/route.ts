@@ -287,7 +287,8 @@ async function buildFredIndicators(): Promise<{ rows: IndicatorRow[]; errors: st
     }
   } catch (e: any) { errors.push("consumer_sentiment: " + (e.message ?? String(e))); }
 
-  return rows;
+  console.log("[economic-data] buildFredIndicators complete, rows:", rows.length, "errors:", errors.length);
+  return { rows, errors };
 }
 
 async function buildBlsIndicators(): Promise<IndicatorRow[]> {
