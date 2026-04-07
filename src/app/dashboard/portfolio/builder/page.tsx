@@ -973,8 +973,22 @@ function Step3Allocation({
   // Valid if: not over the investable ceiling (under-allocation is fine — cash covers it)
   const weightOk      = totalWeight <= investablePct + 0.5;
 
-  // Flat list — sorted BUY first, then WATCH, included before excluded
-  const sortedTickers = [...tickers].sort((a, b) => {
+  // Deduplicate by ticker symbol — keep highest weight entry, collect all themes
+  const tickerMap = new Map<string, TickerAllocation & { all_themes: string[] }>();
+  for (const t of tickers) {
+    const existing = tickerMap.get(t.ticker);
+    if (!existing) {
+      tickerMap.set(t.ticker, { ...t, all_themes: [t.theme_name].filter(Boolean) });
+    } else {
+      // Merge: keep higher weight, collect all themes
+      const merged = Number(t.editWeight || 0) > Number(existing.editWeight || 0) ? { ...t } : existing;
+      merged.all_themes = [...new Set([...existing.all_themes, t.theme_name].filter(Boolean))];
+      tickerMap.set(t.ticker, { ...merged, all_themes: merged.all_themes });
+    }
+  }
+
+  // Flat list — sorted BUY first, then WATCH, alphabetical within each group
+  const sortedTickers = [...tickerMap.values()].sort((a, b) => {
     if (a.included !== b.included) return a.included ? -1 : 1;
     if (a.editSignal !== b.editSignal) return a.editSignal === "BUY" ? -1 : 1;
     return a.ticker.localeCompare(b.ticker);
@@ -1094,16 +1108,16 @@ function Step3Allocation({
                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 700, color: T.cream, fontSize: "0.85rem", fontFamily: "monospace" }}>{t.ticker}</span>
                       <span style={{ fontSize: "0.65rem", color: T.dim }}>{t.name}</span>
-                      {/* Theme tag */}
-                      {t.theme_name && (
-                        <span style={{
+                      {/* Theme tags — show all themes this ticker appears in */}
+                      {(t as any).all_themes?.map((th: string) => (
+                        <span key={th} style={{
                           fontSize: "0.58rem", color: "rgba(200,169,110,0.6)",
                           background: "rgba(200,169,110,0.08)", border: "1px solid rgba(200,169,110,0.2)",
                           borderRadius: 4, padding: "0.05rem 0.35rem",
                         }}>
-                          {t.theme_name}
+                          {th}
                         </span>
-                      )}
+                      ))}
                       {/* DB signal badge — data mode only */}
                       {mode === "data" && t.db_signal && (
                         <span style={{
