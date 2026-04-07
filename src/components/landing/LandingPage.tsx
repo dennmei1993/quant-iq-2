@@ -525,19 +525,19 @@ export default function LandingPage() {
                           )}
                           <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                             <span style={{
-                              fontFamily: 'DM Mono, monospace', fontSize: '0.6rem', fontWeight: 300,
+                              fontFamily: "'DM Mono', monospace", fontSize: '0.6rem', fontWeight: 300,
                               padding: '0.1rem 0.35rem', letterSpacing: '0.08em',
                               color: (e.impact_score ?? 0) >= 7 ? '#ff4e6a' : '#e09845',
                             }}>
                               IMPACT:{e.impact_score ?? 1}/10
                             </span>
                             {(e.sectors ?? []).map((s: string) => (
-                              <span key={s} style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6rem', padding: '0.1rem 0.35rem', color: '#2a3a50', letterSpacing: '0.06em' }}>
+                              <span key={s} style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.6rem', padding: '0.1rem 0.35rem', color: '#2a3a50', letterSpacing: '0.06em' }}>
                                 [{s}]
                               </span>
                             ))}
                             {(e.tickers ?? []).map((t: string) => (
-                              <span key={t} style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6rem', fontWeight: 300, padding: '0.1rem 0.35rem', color: '#4eff91', letterSpacing: '0.08em' }}>
+                              <span key={t} style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.6rem', fontWeight: 300, padding: '0.1rem 0.35rem', color: '#4eff91', letterSpacing: '0.08em' }}>
                                 ${t}
                               </span>
                             ))}
@@ -629,7 +629,7 @@ export default function LandingPage() {
                                 {(a.signal?.signal ?? 'hold').toUpperCase()}
                               </span>
                             </td>
-                            <td style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.72rem', color: (a.signal?.score ?? 50) >= 50 ? '#4eff91' : '#ff4e6a' }}>
+                            <td style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.72rem', color: (a.signal?.score ?? 50) >= 50 ? '#4eff91' : '#ff4e6a' }}>
                               {a.signal?.score != null ? `${a.signal.score >= 50 ? '+' : ''}${(a.signal.score / 100).toFixed(2)}` : '——'}
                             </td>
                             <td><Sparkline score={a.signal?.score ?? null} /></td>
@@ -647,7 +647,7 @@ export default function LandingPage() {
               {/* PORTFOLIO */}
               {activeTab === 'portfolio' && (
                 <div className={styles.demoPanel} style={{ textAlign: 'center', padding: '3.5rem 2rem' }}>
-                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.78rem', color: '#2a3a50', marginBottom: '1rem', letterSpacing: '0.1em' }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.78rem', color: '#2a3a50', marginBottom: '1rem', letterSpacing: '0.1em' }}>
                     ERROR: authentication_required
                   </div>
                   <div style={{ color: '#4a5568', fontSize: '0.78rem', marginBottom: '0.4rem' }}>

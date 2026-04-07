@@ -51,7 +51,7 @@ export default function CodeGate({ children }: { children: React.ReactNode }) {
       }}>
         {/* Logo */}
         <div style={{
-          fontFamily: "'Syne', 'DM Sans', sans-serif",
+          fontFamily: "'Syne', 'DM Sans', sans-serif",  /* display */
           fontWeight: 500,
           color: '#4eff91',
           fontSize: '0.9rem',
