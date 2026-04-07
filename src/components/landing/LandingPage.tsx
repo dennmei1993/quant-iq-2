@@ -1,10 +1,10 @@
 'use client'
-// src/components/landing/LandingPage.tsx — Editorial Redesign
+// src/components/landing/LandingPage.tsx — Terminal / Minimal Dark
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './landing.module.css'
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type LiveEvent = {
   id: string
@@ -45,12 +45,12 @@ type LiveSignal = {
 
 type TimeFrame = '1m' | '3m' | '6m'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function sentimentColor(score: number | null): string {
   if (score === null) return '#e09845'
-  if (score > 0.1) return '#4eca99'
-  if (score < -0.1) return '#e87070'
+  if (score > 0.1) return '#4eff91'
+  if (score < -0.1) return '#ff4e6a'
   return '#e09845'
 }
 
@@ -63,26 +63,26 @@ function sentimentLabel(score: number | null): string {
 
 function momentumColor(momentum: string | null): string {
   const map: Record<string, string> = {
-    strong_up: '#4eca99', moderate_up: '#4eca99',
+    strong_up: '#4eff91', moderate_up: '#4eff91',
     neutral: '#e09845',
-    moderate_down: '#e87070', strong_down: '#e87070',
+    moderate_down: '#ff4e6a', strong_down: '#ff4e6a',
   }
   return map[momentum ?? 'neutral'] ?? '#e09845'
 }
 
 function momentumLabel(momentum: string | null): string {
   const map: Record<string, string> = {
-    strong_up: '↑ Strong', moderate_up: '↑ Mod',
-    neutral: '→ Neutral',
-    moderate_down: '↓ Mod', strong_down: '↓ Strong',
+    strong_up: '↑↑ STRONG', moderate_up: '↑ MOD',
+    neutral: '→ NEUTRAL',
+    moderate_down: '↓ MOD', strong_down: '↓↓ STRONG',
   }
-  return map[momentum ?? 'neutral'] ?? '→ Neutral'
+  return map[momentum ?? 'neutral'] ?? '→ NEUTRAL'
 }
 
 function signalColor(signal: string): string {
   const map: Record<string, string> = {
-    buy: '#4eca99', watch: '#e09845',
-    hold: 'rgba(200,185,165,0.45)', avoid: '#e87070',
+    buy: '#4eff91', watch: '#e09845',
+    hold: '#2a3a50', avoid: '#ff4e6a',
   }
   return map[signal] ?? '#e09845'
 }
@@ -98,14 +98,14 @@ function relTime(iso: string): string {
 
 function Sparkline({ score }: { score: number | null }) {
   const pct = Math.min(100, Math.max(0, score ?? 50))
-  const color = pct >= 60 ? '#4eca99' : pct <= 40 ? '#e87070' : '#e09845'
-  const bars = [pct * 0.55, pct * 0.68, pct * 0.75, pct * 0.82, pct * 0.88, pct * 0.94, pct]
+  const color = pct >= 60 ? '#4eff91' : pct <= 40 ? '#ff4e6a' : '#e09845'
+  const bars = [pct * 0.5, pct * 0.65, pct * 0.75, pct * 0.83, pct * 0.9, pct * 0.96, pct]
   const max = Math.max(...bars)
   return (
     <span className={styles.spark}>
       {bars.map((v, i) => (
         <span key={i} className={styles.sparkBar}
-          style={{ height: `${Math.round(v / max * 16) + 2}px`, background: color }} />
+          style={{ height: `${Math.round(v / max * 14) + 2}px`, background: color }} />
       ))}
     </span>
   )
@@ -130,11 +130,20 @@ export default function LandingPage() {
   const [signals, setSignals] = useState<LiveSignal[]>([])
   const [dataLoaded, setDataLoaded] = useState(false)
 
-  const DEMO_EVENT_LIMIT = 6
+  // Typing animation for hero title
+  const [typed, setTyped] = useState(0)
+  const fullTitle = 'Markets move on events.'
+
+  useEffect(() => {
+    if (typed < fullTitle.length) {
+      const t = setTimeout(() => setTyped(n => n + 1), 38)
+      return () => clearTimeout(t)
+    }
+  }, [typed])
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/events?limit=${DEMO_EVENT_LIMIT}&fields=tickers`).then(r => r.json()).catch(() => ({ events: [] })),
+      fetch('/api/events?limit=8&fields=tickers').then(r => r.json()).catch(() => ({ events: [] })),
       fetch('/api/themes').then(r => r.json()).catch(() => ({ themes: [] })),
       fetch('/api/assets').then(r => r.json()).catch(() => ({ assets: [] })),
     ]).then(([evData, thData, asData]) => {
@@ -156,11 +165,11 @@ export default function LandingPage() {
     const obs = new IntersectionObserver((entries) => {
       entries.forEach((e, i) => {
         if (e.isIntersecting) {
-          setTimeout(() => e.target.classList.add(styles.visible), i * 65)
+          setTimeout(() => e.target.classList.add(styles.visible), i * 55)
           obs.unobserve(e.target)
         }
       })
-    }, { threshold: 0.08 })
+    }, { threshold: 0.06 })
     els.forEach(el => obs.observe(el))
     return () => obs.disconnect()
   }, [dataLoaded])
@@ -174,36 +183,28 @@ export default function LandingPage() {
     }
   }
 
-  // Derived data
+  // Derived
   const themesByTF = themes.filter(t => t.timeframe === themeTF)
   const currentTheme = selectedTheme !== null ? themesByTF[selectedTheme] : null
-  const filteredSignals = assetFilter === 'all'
-    ? signals
-    : signals.filter(a => a.asset_type === assetFilter)
-
+  const filteredSignals = assetFilter === 'all' ? signals : signals.filter(a => a.asset_type === assetFilter)
   const avgSentiment = events.length
     ? events.reduce((s, e) => s + (e.sentiment_score ?? 0), 0) / events.length
     : null
-
   const topEvents = [...events]
-    .sort((a, b) => {
-      const d = (b.impact_score ?? 0) - (a.impact_score ?? 0)
-      if (d !== 0) return d
-      return new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
-    })
+    .sort((a, b) => (b.impact_score ?? 0) - (a.impact_score ?? 0))
     .slice(0, 4)
 
   const TAB_TITLES: Record<string, string> = {
-    overview: 'Overview', events: 'Event Feed',
-    themes: 'Themes', assets: 'Asset Screener', portfolio: 'Portfolio',
+    overview: 'overview', events: 'event_feed',
+    themes: 'themes', assets: 'asset_screener', portfolio: 'portfolio',
   }
 
   const NAV_ITEMS = [
-    { id: 'overview',  icon: '⬡', label: 'Dashboard',      section: 'Overview'  },
-    { id: 'events',    icon: '📡', label: 'Event Feed',     section: null        },
-    { id: 'themes',    icon: '🎯', label: 'Themes',         section: 'Advisory'  },
-    { id: 'assets',    icon: '📊', label: 'Asset Screener', section: null        },
-    { id: 'portfolio', icon: '🗂️', label: 'My Portfolio',   section: 'Portfolio' },
+    { id: 'overview',  icon: '⬡', label: 'overview',       section: 'core' },
+    { id: 'events',    icon: '↯', label: 'event_feed',     section: null },
+    { id: 'themes',    icon: '◈', label: 'themes',         section: 'advisory' },
+    { id: 'assets',    icon: '▤', label: 'asset_screener', section: null },
+    { id: 'portfolio', icon: '▦', label: 'portfolio',      section: 'account' },
   ]
 
   const typeCls: Record<string, string> = {
@@ -216,90 +217,86 @@ export default function LandingPage() {
 
       {/* ── NAV ── */}
       <nav className={`${styles.nav} ${navScrolled ? styles.navScrolled : ''} ${navOpen ? styles.navOpen : ''}`}>
-        <a href="#" className={styles.navLogo}><span className={styles.navLogoDot} />Quant IQ</a>
+        <a href="#" className={styles.navLogo}>
+          <span className={styles.navLogoDot} />
+          QUANT_IQ
+        </a>
         <ul className={styles.navLinks}>
-          <li><a href="#how">How It Works</a></li>
-          <li><a href="#demo">Dashboard</a></li>
-          <li><a href="#features">Features</a></li>
-          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#how">// how_it_works</a></li>
+          <li><a href="#demo">// dashboard</a></li>
+          <li><a href="#features">// features</a></li>
+          <li><a href="#pricing">// pricing</a></li>
         </ul>
         <div className={styles.navActions}>
-          <a href="/auth/login" className={styles.navSignIn}>Sign in</a>
-          <a href="#signup" className={styles.navCta}>Early Access</a>
+          <a href="/auth/login" className={styles.navSignIn}>sign_in</a>
+          <a href="#signup" className={styles.navCta}>early_access</a>
         </div>
         <button className={styles.hamburger} onClick={() => setNavOpen(!navOpen)} aria-label="menu">
           <span /><span /><span />
         </button>
       </nav>
 
-      {/* ── HERO — split editorial ── */}
+      {/* ── HERO ── */}
       <section id="hero" className={styles.hero}>
         <div className={styles.heroGridBg} />
         <div className={styles.heroInner}>
 
-          {/* Left: editorial copy */}
+          {/* Left: terminal prompt */}
           <div className={styles.heroLeft}>
-            <span className={styles.heroEyebrow}>
-              <span className={styles.heroEyebrowDot} />
-              US Market Intelligence · Macro + Geopolitical
-            </span>
+            <div className={styles.heroPrompt}>
+              <span className={styles.heroPromptPath}>~/quant-iq</span>
+              <span className={styles.heroPromptSymbol}>$</span>
+              <span style={{ color: '#2a3a50' }}>run market_intelligence --live --us</span>
+            </div>
+
             <h1 className={styles.heroTitle}>
-              Markets move on <em>events.</em><br />
-              <span>Are you ready</span><br />
-              before they do?
+              {fullTitle.slice(0, typed)}
+              <span className={styles.heroCursor} />
             </h1>
+
             <div className={styles.heroRule} />
+
             <p className={styles.heroSub}>
-              Quant IQ scans macro and geopolitical signals in real time, translates them into actionable investment themes, and shows you exactly which assets to consider — across stocks, ETFs, crypto and commodities.
+              Quant IQ ingests macro and geopolitical signals in real time, runs them through LLM classification, and surfaces ranked investment themes across stocks, ETFs, crypto, and commodities.
             </p>
+
             <div className={styles.heroActions}>
-              <a href="#signup" className={styles.btnPrimary}>Get Early Access</a>
-              <a href="#demo" className={styles.btnOutline}>See Live Dashboard</a>
+              <a href="#signup" className={styles.btnPrimary}>./get_access</a>
+              <a href="#demo" className={styles.btnOutline}>./view_dashboard</a>
             </div>
           </div>
 
-          {/* Right: live event ticker */}
+          {/* Right: raw event feed */}
           <div className={styles.heroRight}>
-            <div className={styles.heroTicker}>
-              <div className={styles.heroTickerLabel}>
-                <span style={{
-                  width: 5, height: 5, borderRadius: '50%',
-                  background: '#4eca99',
-                  display: 'inline-block',
-                  animation: 'pulse 2s infinite',
-                }} />
-                Live intelligence feed
-              </div>
-              {events.length > 0 ? events.map(e => (
-                <div key={e.id} className={styles.heroTickerRow}>
-                  <div className={styles.heroTickerDot} style={{ background: sentimentColor(e.sentiment_score) }} />
-                  <div className={styles.heroTickerText}>
-                    <div className={styles.heroTickerHeadline}>{e.headline}</div>
-                    <div className={styles.heroTickerMeta}>
-                      <span>{e.event_type?.replace(/_/g, ' ') ?? 'general'}</span>
-                      <span>·</span>
-                      <span>{relTime(e.published_at)} ago</span>
-                    </div>
-                  </div>
-                  <div
-                    className={`${styles.heroTickerScore} ${styles[`score${sentimentLabel(e.sentiment_score)}`]}`}
+            <div className={styles.heroTermHeader}>
+              <span className={styles.heroTermTitle}>event_stream.live</span>
+              <span className={styles.heroTermStatus}>
+                <span className={styles.heroTermStatusDot} />
+                CONNECTED
+              </span>
+            </div>
+            <div className={styles.heroFeed}>
+              {events.length > 0 ? events.map((e, idx) => (
+                <div key={e.id} className={styles.heroFeedRow}>
+                  <span className={styles.heroFeedIdx}>{String(idx + 1).padStart(2, '0')}</span>
+                  <span className={styles.heroFeedText}>{e.headline}</span>
+                  <span
+                    className={styles.heroFeedScore}
+                    style={{ color: sentimentColor(e.sentiment_score) }}
                   >
                     {e.sentiment_score !== null
                       ? `${e.sentiment_score >= 0 ? '+' : ''}${e.sentiment_score.toFixed(2)}`
-                      : '—'}
-                  </div>
+                      : ' —'}
+                  </span>
                 </div>
               )) : (
-                // Skeleton placeholders while loading
-                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className={styles.heroTickerRow} style={{ opacity: 0.3 + i * 0.1 }}>
-                    <div className={styles.heroTickerDot} style={{ background: '#e09845' }} />
-                    <div className={styles.heroTickerText}>
-                      <div className={styles.heroTickerHeadline} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 3, height: 12, width: '80%' }} />
-                      <div className={styles.heroTickerMeta} style={{ marginTop: 6 }}>
-                        <span style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 2, display: 'inline-block', width: 60, height: 8 }} />
-                      </div>
-                    </div>
+                Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className={styles.heroFeedRow} style={{ opacity: 0.15 + i * 0.04 }}>
+                    <span className={styles.heroFeedIdx}>{String(i + 1).padStart(2, '0')}</span>
+                    <span className={styles.heroFeedText} style={{ letterSpacing: 0 }}>
+                      {'█'.repeat(Math.floor(Math.random() * 20 + 20))}
+                    </span>
+                    <span className={styles.heroFeedScore} style={{ color: '#1a2030' }}>——</span>
                   </div>
                 ))
               )}
@@ -309,7 +306,7 @@ export default function LandingPage() {
 
         {/* Stats strip */}
         <div className={styles.heroStats}>
-          {[['500+', 'Signals per day'], ['1/3/6m', 'Theme horizons'], ['4', 'Asset classes'], ['US', 'Market coverage']].map(([v, l]) => (
+          {[['500+', 'signals/day'], ['1/3/6m', 'horizons'], ['4', 'asset_classes'], ['US', 'markets']].map(([v, l]) => (
             <div key={l} className={styles.heroStatItem}>
               <div className={styles.heroStatVal}>{v}</div>
               <div className={styles.heroStatLabel}>{l}</div>
@@ -318,33 +315,32 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── HOW IT WORKS — vertical timeline ── */}
+      {/* ── HOW IT WORKS ── */}
       <section id="how" className={styles.sectionCream}>
         <div className={`${styles.sectionHeader} ${styles.reveal}`}>
-          <span className={styles.sectionLabel}>How It Works</span>
-          <h2 className={styles.sectionTitle}>From world event to<br />portfolio action</h2>
-          <span className={styles.divider} />
+          <span className={styles.sectionLabel}>how_it_works</span>
+          <h2 className={styles.sectionTitle}>event → theme → action</h2>
+          <div className={styles.divider} />
           <p className={styles.sectionSubtitle}>
-            Quant IQ compresses hours of research into seconds — from raw news to a ranked, investable recommendation.
+            Five pipeline stages. Raw news to ranked investable recommendation in seconds.
           </p>
         </div>
 
         <div className={styles.howTimeline}>
-          <div className={styles.howTimelineTrack} />
           {[
-            ['01', '📡', 'Macro & Geopolitical Scanning', 'Continuous ingestion from news wires, Fed releases, SEC filings, earnings calls, and geopolitical intelligence across the US market.'],
-            ['02', '🧠', 'AI Signal Classification', 'Every event is classified by type, sentiment-scored from −1 to +1, and mapped to the sectors and asset classes most likely to be affected.'],
-            ['03', '🎯', 'Investment Theme Surfacing', 'Related signals are clustered into coherent investment themes ranked by conviction across 1-month, 3-month, and 6-month outlooks.'],
-            ['04', '💡', 'Asset Recommendations', 'For each theme, Quant IQ surfaces candidate stocks, ETFs, crypto assets, and commodities with signal strength and entry rationale.'],
-            ['05', '🛡️', 'Portfolio Impact Alerts', 'Connect your holdings and get instant alerts when a macro event meaningfully changes the risk profile of your existing positions.'],
-          ].map(([step, icon, title, body]) => (
+            ['01', '📡', 'ingest()', 'Continuous scan of news wires, Fed releases, SEC filings, earnings calls, geopolitical intelligence. 500+ signals per day.'],
+            ['02', '🧠', 'classify()', 'LLM classification: event_type, sentiment ∈ [−1,+1], sector mapping, ticker resolution. Every signal, every time.'],
+            ['03', '🎯', 'cluster()', 'Related signals grouped into investment themes. Conviction-ranked across 1m, 3m, 6m horizons.'],
+            ['04', '💡', 'advise()', 'Candidate assets surfaced per theme — stocks, ETFs, crypto, commodities — with signal strength and rationale.'],
+            ['05', '🛡️', 'protect()', 'Connect holdings. Get push alerts when macro events materially shift your portfolio risk profile.'],
+          ].map(([step, icon, fn, body]) => (
             <div key={step as string} className={`${styles.howRow} ${styles.reveal}`}>
               <div className={styles.howRowLeft}>
                 <span className={styles.howStep}>{step}</span>
-                <div className={styles.howNode}>{icon}</div>
+                <span className={styles.howNode}>{icon}</span>
               </div>
               <div className={styles.howRowRight}>
-                <h3>{title}</h3>
+                <h3>{fn as string}</h3>
                 <p>{body}</p>
               </div>
             </div>
@@ -352,42 +348,33 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── DASHBOARD DEMO — full-width editorial split ── */}
+      {/* ── DEMO ── */}
       <section id="demo" className={styles.sectionNavy}>
-        <div style={{ padding: '0 5%', marginBottom: '2.5rem' }}>
+        <div className={styles.demoPreamble}>
           <div className={`${styles.sectionHeader} ${styles.reveal}`} style={{ marginBottom: 0 }}>
-            <span className={styles.sectionLabel}>Live Dashboard Preview</span>
-            <h2 className={`${styles.sectionTitle} ${styles.light}`}>Your edge, on one screen</h2>
-            <span className={styles.divider} />
+            <span className={styles.sectionLabel}>live_dashboard_preview</span>
+            <h2 className={`${styles.sectionTitle} ${styles.light}`}>your_edge.app</h2>
+            <div className={styles.divider} />
             <p className={`${styles.sectionSubtitle} ${styles.muted}`}>
-              {dataLoaded ? 'Powered by live AI-classified market data.' : 'Loading live market data…'}
+              {dataLoaded ? '// powered by live ai-classified market data' : '// connecting to market data stream…'}
             </p>
           </div>
         </div>
 
-        {/* Dashboard shell */}
         <div className={`${styles.demoSplit} ${styles.reveal}`}>
 
-          {/* Left sidebar nav */}
+          {/* Sidebar */}
           <aside className={styles.demoNav}>
             <div className={styles.demoNavHeader}>
-              <div style={{
-                fontFamily: "'Playfair Display', serif",
-                fontWeight: 900,
-                fontSize: '1.1rem',
-                color: '#c8a96e',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#b84c2e', display: 'inline-block' }} />
-                Quant IQ
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4eff91', letterSpacing: '0.12em' }}>
+                <span style={{ marginRight: '0.4rem', fontSize: '0.65rem', opacity: 0.5 }}>$</span>
+                QUANT_IQ
               </div>
             </div>
 
             {NAV_ITEMS.map(item => (
               <div key={item.id}>
-                {item.section && <div className={styles.demoNavSection}>{item.section}</div>}
+                {item.section && <div className={styles.demoNavSection}>// {item.section}</div>}
                 <div
                   className={`${styles.demoNavItem} ${activeTab === item.id ? styles.demoNavActive : ''}`}
                   onClick={() => setActiveTab(item.id)}
@@ -401,68 +388,68 @@ export default function LandingPage() {
             <div className={styles.demoNavBottom}>
               <div className={styles.demoAvatar}>QI</div>
               <div>
-                <div className={styles.demoUserName}>Live Data</div>
-                <div className={styles.demoUserPlan}>AI CLASSIFIED</div>
+                <div className={styles.demoUserName}>live_feed</div>
+                <div className={styles.demoUserPlan}>AI_CLASSIFIED</div>
               </div>
             </div>
           </aside>
 
-          {/* Right content */}
+          {/* Content */}
           <div className={styles.demoContent}>
             <div className={styles.demoTopbar}>
               <span className={styles.demoTopbarTitle}>{TAB_TITLES[activeTab]}</span>
-              <span className={styles.demoBadge}>⚡ {events.length} signals</span>
+              <span className={styles.demoBadge}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#4eff91', display: 'inline-block', animation: 'blink 1.5s step-end infinite' }} />
+                {events.length}_signals_live
+              </span>
             </div>
 
             <div className={styles.demoBody}>
 
-              {/* ── OVERVIEW ── */}
+              {/* OVERVIEW */}
               {activeTab === 'overview' && (
                 <>
                   {events.filter(e => (e.impact_score ?? 0) >= 7).slice(0, 1).map(e => (
                     <div key={e.id} className={styles.alertStrip}>
-                      <strong style={{ color: sentimentColor(e.sentiment_score), flexShrink: 0 }}>HIGH IMPACT</strong>
+                      <strong style={{ color: '#ff4e6a', flexShrink: 0, letterSpacing: '0.1em' }}>ALERT</strong>
                       <span>{e.ai_summary || e.headline}</span>
                     </div>
                   ))}
-
-                  {/* KPI strip */}
                   <div className={styles.kpiRow}>
                     <div className={styles.kpiCell}>
-                      <div className={styles.kpiLabel}>Market Sentiment</div>
+                      <div className={styles.kpiLabel}>market_sentiment</div>
                       <div className={styles.kpiVal} style={{ color: sentimentColor(avgSentiment ?? null) }}>
-                        {avgSentiment !== null ? `${avgSentiment >= 0 ? '+' : ''}${avgSentiment.toFixed(2)}` : '—'}
+                        {avgSentiment !== null ? `${avgSentiment >= 0 ? '+' : ''}${avgSentiment.toFixed(2)}` : '——'}
                       </div>
                       <div className={`${styles.kpiDelta} ${avgSentiment !== null && avgSentiment > 0 ? styles.up : styles.down}`}>
-                        {avgSentiment !== null && avgSentiment > 0.1 ? '↑ Risk-on' : avgSentiment !== null && avgSentiment < -0.1 ? '↓ Risk-off' : '→ Neutral'}
+                        {avgSentiment !== null && avgSentiment > 0.1 ? '↑ risk_on' : avgSentiment !== null && avgSentiment < -0.1 ? '↓ risk_off' : '→ neutral'}
                       </div>
                     </div>
                     <div className={styles.kpiCell}>
-                      <div className={styles.kpiLabel}>Active Themes</div>
+                      <div className={styles.kpiLabel}>active_themes</div>
                       <div className={styles.kpiVal}>{themes.length}</div>
                       <div className={`${styles.kpiDelta} ${styles.up}`}>
-                        ↑ {themes.filter(t => t.timeframe === '1m').length} near-term
+                        {themes.filter(t => t.timeframe === '1m').length} near_term
                       </div>
                     </div>
                     <div className={styles.kpiCell}>
-                      <div className={styles.kpiLabel}>Buy Signals</div>
+                      <div className={styles.kpiLabel}>buy_signals</div>
                       <div className={styles.kpiVal}>{signals.filter(s => s.signal?.signal === 'buy').length}</div>
                       <div className={`${styles.kpiDelta} ${styles.neutral}`}>
-                        ⚡ {signals.filter(s => s.signal?.signal === 'avoid').length} to avoid
+                        {signals.filter(s => s.signal?.signal === 'avoid').length} avoid
                       </div>
                     </div>
                   </div>
-
                   <div className={styles.demoGrid2}>
                     <div className={styles.demoPanel}>
-                      <div className={styles.demoPanelTitle}>Top Signals <span>LIVE</span></div>
+                      <div className={styles.demoPanelTitle}>top_signals <span>LIVE</span></div>
                       {topEvents.map(e => (
                         <div key={e.id} className={styles.eventItem}>
                           <div className={styles.eventDot} style={{ background: sentimentColor(e.sentiment_score) }} />
                           <div className={styles.eventBody}>
                             <div className={styles.eventHeadline}>{e.headline}</div>
                             <div className={styles.eventMeta}>
-                              <span>{e.event_type?.replace('_', ' ') ?? 'general'}</span>
+                              <span>{e.event_type?.replace(/_/g, '_') ?? 'general'}</span>
                               <span>{relTime(e.published_at)}</span>
                             </div>
                           </div>
@@ -471,11 +458,11 @@ export default function LandingPage() {
                           </div>
                         </div>
                       ))}
-                      {!events.length && <div style={{ color: 'rgba(200,185,165,0.3)', fontSize: '0.78rem' }}>Loading…</div>}
+                      {!events.length && <div style={{ color: '#1a2030', fontSize: '0.72rem' }}>// loading…</div>}
                     </div>
                     <div className={styles.demoPanel}>
-                      <div className={styles.demoPanelTitle}>Active Themes</div>
-                      {themes.slice(0, 4).map(t => (
+                      <div className={styles.demoPanelTitle}>active_themes</div>
+                      {themes.slice(0, 5).map(t => (
                         <div key={t.id} className={styles.gaugeItem}>
                           <div className={styles.gaugeLabel}>{t.name}</div>
                           <div className={styles.gaugeBar}>
@@ -484,16 +471,16 @@ export default function LandingPage() {
                           <div className={styles.gaugeVal}>{t.conviction ?? 0}%</div>
                         </div>
                       ))}
-                      {!themes.length && <div style={{ color: 'rgba(200,185,165,0.3)', fontSize: '0.78rem' }}>Loading…</div>}
+                      {!themes.length && <div style={{ color: '#1a2030', fontSize: '0.72rem' }}>// loading…</div>}
                     </div>
                   </div>
                 </>
               )}
 
-              {/* ── EVENTS ── */}
+              {/* EVENTS */}
               {activeTab === 'events' && (
                 <div className={styles.demoPanel}>
-                  <div className={styles.demoPanelTitle}>Event Intelligence Feed <span>Live</span></div>
+                  <div className={styles.demoPanelTitle}>event_intelligence_feed <span>LIVE</span></div>
                   {events.map(e => (
                     <div key={e.id}>
                       <div
@@ -504,50 +491,50 @@ export default function LandingPage() {
                         <div className={styles.eventBody}>
                           <div className={styles.eventHeadline}>{e.headline}</div>
                           <div className={styles.eventMeta}>
-                            <span>{e.event_type?.replace(/_/g, ' ') ?? 'general'} · {(e.sectors ?? []).slice(0, 2).join(', ')}</span>
-                            <span>{relTime(e.published_at)} ago</span>
+                            <span>{e.event_type?.replace(/_/g, '_') ?? 'general'}</span>
+                            <span>·</span>
+                            <span>{(e.sectors ?? []).slice(0, 2).join(', ')}</span>
+                            <span>{relTime(e.published_at)}</span>
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                           <div className={`${styles.eventScore} ${styles[`score${sentimentLabel(e.sentiment_score)}`]}`}>
                             {e.sentiment_score !== null ? `${e.sentiment_score >= 0 ? '+' : ''}${e.sentiment_score.toFixed(2)}` : '—'}
                           </div>
-                          <span style={{ color: 'rgba(200,185,165,0.28)', fontSize: '0.65rem' }}>
+                          <span style={{ color: '#1a2030', fontSize: '0.62rem' }}>
                             {selectedEvent === e.id ? '▲' : '▼'}
                           </span>
                         </div>
                       </div>
                       {selectedEvent === e.id && (
                         <div style={{
-                          background: 'rgba(255,255,255,0.025)',
-                          border: '1px solid rgba(200,169,110,0.1)',
-                          borderTop: 'none',
-                          borderRadius: '0 0 4px 4px',
-                          padding: '0.8rem 1rem 0.9rem',
-                          marginBottom: '0.2rem',
+                          background: 'rgba(78,255,145,0.02)',
+                          borderLeft: '2px solid rgba(78,255,145,0.2)',
+                          padding: '0.7rem 0.9rem 0.8rem',
+                          marginBottom: '0.15rem',
+                          marginLeft: '0.5rem',
                         }}>
                           {e.ai_summary && (
-                            <p style={{ fontSize: '0.78rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, marginBottom: '0.65rem' }}>
+                            <p style={{ fontSize: '0.74rem', color: '#4a5568', lineHeight: 1.75, marginBottom: '0.6rem' }}>
                               {e.ai_summary}
                             </p>
                           )}
-                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                             <span style={{
-                              fontFamily: 'monospace', fontSize: '0.62rem', fontWeight: 500,
-                              padding: '0.12rem 0.4rem', borderRadius: 3,
-                              background: (e.impact_score ?? 0) >= 7 ? 'rgba(232,112,112,0.12)' : 'rgba(224,152,69,0.12)',
-                              color: (e.impact_score ?? 0) >= 7 ? '#e87070' : '#e09845',
+                              fontFamily: 'monospace', fontSize: '0.6rem', fontWeight: 700,
+                              padding: '0.1rem 0.35rem', letterSpacing: '0.08em',
+                              color: (e.impact_score ?? 0) >= 7 ? '#ff4e6a' : '#e09845',
                             }}>
-                              {e.impact_score ?? 1}/10 impact
+                              IMPACT:{e.impact_score ?? 1}/10
                             </span>
                             {(e.sectors ?? []).map((s: string) => (
-                              <span key={s} style={{ fontFamily: 'monospace', fontSize: '0.62rem', padding: '0.12rem 0.4rem', borderRadius: 3, background: 'rgba(255,255,255,0.05)', color: 'rgba(232,226,217,0.38)' }}>
-                                {s}
+                              <span key={s} style={{ fontFamily: 'monospace', fontSize: '0.6rem', padding: '0.1rem 0.35rem', color: '#2a3a50', letterSpacing: '0.06em' }}>
+                                [{s}]
                               </span>
                             ))}
                             {(e.tickers ?? []).map((t: string) => (
-                              <span key={t} style={{ fontFamily: 'monospace', fontSize: '0.62rem', fontWeight: 600, padding: '0.12rem 0.4rem', borderRadius: 3, background: 'rgba(78,202,153,0.1)', color: '#4eca99' }}>
-                                {t}
+                              <span key={t} style={{ fontFamily: 'monospace', fontSize: '0.6rem', fontWeight: 700, padding: '0.1rem 0.35rem', color: '#4eff91', letterSpacing: '0.08em' }}>
+                                ${t}
                               </span>
                             ))}
                           </div>
@@ -555,20 +542,20 @@ export default function LandingPage() {
                       )}
                     </div>
                   ))}
-                  {!events.length && <div style={{ color: 'rgba(200,185,165,0.3)', fontSize: '0.78rem', padding: '1rem 0' }}>Loading…</div>}
+                  {!events.length && <div style={{ color: '#1a2030', fontSize: '0.72rem', padding: '0.8rem 0' }}>// loading event stream…</div>}
                 </div>
               )}
 
-              {/* ── THEMES ── */}
+              {/* THEMES */}
               {activeTab === 'themes' && (
                 <>
                   <div className={styles.tfRow}>
-                    <span className={styles.tfNote}>Ranked by conviction</span>
+                    <span className={styles.tfNote}>// ranked by conviction</span>
                     <div className={styles.tfToggle}>
                       {(['1m', '3m', '6m'] as TimeFrame[]).map(tf => (
                         <button key={tf} className={`${styles.tfBtn} ${themeTF === tf ? styles.tfActive : ''}`}
                           onClick={() => { setThemeTF(tf); setSelectedTheme(null) }}>
-                          {tf.toUpperCase()}
+                          {tf}
                         </button>
                       ))}
                     </div>
@@ -586,65 +573,66 @@ export default function LandingPage() {
                             <div className={styles.confFill} style={{ width: `${t.conviction ?? 0}%`, background: momentumColor(t.momentum) }} />
                           </div>
                         </div>
-                        <div className={styles.themeMomentum}
-                          style={{ background: `${momentumColor(t.momentum)}20`, color: momentumColor(t.momentum), border: `1px solid ${momentumColor(t.momentum)}40` }}>
+                        <div className={styles.themeMomentum} style={{ color: momentumColor(t.momentum) }}>
                           {momentumLabel(t.momentum)}
                         </div>
                       </div>
                     ))}
-                    {!themesByTF.length && <div style={{ color: 'rgba(200,185,165,0.3)', fontSize: '0.78rem' }}>Loading…</div>}
+                    {!themesByTF.length && <div style={{ color: '#1a2030', fontSize: '0.72rem' }}>// loading…</div>}
                   </div>
                   {currentTheme && (
-                    <div className={styles.demoPanel} style={{ marginTop: '1rem' }}>
-                      <div className={styles.demoPanelTitle}>Theme Brief — <span style={{ color: '#c8a96e' }}>{currentTheme.name}</span></div>
+                    <div className={styles.demoPanel} style={{ marginTop: '1px' }}>
+                      <div className={styles.demoPanelTitle}>theme_brief — <span style={{ color: '#4eff91' }}>{currentTheme.name}</span></div>
                       <p className={styles.themeBrief}>{currentTheme.brief}</p>
                       <div className={styles.tickerRow}>
-                        {(currentTheme.candidate_tickers ?? []).map(a => <span key={a} className={styles.tickerPill}>{a}</span>)}
+                        {(currentTheme.candidate_tickers ?? []).map(a => (
+                          <span key={a} className={styles.tickerPill}>${a}</span>
+                        ))}
                       </div>
                     </div>
                   )}
                 </>
               )}
 
-              {/* ── ASSETS ── */}
+              {/* ASSETS */}
               {activeTab === 'assets' && (
                 <>
                   <div className={styles.filterBar}>
                     {['all', 'stock', 'etf', 'crypto', 'commodity'].map(f => (
                       <button key={f} className={`${styles.filterBtn} ${assetFilter === f ? styles.filterActive : ''}`}
                         onClick={() => setAssetFilter(f)}>
-                        {f === 'all' ? 'All' : f === 'commodity' ? 'CMDTY' : f.toUpperCase()}
+                        {f === 'commodity' ? 'cmdty' : f}
                       </button>
                     ))}
                   </div>
                   <div className={styles.demoPanel}>
                     <table className={styles.assetTable}>
                       <thead>
-                        <tr><th>Ticker</th><th>Name</th><th>Type</th><th>Signal</th><th>Score</th><th>Trend</th></tr>
+                        <tr><th>ticker</th><th>name</th><th>type</th><th>signal</th><th>score</th><th>trend</th></tr>
                       </thead>
                       <tbody>
                         {filteredSignals.map(a => (
                           <tr key={a.ticker}>
-                            <td><span className={styles.assetTicker}>{a.ticker}</span></td>
+                            <td><span className={styles.assetTicker}>${a.ticker}</span></td>
                             <td className={styles.assetName}>{a.name}</td>
                             <td>
                               <span className={`${styles.typeBadge} ${typeCls[a.asset_type] ?? ''}`}>
-                                {a.asset_type === 'commodity' ? 'CMDTY' : a.asset_type.toUpperCase()}
+                                {a.asset_type === 'commodity' ? 'cmdty' : a.asset_type}
                               </span>
                             </td>
                             <td>
-                              <span style={{ color: signalColor(a.signal?.signal ?? 'hold'), fontSize: '0.7rem', fontWeight: 600, fontFamily: 'monospace' }}>
+                              <span style={{ color: signalColor(a.signal?.signal ?? 'hold'), fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em' }}>
                                 {(a.signal?.signal ?? 'hold').toUpperCase()}
                               </span>
                             </td>
-                            <td style={{ fontFamily: 'monospace', fontSize: '0.76rem', color: (a.signal?.score ?? 50) >= 50 ? '#4eca99' : '#e87070' }}>
-                              {a.signal?.score != null ? `${a.signal.score >= 50 ? '+' : ''}${(a.signal.score / 100).toFixed(2)}` : '—'}
+                            <td style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: (a.signal?.score ?? 50) >= 50 ? '#4eff91' : '#ff4e6a' }}>
+                              {a.signal?.score != null ? `${a.signal.score >= 50 ? '+' : ''}${(a.signal.score / 100).toFixed(2)}` : '——'}
                             </td>
                             <td><Sparkline score={a.signal?.score ?? null} /></td>
                           </tr>
                         ))}
                         {!filteredSignals.length && (
-                          <tr><td colSpan={6} style={{ color: 'rgba(200,185,165,0.3)', fontSize: '0.76rem', padding: '1rem' }}>Loading…</td></tr>
+                          <tr><td colSpan={6} style={{ color: '#1a2030', fontSize: '0.72rem', padding: '1rem' }}>// loading asset data…</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -652,18 +640,20 @@ export default function LandingPage() {
                 </>
               )}
 
-              {/* ── PORTFOLIO ── */}
+              {/* PORTFOLIO */}
               {activeTab === 'portfolio' && (
-                <div className={styles.demoPanel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-                  <div style={{ fontSize: '1.8rem', marginBottom: '0.9rem' }}>🗂️</div>
-                  <div style={{ color: '#f5f0e8', fontWeight: 600, marginBottom: '0.4rem', fontFamily: "'Playfair Display', serif", fontSize: '1.05rem' }}>
-                    Portfolio tracking requires an account
+                <div className={styles.demoPanel} style={{ textAlign: 'center', padding: '3.5rem 2rem' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#2a3a50', marginBottom: '1rem', letterSpacing: '0.1em' }}>
+                    ERROR: authentication_required
                   </div>
-                  <div style={{ color: 'rgba(200,185,165,0.45)', fontSize: '0.82rem', marginBottom: '1.5rem', maxWidth: 320, margin: '0.4rem auto 1.5rem' }}>
-                    Sign up free to track holdings and get personalised AI advisory memos.
+                  <div style={{ color: '#4a5568', fontSize: '0.78rem', marginBottom: '0.4rem' }}>
+                    portfolio_tracking requires account credentials.
                   </div>
-                  <a href="/auth/signup" className={styles.btnPrimary} style={{ display: 'inline-block' }}>
-                    Create Free Account
+                  <div style={{ color: '#2a3a50', fontSize: '0.74rem', marginBottom: '1.8rem' }}>
+                    sign up to track holdings and receive AI advisory memos.
+                  </div>
+                  <a href="/auth/signup" className={styles.btnPrimary} style={{ display: 'inline-block', fontSize: '0.72rem' }}>
+                    ./create_account
                   </a>
                 </div>
               )}
@@ -673,22 +663,24 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── FEATURES — magazine grid ── */}
+      {/* ── FEATURES ── */}
       <section id="features" className={styles.sectionLight}>
         <div className={`${styles.sectionHeader} ${styles.reveal}`}>
-          <span className={styles.sectionLabel}>Platform Features</span>
-          <h2 className={styles.sectionTitle}>Built for serious<br />independent investors</h2>
-          <span className={styles.divider} />
-          <p className={styles.sectionSubtitle}>Everything you need to stay ahead of macro shifts — without hiring a research team.</p>
+          <span className={styles.sectionLabel}>platform_features</span>
+          <h2 className={styles.sectionTitle}>built for serious<br />independent investors</h2>
+          <div className={styles.divider} />
+          <p className={styles.sectionSubtitle}>
+            Everything you need to stay ahead of macro shifts. No research team required.
+          </p>
         </div>
         <div className={styles.featGrid}>
           {[
-            ['📡', 'Real-Time Event Ingestion', '500+ signals per day from news wires, Fed releases, SEC filings, earnings calls, and geopolitical intelligence.', 'Live'],
-            ['🧠', 'LLM-Powered Analysis', 'Every event is classified, sentiment-scored, and mapped to sectors and tickers using Claude AI — in seconds.', 'AI-Powered'],
-            ['🎯', 'Investment Theme Engine', 'Signals are grouped into coherent investment theses with 1, 3, and 6-month conviction scores.', 'Proprietary'],
-            ['📊', 'Multi-Asset Screener', 'Candidate assets across US stocks, ETFs, Bitcoin, Ethereum, and key commodities — ranked by theme alignment.', '4 Classes'],
-            ['🛡️', 'Portfolio Impact Engine', 'Connect your holdings and see exactly how each macro event affects your specific positions.', 'Personalised'],
-            ['🔔', 'Smart Alert System', 'Push, email, and in-app alerts triggered the moment a high-impact event changes your portfolio risk profile.', 'Instant'],
+            ['📡', 'ingest()', '500+ signals per day from news wires, Fed releases, SEC filings, earnings calls, and geopolitical intelligence.', 'LIVE'],
+            ['🧠', 'classify()', 'LLM classification and sentiment scoring on every event — type, sentiment ∈ [−1,+1], sector, ticker.', 'AI'],
+            ['🎯', 'theme()', 'Related signals clustered into investment theses with 1m, 3m, 6m conviction scores.', 'PROP'],
+            ['📊', 'screen()', 'Candidate assets across US equities, ETFs, BTC, ETH, and key commodities — ranked by alignment.', '4x'],
+            ['🛡️', 'protect()', 'Connect holdings. Get alerts when macro events materially shift your specific position risk.', 'PNL'],
+            ['🔔', 'alert()', 'Push, email, and in-app alerts triggered on high-impact events affecting your portfolio.', 'RT'],
           ].map(([icon, title, body, tag]) => (
             <div key={title as string} className={`${styles.featCard} ${styles.reveal}`}>
               <div className={styles.featIcon}>{icon}</div>
@@ -701,16 +693,16 @@ export default function LandingPage() {
       </section>
 
       {/* ── PRICING ── */}
-      <section id="pricing" className={styles.sectionCream}>
+      <section id="pricing" className={styles.sectionCreamAlt}>
         <div className={`${styles.sectionHeader} ${styles.reveal}`}>
-          <span className={styles.sectionLabel}>Pricing</span>
-          <h2 className={styles.sectionTitle}>Simple, transparent pricing</h2>
-          <span className={styles.divider} />
+          <span className={styles.sectionLabel}>pricing</span>
+          <h2 className={styles.sectionTitle}>simple, transparent</h2>
+          <div className={styles.divider} />
           <p className={styles.sectionSubtitle}>Start free, upgrade when you&apos;re ready. No hidden fees, cancel any time.</p>
         </div>
         <div className={styles.pricingGrid}>
           <div className={`${styles.priceCard} ${styles.reveal}`}>
-            <div className={styles.priceName}>Free</div>
+            <div className={styles.priceName}>free</div>
             <div className={styles.priceVal}>$0</div>
             <div className={styles.pricePer}>forever</div>
             <ul>
@@ -719,12 +711,12 @@ export default function LandingPage() {
               <li>3 watchlist assets</li>
               <li>Daily digest email</li>
             </ul>
-            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnOutline}`}>Get Started Free</a>
+            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnOutline}`}>./get_started</a>
           </div>
           <div className={`${styles.priceCard} ${styles.priceFeatured} ${styles.reveal}`}>
-            <div className={styles.priceName}>Pro</div>
-            <div className={styles.priceVal} style={{ color: '#c8a96e' }}>$29</div>
-            <div className={styles.pricePer}>/month · billed monthly</div>
+            <div className={styles.priceName}>pro</div>
+            <div className={styles.priceVal} style={{ color: '#4eff91' }}>$29</div>
+            <div className={styles.pricePer}>/month</div>
             <ul>
               <li>Unlimited event feed</li>
               <li>1 / 3 / 6 month themes</li>
@@ -733,12 +725,12 @@ export default function LandingPage() {
               <li>Real-time alerts</li>
               <li>Advisory memos (AI)</li>
             </ul>
-            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnGold}`}>Start 14-Day Free Trial</a>
+            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnGold}`}>./start_trial</a>
           </div>
           <div className={`${styles.priceCard} ${styles.reveal}`}>
-            <div className={styles.priceName}>Advisor</div>
+            <div className={styles.priceName}>advisor</div>
             <div className={styles.priceVal}>$99</div>
-            <div className={styles.pricePer}>/month · for RIAs &amp; professionals</div>
+            <div className={styles.pricePer}>/month · RIA &amp; professionals</div>
             <ul>
               <li>Everything in Pro</li>
               <li>API data access</li>
@@ -746,7 +738,7 @@ export default function LandingPage() {
               <li>Custom alert rules</li>
               <li>Priority support</li>
             </ul>
-            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnOutline}`}>Contact Sales</a>
+            <a href="/auth/signup" className={`${styles.priceBtn} ${styles.priceBtnOutline}`}>./contact_sales</a>
           </div>
         </div>
       </section>
@@ -754,11 +746,11 @@ export default function LandingPage() {
       {/* ── SIGNUP ── */}
       <section id="signup" className={styles.sectionSignup}>
         <div className={`${styles.sectionHeader} ${styles.reveal}`} style={{ margin: '0 auto 2.5rem', textAlign: 'center' }}>
-          <span className={styles.sectionLabel}>Early Access</span>
-          <h2 className={`${styles.sectionTitle} ${styles.light}`}>Join the waitlist.<br />Get ahead of the market.</h2>
-          <span className={styles.divider} style={{ margin: '1rem auto 1.5rem' }} />
+          <span className={styles.sectionLabel} style={{ justifyContent: 'center' }}>early_access</span>
+          <h2 className={`${styles.sectionTitle} ${styles.light}`}>join_waitlist()<br />get_ahead(market)</h2>
+          <div className={styles.divider} style={{ margin: '1rem auto 1.5rem', justifyContent: 'center' }} />
           <p className={`${styles.sectionSubtitle} ${styles.muted}`} style={{ margin: '0 auto' }}>
-            We&apos;re onboarding early users now. Join free — full Pro access for your first 60 days.
+            Onboarding early users now. Full Pro access, first 60 days, no credit card.
           </p>
         </div>
         <form onSubmit={handleSignup} className={`${styles.signupForm} ${styles.reveal}`}>
@@ -766,36 +758,42 @@ export default function LandingPage() {
             type="email"
             value={email}
             onChange={e => { setEmail(e.target.value); setEmailError(false) }}
-            placeholder={emailError ? 'Please enter a valid email' : 'Enter your work or personal email…'}
+            placeholder={emailError ? 'error: invalid_email_format' : '$ enter email address…'}
             className={styles.signupInput}
-            style={{ borderColor: emailError ? '#b84c2e' : undefined }}
+            style={{ borderColor: emailError ? '#ff4e6a' : undefined }}
           />
-          <button type="submit" className={styles.btnPrimary}>Claim Early Access</button>
+          <button type="submit" className={styles.btnPrimary} style={{ whiteSpace: 'nowrap' }}>
+            ./claim_access
+          </button>
         </form>
-        <p className={`${styles.signupNote} ${styles.reveal}`}>No credit card required · 60 days Pro free · Cancel any time</p>
+        <p className={`${styles.signupNote} ${styles.reveal}`}>
+          // no_credit_card · 60d_pro_free · cancel_anytime
+        </p>
       </section>
 
       {/* ── FOOTER ── */}
       <footer className={styles.footer}>
         <div className={styles.footerGrid}>
           <div className={styles.footerBrand}>
-            <div className={styles.navLogo} style={{ marginBottom: '0.9rem' }}><span className={styles.navLogoDot} />Quant IQ</div>
+            <div className={styles.navLogo} style={{ marginBottom: '0.9rem' }}>
+              <span className={styles.navLogoDot} />QUANT_IQ
+            </div>
             <p>Quant-grade macro intelligence for independent investors and financial advisors in the US market.</p>
           </div>
           {[
-            ['Product', ['Dashboard', 'Event Feed', 'Theme Engine', 'Pricing']],
-            ['Company', ['About', 'Blog', 'Careers', 'Press']],
-            ['Legal', ['Privacy', 'Terms', 'Security']],
+            ['product', ['Dashboard', 'Event Feed', 'Theme Engine', 'Pricing']],
+            ['company', ['About', 'Blog', 'Careers', 'Press']],
+            ['legal', ['Privacy', 'Terms', 'Security']],
           ].map(([heading, links]) => (
             <div key={heading as string} className={styles.footerCol}>
               <h4>{heading}</h4>
-              <ul>{(links as string[]).map(l => <li key={l}><a href="#">{l}</a></li>)}</ul>
+              <ul>{(links as string[]).map(l => <li key={l}><a href="#">{l.toLowerCase().replace(' ', '_')}</a></li>)}</ul>
             </div>
           ))}
         </div>
         <div className={styles.footerBottom}>
-          <span>© 2026 Quant IQ Inc. All rights reserved.</span>
-          <span>US Markets Only · Not financial advice</span>
+          <span>// © 2026 Quant IQ Inc.</span>
+          <span>US_markets_only · not_financial_advice</span>
         </div>
         <p className={styles.footerDisc}>
           Quant IQ is an information and analytics platform. Nothing on this site constitutes financial, investment, legal, or tax advice. All content is for informational purposes only. Past signal performance does not guarantee future results. Always conduct your own research and consult a qualified financial advisor before making investment decisions.
