@@ -12,12 +12,17 @@ export const revalidate = 0
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type Regime = {
-  id:          string
-  label:       string           // e.g. "Risk-off · Defensive"
-  bias:        string           // 'bullish' | 'bearish' | 'neutral'
-  conviction:  number           // 0–100
-  description: string | null
-  updated_at:  string
+  id:                string
+  label:             string           // full label e.g. "Late-cycle · Sticky inflation · Risk-off"
+  risk_bias:         string           // 'risk-off' | 'risk-on' | 'neutral'
+  style_bias:        string | null    // 'defensive' | 'growth' | 'balanced'
+  confidence:        number           // 0–100
+  rationale:         string | null    // plain-English explanation
+  favoured_sectors:  string[] | null
+  avoid_sectors:     string[] | null
+  cycle_phase:       string | null    // 'early' | 'mid' | 'late' | 'recession'
+  cash_bias:         string | null    // 'elevated' | 'normal' | 'low'
+  refreshed_at:      string
 }
 
 export type MacroSnapshot = {
@@ -102,12 +107,11 @@ export default async function DashboardHome() {
     signals,
   ] = await Promise.all([
 
-    // Market regime — most recent active record
+    // Market regime — most recent record, ordered by refreshed_at
     q<Regime[]>(
       db.from('market_regimes')
-        .select('id, label, bias, conviction, description, updated_at')
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
+        .select('id, label, risk_bias, style_bias, confidence, rationale, favoured_sectors, avoid_sectors, cycle_phase, cash_bias, refreshed_at')
+        .order('refreshed_at', { ascending: false })
         .limit(1)
     ),
 

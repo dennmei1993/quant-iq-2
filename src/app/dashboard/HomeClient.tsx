@@ -72,18 +72,18 @@ function buildActions(
     })
   }
 
-  if (regime?.bias === 'bearish') {
+  if (regime?.risk_bias === 'risk-off') {
     actions.push({
       num: '02',
       title: 'Find safe-haven assets',
-      sub: `Regime is ${regime.label} — defensive positioning recommended`,
+      sub: `Regime is risk-off — defensive positioning recommended`,
       href: '/dashboard/discover',
     })
-  } else if (regime?.bias === 'bullish') {
+  } else if (regime?.risk_bias === 'risk-on') {
     actions.push({
       num: '02',
       title: 'Explore growth opportunities',
-      sub: `Regime is ${regime.label} — risk-on conditions`,
+      sub: `Regime is risk-on — consider adding growth exposure`,
       href: '/dashboard/discover',
     })
   } else {
@@ -131,10 +131,15 @@ interface Props {
 export default function HomeClient({
   regime, macro, themes, events, portfolio, latestAlert, hasHoldings,
 }: Props) {
-  const bias       = regime?.bias ?? 'neutral'
-  const regimeCls  = bias === 'bullish' ? '' : bias === 'bearish' ? styles.bearish : styles.neutral
-  const badgeCls   = bias === 'bullish' ? styles.badgeBull : bias === 'bearish' ? styles.badgeBear : styles.badgeNeut
-  const badgeLabel = bias === 'bullish' ? 'Bullish bias' : bias === 'bearish' ? 'Bearish bias' : 'Neutral'
+  const bias       = regime?.risk_bias ?? 'neutral'
+  // Normalise risk_bias to bullish/bearish/neutral for styling
+  const biasCls    = bias === 'risk-on'  ? '' :
+                     bias === 'risk-off' ? styles.bearish : styles.neutral
+  const badgeCls   = bias === 'risk-on'  ? styles.badgeBull :
+                     bias === 'risk-off' ? styles.badgeBear : styles.badgeNeut
+  const badgeLabel = bias === 'risk-on'  ? 'Risk-on' :
+                     bias === 'risk-off' ? 'Risk-off' :
+                     regime?.style_bias ?? 'Neutral'
   const actions    = buildActions(regime, themes, hasHoldings)
 
   const sentStr = macro.avg_sentiment !== null
@@ -152,26 +157,56 @@ export default function HomeClient({
 
       {/* ── MARKET REGIME BANNER ── */}
       {regime ? (
-        <div className={`${styles.regime} ${regimeCls}`}>
+        <div className={`${styles.regime} ${biasCls}`}>
           <div className={styles.regimeMain}>
             <div className={styles.regimeLabel}>
-              Market regime · updated {relTime(regime.updated_at)}
+              Market regime · updated {relTime(regime.refreshed_at)}
             </div>
             <div className={styles.regimeName}>{regime.label}</div>
-            {regime.description && (
-              <div className={styles.regimeSub}>{regime.description}</div>
+            {regime.rationale && (
+              <div className={styles.regimeSub}>
+                {regime.rationale.slice(0, 180)}{regime.rationale.length > 180 ? '…' : ''}
+              </div>
             )}
-            <span className={`${styles.regimeBadge} ${badgeCls}`}>{badgeLabel}</span>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px', alignItems: 'center' }}>
+              <span className={`${styles.regimeBadge} ${badgeCls}`}>{badgeLabel}</span>
+              {regime.cycle_phase && (
+                <span className={`${styles.regimeBadge} ${styles.badgeNeut}`}>{regime.cycle_phase} cycle</span>
+              )}
+              {regime.style_bias && (
+                <span className={`${styles.regimeBadge} ${styles.badgeNeut}`}>{regime.style_bias}</span>
+              )}
+            </div>
+            {(regime.favoured_sectors?.length || regime.avoid_sectors?.length) && (
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
+                {regime.favoured_sectors && regime.favoured_sectors.length > 0 && (
+                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'var(--text-faint)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Favour</span>
+                    {regime.favoured_sectors.slice(0, 4).map(s => (
+                      <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', padding: '1px 7px', border: '1px solid rgba(78,255,145,0.25)', color: 'var(--green)', letterSpacing: '0.06em' }}>{s}</span>
+                    ))}
+                  </div>
+                )}
+                {regime.avoid_sectors && regime.avoid_sectors.length > 0 && (
+                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'var(--text-faint)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Avoid</span>
+                    {regime.avoid_sectors.slice(0, 3).map(s => (
+                      <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', padding: '1px 7px', border: '1px solid rgba(255,78,106,0.25)', color: 'var(--red)', letterSpacing: '0.06em' }}>{s}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className={styles.regimeConv}>
-            <div className={styles.regimeConvNum}>{regime.conviction}%</div>
+            <div className={styles.regimeConvNum}>{regime.confidence}%</div>
             <div className={styles.regimeConvBar}>
               <div
                 className={styles.regimeConvFill}
-                style={{ width: `${regime.conviction}%` }}
+                style={{ width: `${regime.confidence}%` }}
               />
             </div>
-            <div className={styles.regimeConvLabel}>Conviction</div>
+            <div className={styles.regimeConvLabel}>Confidence</div>
           </div>
         </div>
       ) : (
