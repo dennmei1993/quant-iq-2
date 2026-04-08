@@ -1,4 +1,9 @@
-/* src/components/dashboard/DashboardShell.module.css — Terminal */
+/* src/components/dashboard/DashboardShell.module.css — Terminal + Mobile Bottom Nav */
+
+/* ─────────────────────────────────────────────
+   DESKTOP LAYOUT  (>768px)
+   Sticky left sidebar + scrollable main area
+───────────────────────────────────────────── */
 
 .shell {
   display: grid;
@@ -32,6 +37,7 @@
   margin-bottom: 0.5rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .logoDot {
@@ -51,6 +57,7 @@
   display: flex;
   flex-direction: column;
   padding: 0 0 1rem;
+  overflow-y: auto;
 }
 
 .navSection {
@@ -76,24 +83,14 @@
   transition: all 0.12s;
   letter-spacing: 0.02em;
 }
-
-.navItem:hover {
-  color: var(--text-secondary);
-  background: var(--green-faint);
-}
-
+.navItem:hover { color: var(--text-secondary); background: var(--green-faint); }
 .navItem.active {
   color: var(--green) !important;
   background: rgba(78,255,145,0.06) !important;
   border-left-color: var(--green) !important;
 }
 
-.navIcon {
-  font-size: 0.8rem;
-  width: 16px;
-  text-align: center;
-  opacity: 0.6;
-}
+.navIcon { font-size: 0.8rem; width: 16px; text-align: center; opacity: 0.6; }
 
 .alertBadge {
   margin-left: auto;
@@ -113,6 +110,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  flex-shrink: 0;
 }
 
 .userInfo { display: flex; align-items: center; gap: 0.6rem; }
@@ -128,18 +126,8 @@
   letter-spacing: 0.04em;
 }
 
-.userName {
-  font-size: 0.74rem;
-  color: var(--text-muted);
-  font-weight: 300;
-}
-
-.userPlan {
-  font-size: 0.6rem;
-  color: var(--green);
-  font-family: var(--font-mono);
-  letter-spacing: 0.1em;
-}
+.userName { font-size: 0.74rem; color: var(--text-muted); font-weight: 300; }
+.userPlan { font-size: 0.6rem; color: var(--green); font-family: var(--font-mono); letter-spacing: 0.1em; }
 
 .signOutBtn {
   background: none;
@@ -153,15 +141,12 @@
   text-align: left;
   font-weight: 300;
 }
+.signOutBtn:hover { border-color: var(--red); color: var(--red); }
 
-.signOutBtn:hover {
-  border-color: var(--red);
-  color: var(--red);
-}
-
-/* ── Main ── */
+/* ── Main column ── */
 .main { display: flex; flex-direction: column; min-height: 100vh; overflow: hidden; }
 
+/* ── Topbar ── */
 .topbar {
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-default);
@@ -182,7 +167,8 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px;
+  padding: 6px;
+  -webkit-tap-highlight-color: transparent;
 }
 .menuBtn span { display: block; width: 18px; height: 1px; background: var(--green); border-radius: 1px; }
 
@@ -193,20 +179,13 @@
   color: var(--text-muted);
   flex: 1;
   letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.pageTitle::before { content: '> '; color: var(--green); font-family: var(--font-mono); }
 
-.pageTitle::before {
-  content: '> ';
-  color: var(--green);
-  font-family: var(--font-mono);
-}
-
-.topbarRight {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-left: auto;
-}
+.topbarRight { display: flex; align-items: center; gap: 1rem; margin-left: auto; flex-shrink: 0; }
 
 .liveBadge {
   font-family: var(--font-mono);
@@ -217,7 +196,6 @@
   gap: 0.35rem;
   letter-spacing: 0.08em;
 }
-
 .liveBadgeDot {
   width: 5px; height: 5px;
   border-radius: 50%;
@@ -225,63 +203,211 @@
   animation: blink 1.5s step-end infinite;
 }
 
-.topbarTime {
-  font-size: 0.68rem;
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-}
+.topbarTime { font-size: 0.68rem; color: var(--text-faint); font-family: var(--font-mono); letter-spacing: 0.04em; }
 
-.content {
-  flex: 1;
-  padding: 1.5rem;
-  overflow-y: auto;
-}
+.content { flex: 1; padding: 1.5rem; overflow-y: auto; }
 
-/* ── Page header pattern ── */
-.pageHeader {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border-default);
-}
+/* ── Page header ── */
+.pageHeader { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-default); }
+.pageHeaderTitle { font-family: 'Syne', var(--font-sans); font-size: 1.4rem; font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem; letter-spacing: -0.01em; }
+.pageHeaderSub { font-size: 0.78rem; color: var(--text-faint); font-weight: 300; }
 
-.pageHeaderTitle {
-  font-family: 'Syne', var(--font-sans);
-  font-size: 1.4rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: 0.25rem;
-  letter-spacing: -0.01em;
-}
+/* ─────────────────────────────────────────────
+   BOTTOM TAB BAR  (≤768px)
+   5 primary tabs visible. Secondary pages
+   accessible via a "More" slide-up sheet.
+───────────────────────────────────────────── */
 
-.pageHeaderSub {
-  font-size: 0.78rem;
-  color: var(--text-faint);
-  font-weight: 300;
-}
-
-/* ── Mobile ── */
-.overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  z-index: 40;
-}
+.bottomNav    { display: none; }
+.moreOverlay  { display: none; }
+.moreSheet    { display: none; }
 
 @media (max-width: 768px) {
-  .shell { grid-template-columns: 1fr; }
 
-  .sidebar {
-    position: fixed;
-    top: 0; left: 0;
-    width: 240px; height: 100vh;
-    z-index: 50;
-    transform: translateX(-100%);
-    transition: transform 0.22s ease;
+  /* Single-column, sidebar hidden */
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+
+  /* Extra bottom padding = tab bar height + iOS safe area */
+  .content {
+    padding: 1rem 1rem calc(60px + env(safe-area-inset-bottom));
   }
-  .sidebar.open    { transform: translateX(0); }
-  .overlay         { display: block; }
-  .menuBtn         { display: flex; }
-  .content         { padding: 1rem; }
+
+  /* Topbar simplification */
+  .topbar    { padding: 0 1rem; height: 48px; }
+  .topbarTime { display: none; }
+  .liveBadge  { display: none; }
+
+  /* ── Bottom tab bar ── */
+  .bottomNav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(2,3,10,0.96);
+    border-top: 1px solid var(--border-default);
+    padding-bottom: env(safe-area-inset-bottom);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* Primary tabs */
+  .bottomTab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 0;
+    min-height: 56px;
+    text-decoration: none;
+    color: var(--text-faint);
+    transition: color 0.12s, background 0.12s;
+    position: relative;
+    background: none;
+    border: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    font-family: var(--font-sans);
+  }
+  .bottomTab:active { background: var(--green-faint); }
+
+  .bottomTabActive { color: var(--green) !important; }
+
+  /* Active indicator — small green line at top of tab */
+  .bottomTabActive::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 2px;
+    background: var(--green);
+    border-radius: 0 0 2px 2px;
+  }
+
+  .bottomTabIcon  { font-size: 1.2rem; line-height: 1; }
+  .bottomTabLabel { font-size: 0.58rem; font-weight: 300; letter-spacing: 0.04em; line-height: 1; }
+
+  /* Alerts red dot */
+  .bottomTabAlertDot {
+    position: absolute;
+    top: 7px;
+    right: calc(50% - 16px);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    border: 1.5px solid var(--bg-surface);
+  }
+
+  /* ── More overlay (dim background) ── */
+  .moreOverlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  .moreOverlay.open { opacity: 1; pointer-events: auto; }
+
+  /* ── More sheet (slides up from bottom) ── */
+  .moreSheet {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 210;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-default);
+    border-radius: 12px 12px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .moreSheet.open { transform: translateY(0); }
+
+  /* Drag handle */
+  .moreSheetHandle {
+    width: 36px; height: 3px;
+    background: var(--border-strong);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+
+  /* Header */
+  .moreSheetHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.2rem 0.6rem;
+    border-bottom: 1px solid var(--border-default);
+    flex-shrink: 0;
+  }
+  .moreSheetTitle {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--text-faint);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  /* User row */
+  .moreSheetUser {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.9rem 1.2rem;
+    border-bottom: 1px solid var(--border-default);
+    flex-shrink: 0;
+  }
+
+  /* Sheet nav items */
+  .moreSheetItem {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.9rem 1.2rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 300;
+    border-bottom: 1px solid rgba(26,32,48,0.6);
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    font-family: var(--font-sans);
+  }
+  .moreSheetItem:last-of-type { border-bottom: none; }
+  .moreSheetItem:active { background: var(--green-faint); }
+
+  .moreSheetItemActive {
+    color: var(--green) !important;
+    background: rgba(78,255,145,0.04) !important;
+  }
+
+  .moreSheetItemIcon { font-size: 1.1rem; width: 24px; text-align: center; opacity: 0.6; flex-shrink: 0; }
+
+  /* Sign out */
+  .moreSheetSignOut {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.9rem 1.2rem;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--border-default);
+    color: var(--text-faint);
+    font-size: 0.88rem;
+    font-weight: 300;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: color 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+  }
+  .moreSheetSignOut:active { color: var(--red); }
 }
