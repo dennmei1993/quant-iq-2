@@ -1,30 +1,40 @@
-// src/app/dashboard/layout.tsx — Terminal / Modern Dark
-import { redirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase'
-import DashboardShell from '@/components/dashboard/DashboardShell'
+import type { Metadata } from 'next'
+import { Syne, DM_Sans, DM_Mono } from 'next/font/google'
+import './globals.css'
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+const syne = Syne({
+  subsets: ['latin'],
+  variable: '--font-syne',
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+})
 
-  const { data: profileData } = await supabase
-    .from('profiles')
-    .select('email, full_name, plan')
-    .eq('id', user.id)
-    .single()
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
+  weight: ['300', '400', '500'],
+  display: 'swap',
+})
 
-  const profile = profileData as { email: string | null; full_name: string | null; plan: string | null } | null
+const dmMono = DM_Mono({
+  subsets: ['latin'],
+  variable: '--font-dm-mono',
+  weight: ['300', '400', '500'],
+  display: 'swap',
+})
 
+export const metadata: Metadata = {
+  title: 'Quant IQ — Macro Intelligence for Investors',
+  description: 'Real-time macro and geopolitical intelligence, AI-classified events, investment themes, and portfolio advisory for independent US market investors.',
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <DashboardShell
-      user={{
-        email:    profile?.email    ?? user.email ?? '',
-        fullName: profile?.full_name ?? '',
-        plan:     profile?.plan     ?? 'free',
-      }}
+    <html
+      lang="en"
+      className={`${syne.variable} ${dmSans.variable} ${dmMono.variable}`}
     >
-      {children}
-    </DashboardShell>
+      <body>{children}</body>
+    </html>
   )
 }
