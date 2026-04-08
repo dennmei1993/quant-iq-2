@@ -1,42 +1,30 @@
-// src/app/layout.tsx — Terminal / Modern Dark
-// Adds Syne (display), DM Sans (body), DM Mono (data) to the font stack
-import type { Metadata } from 'next'
-import { Syne, DM_Sans, DM_Mono } from 'next/font/google'
-import './globals.css'
+// src/app/dashboard/layout.tsx — Terminal / Modern Dark
+import { redirect } from 'next/navigation'
+import { createServerSupabaseClient } from '@/lib/supabase'
+import DashboardShell from '@/components/dashboard/DashboardShell'
 
-const syne = Syne({
-  subsets: ['latin'],
-  variable: '--font-syne',
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-})
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/auth/login')
 
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  variable: '--font-dm-sans',
-  weight: ['300', '400', '500'],
-  display: 'swap',
-})
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('email, full_name, plan')
+    .eq('id', user.id)
+    .single()
 
-const dmMono = DM_Mono({
-  subsets: ['latin'],
-  variable: '--font-dm-mono',
-  weight: ['300', '400', '500'],
-  display: 'swap',
-})
+  const profile = profileData as { email: string | null; full_name: string | null; plan: string | null } | null
 
-export const metadata: Metadata = {
-  title: 'Quant IQ — Market Intelligence',
-  description: 'Real-time macro and geopolitical signal intelligence for independent investors',
-}
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${syne.variable} ${dmSans.variable} ${dmMono.variable}`}
+    <DashboardShell
+      user={{
+        email:    profile?.email    ?? user.email ?? '',
+        fullName: profile?.full_name ?? '',
+        plan:     profile?.plan     ?? 'free',
+      }}
     >
-      <body>{children}</body>
-    </html>
+      {children}
+    </DashboardShell>
   )
 }
