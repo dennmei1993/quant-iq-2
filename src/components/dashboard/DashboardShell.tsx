@@ -73,7 +73,7 @@ export default function DashboardShell({ user, children }: Props) {
           {NAV.map((item) => (
             <div key={item.href}>
               {item.separator && (
-                <div style={{ height: 1, background: 'var(--border-default)', margin: '0.35rem 1.3rem' }} />
+                <div style={{ height: 1, background: 'var(--border-default)', margin: '0.35rem 1.2rem' }} />
               )}
               {item.section && (
                 <div className={styles.navSection}>// {item.section}</div>
