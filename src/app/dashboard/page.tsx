@@ -64,7 +64,7 @@ export type PortfolioAlert = {
   title:      string
   body:       string | null
   created_at: string
-  alert_type: string
+  type:       string   // 'portfolio_risk' | 'new_theme' | 'macro_shift' | 'theme_update' | 'price_move'
 }
 
 // ── Auth helper ────────────────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ export default async function DashboardHome() {
 
     // Market regime — most recent record, ordered by refreshed_at
     q<Regime[]>(
-      db.from('market_regimes')
+      db.from('market_regime')
         .select('id, label, risk_bias, style_bias, confidence, rationale, favoured_sectors, avoid_sectors, cycle_phase, cash_bias, refreshed_at')
         .order('refreshed_at', { ascending: false })
         .limit(1)
@@ -134,17 +134,18 @@ export default async function DashboardHome() {
         .limit(4)
     ),
 
-    // Portfolio holdings for this user
-    q<{ id: string; ticker: string; quantity: number | null; cost_basis: number | null }[]>(
-      db.from('user_portfolio')
-        .select('id, ticker, quantity, cost_basis')
-        .eq('user_id', userId)
+    // Portfolio holdings: portfolios → holdings (two-step join via portfolio_id)
+    // First get the user's portfolio id, then get holdings
+    q<{ id: string; ticker: string; quantity: number | null; avg_cost: number | null; name: string | null }[]>(
+      db.from('holdings')
+        .select('id, ticker, quantity, avg_cost, name, portfolios!inner(user_id)')
+        .eq('portfolios.user_id', userId)
     ),
 
     // Most recent unread alerts
     q<PortfolioAlert[]>(
       db.from('alerts')
-        .select('id, title, body, created_at, alert_type')
+        .select('id, title, body, created_at, type')
         .eq('user_id', userId)
         .eq('is_read', false)
         .order('created_at', { ascending: false })
@@ -193,8 +194,8 @@ export default async function DashboardHome() {
       totalValue += sig.price_usd * h.quantity
       hasValue = true
     }
-    if (h.cost_basis && h.quantity) {
-      totalCost += h.cost_basis * h.quantity
+    if (h.avg_cost && h.quantity) {
+      totalCost += h.avg_cost * h.quantity
     }
   }
 
