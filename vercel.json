@@ -1,5 +1,11 @@
 {
   "crons": [
+    { "path": "/api/cron/economic-data",      "schedule": "0 6  * * *" },
+    { "path": "/api/cron/ingest",             "schedule": "0 8  * * *" },
+    { "path": "/api/cron/macro",              "schedule": "0 9  * * *" },
+    { "path": "/api/cron/themes",             "schedule": "0 10 * * *" },
+    { "path": "/api/cron/regime",             "schedule": "0 11 * * *" },
+    { "path": "/api/cron/market-intelligence","schedule": "0 12 * * *" },
     { "path": "/api/cron/financials",         "schedule": "0 6  * * 1" }
   ],
   "functions": {
