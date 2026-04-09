@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { cronLog } from "@/lib/cron-logger";
 
 const anthropic = new Anthropic();
 
@@ -62,14 +63,12 @@ function classifyByRules(econ: Record<string, number | null>, macroAvg: number):
   const cpi        = econ.cpi_yoy;
   const pce        = econ.pce_yoy;
   const fedRate    = econ.fed_funds_rate;
-  const t10y       = econ.treasury_10y;
-  const t2y        = econ.treasury_2y;
   const spread     = econ.yield_spread_10y2y;
   const unemp      = econ.unemployment_rate;
   const payrolls   = econ.nonfarm_payrolls;
   const sentiment  = econ.consumer_sentiment;
 
-  // ── Cycle phase ─────────────────────────────────────────────────────────────
+  // ── Cycle phase ──────────────────────────────────────────────────────────────
   let cycle_phase: CyclePhase;
   if (gdp != null && gdp < 0) {
     cycle_phase = "recession";
@@ -91,10 +90,9 @@ function classifyByRules(econ: Record<string, number | null>, macroAvg: number):
   } else if (inflationRate <= 2.5) {
     inflation_regime = "stable";
   } else if (inflationRate <= 3.5) {
-    // Check if trending down (using macroAvg as proxy)
     inflation_regime = macroAvg < -0.5 ? "elevated" : "higher-for-longer";
   } else if (gdp != null && gdp < 1.5) {
-    inflation_regime = "stagflation";   // high inflation + low growth
+    inflation_regime = "stagflation";
   } else {
     inflation_regime = "higher-for-longer";
   }
@@ -105,7 +103,6 @@ function classifyByRules(econ: Record<string, number | null>, macroAvg: number):
     if (fedRate >= 5) {
       monetary_stance = "restrictive";
     } else if (fedRate >= 4) {
-      // Check if cutting — macro labour score being bearish suggests cuts incoming
       monetary_stance = macroAvg < -1 ? "pivoting" : "neutral";
     } else if (fedRate >= 3) {
       monetary_stance = macroAvg < -1.5 ? "pivoting" : "neutral";
@@ -132,7 +129,6 @@ function classifyByRules(econ: Record<string, number | null>, macroAvg: number):
   let risk_bias: RiskBias;
   const sentimentWeak = sentiment != null && sentiment < 65;
   const yieldInverted = spread != null && spread < 0;
-  const labourWeak    = unemp != null && unemp > 4.5;
 
   if (cycle_phase === "recession" || (yieldInverted && sentimentWeak)) {
     risk_bias = "defensive";
@@ -146,17 +142,15 @@ function classifyByRules(econ: Record<string, number | null>, macroAvg: number):
 
   // ── Sector implications ───────────────────────────────────────────────────────
   const sectorMap: Record<string, { favour: string[]; avoid: string[] }> = {
-    "recession":  { favour: ["Consumer Staples", "Utilities", "Healthcare"],         avoid: ["Technology", "Consumer Discretionary", "Financials", "Industrials"] },
-    "late":       { favour: ["Energy", "Materials", "Healthcare", "Consumer Staples"], avoid: ["Technology", "Consumer Discretionary", "Real Estate"] },
-    "mid":        { favour: ["Technology", "Industrials", "Financials"],              avoid: ["Utilities", "Consumer Staples"] },
-    "early":      { favour: ["Technology", "Consumer Discretionary", "Financials"],   avoid: ["Utilities", "Consumer Staples", "Real Estate"] },
+    "recession": { favour: ["Consumer Staples", "Utilities", "Healthcare"],          avoid: ["Technology", "Consumer Discretionary", "Financials", "Industrials"] },
+    "late":      { favour: ["Energy", "Materials", "Healthcare", "Consumer Staples"], avoid: ["Technology", "Consumer Discretionary", "Real Estate"] },
+    "mid":       { favour: ["Technology", "Industrials", "Financials"],               avoid: ["Utilities", "Consumer Staples"] },
+    "early":     { favour: ["Technology", "Consumer Discretionary", "Financials"],    avoid: ["Utilities", "Consumer Staples", "Real Estate"] },
   };
 
-  // Inflation overlay
   const inflationFavour = inflationRate > 3 ? ["Energy", "Materials", "Real Estate"] : [];
   const inflationAvoid  = inflationRate > 3 ? ["Consumer Discretionary", "Technology"] : [];
 
-  // Geopolitical overlay (handled by LLM refinement step)
   const base = sectorMap[cycle_phase];
   const favoured_sectors = [...new Set([...base.favour, ...inflationFavour])].slice(0, 4);
   const avoid_sectors    = [...new Set([...base.avoid,  ...inflationAvoid])].slice(0, 3);
@@ -166,8 +160,8 @@ function classifyByRules(econ: Record<string, number | null>, macroAvg: number):
     cycle_phase === "recession" ? "defensive" :
     cycle_phase === "late" && risk_bias === "risk-off" ? "defensive" :
     cycle_phase === "late" ? "balanced" :
-    cycle_phase === "mid" ? "growth" :
-    cycle_phase === "early" ? "growth" : "balanced";
+    cycle_phase === "mid"  ? "growth" :
+    cycle_phase === "early"? "growth" : "balanced";
 
   const cash_bias: CashBias =
     risk_bias === "defensive" ? "high" :
@@ -175,21 +169,13 @@ function classifyByRules(econ: Record<string, number | null>, macroAvg: number):
     cycle_phase === "late"    ? "moderate" : "low";
 
   const duration_bias: DurationBias =
-    monetary_stance === "restrictive"  ? "short" :
-    monetary_stance === "pivoting"     ? "neutral" :
-    monetary_stance === "accommodative"? "long" : "neutral";
+    monetary_stance === "restrictive"   ? "short" :
+    monetary_stance === "pivoting"      ? "neutral" :
+    monetary_stance === "accommodative" ? "long" : "neutral";
 
   return {
-    cycle_phase,
-    inflation_regime,
-    monetary_stance,
-    risk_bias,
-    growth_trajectory,
-    favoured_sectors,
-    avoid_sectors,
-    style_bias,
-    cash_bias,
-    duration_bias,
+    cycle_phase, inflation_regime, monetary_stance, risk_bias, growth_trajectory,
+    favoured_sectors, avoid_sectors, style_bias, cash_bias, duration_bias,
   };
 }
 
@@ -203,15 +189,15 @@ async function refineWithLlm(
 ): Promise<RegimeClassification> {
 
   const econSummary = [
-    econ.fed_funds_rate   != null ? `Fed funds: ${econ.fed_funds_rate}%` : null,
-    econ.treasury_10y     != null ? `10Y yield: ${econ.treasury_10y}%` : null,
-    econ.yield_spread_10y2y != null ? `Yield curve: ${econ.yield_spread_10y2y > 0 ? "+" : ""}${econ.yield_spread_10y2y}%` : null,
-    econ.gdp_growth_real  != null ? `Real GDP: ${econ.gdp_growth_real}% ann.` : null,
-    econ.cpi_yoy          != null ? `CPI: ${econ.cpi_yoy}% YoY` : null,
-    econ.pce_yoy          != null ? `PCE: ${econ.pce_yoy}% YoY` : null,
-    econ.unemployment_rate != null ? `Unemployment: ${econ.unemployment_rate}%` : null,
-    econ.nonfarm_payrolls != null ? `Payrolls: +${econ.nonfarm_payrolls}k` : null,
-    econ.consumer_sentiment != null ? `Consumer sentiment: ${econ.consumer_sentiment}` : null,
+    econ.fed_funds_rate      != null ? `Fed funds: ${econ.fed_funds_rate}%` : null,
+    econ.treasury_10y        != null ? `10Y yield: ${econ.treasury_10y}%` : null,
+    econ.yield_spread_10y2y  != null ? `Yield curve: ${econ.yield_spread_10y2y > 0 ? "+" : ""}${econ.yield_spread_10y2y}%` : null,
+    econ.gdp_growth_real     != null ? `Real GDP: ${econ.gdp_growth_real}% ann.` : null,
+    econ.cpi_yoy             != null ? `CPI: ${econ.cpi_yoy}% YoY` : null,
+    econ.pce_yoy             != null ? `PCE: ${econ.pce_yoy}% YoY` : null,
+    econ.unemployment_rate   != null ? `Unemployment: ${econ.unemployment_rate}%` : null,
+    econ.nonfarm_payrolls    != null ? `Payrolls: +${econ.nonfarm_payrolls}k` : null,
+    econ.consumer_sentiment  != null ? `Consumer sentiment: ${econ.consumer_sentiment}` : null,
   ].filter(Boolean).join(" | ");
 
   const macroSummary = macroScores
@@ -243,7 +229,7 @@ RULE-BASED PRE-CLASSIFICATION:
 - Favoured sectors: ${rules.favoured_sectors?.join(", ")}
 - Avoid sectors: ${rules.avoid_sectors?.join(", ")}
 
-Review the rule-based classification against the data and geopolitical context. 
+Review the rule-based classification against the data and geopolitical context.
 Adjust if the geopolitical situation or specific data points warrant a different classification.
 Provide a confidence score (0-100) for the overall regime classification.
 
@@ -278,35 +264,35 @@ Return ONLY valid JSON:
     messages:   [{ role: "user", content: prompt }],
   });
 
-  const text  = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
-  const clean = text.replace(/```json|```/g, "").trim();
+  const text   = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+  const clean  = text.replace(/```json|```/g, "").trim();
   const result = JSON.parse(clean);
 
-  return {
-    ...result,
-    classification_method: "rules+llm",
-  };
+  return { ...result, classification_method: "rules+llm" };
 }
 
 // ─── GET / POST handler ───────────────────────────────────────────────────────
 
-export async function GET(req: NextRequest) { return handler(req); }
+export async function GET(req: NextRequest)  { return handler(req); }
 export async function POST(req: NextRequest) { return handler(req); }
 
 async function handler(req: NextRequest) {
+  const isVercelCron = req.headers.get("x-vercel-cron") === "1";
+  const validSecret  = process.env.CRON_SECRET
+    ? req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
+    : false;
+
+  if (!isVercelCron && !validSecret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // ── Start log entry ─────────────────────────────────────────────────────────
+  const log = await cronLog.start('regime', 'analysis', req as unknown as Request);
+
+  const supabase = createServiceClient();
+  const started  = Date.now();
+
   try {
-    const isVercelCron = req.headers.get("x-vercel-cron") === "1";
-    const validSecret  = process.env.CRON_SECRET
-      ? req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
-      : false;
-
-    if (!isVercelCron && !validSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const supabase = createServiceClient();
-    const started  = Date.now();
-
     // ── Load inputs in parallel ───────────────────────────────────────────────
     const [econRes, macroRes, geoRes] = await Promise.all([
       supabase
@@ -327,7 +313,7 @@ async function handler(req: NextRequest) {
         .limit(10),
     ]);
 
-    // Build economic indicator map (indicator → numeric value)
+    // Build economic indicator map
     const econMap: Record<string, number | null> = {};
     for (const row of (econRes.data ?? [])) {
       econMap[row.indicator] = row.value != null ? parseFloat(String(row.value)) : null;
@@ -337,27 +323,22 @@ async function handler(req: NextRequest) {
     const macroAvg    = macroScores.length
       ? macroScores.reduce((s, m) => s + m.score, 0) / macroScores.length
       : 0;
+    const geoEvents   = geoRes.data ?? [];
 
-    const geoEvents = geoRes.data ?? [];
-
-    // ── Step 1: rule-based classification ────────────────────────────────────
+    // ── Step 1: rule-based classification ─────────────────────────────────────
     const rules = classifyByRules(econMap, macroAvg);
 
     // ── Step 2: LLM refinement ────────────────────────────────────────────────
     const regime = await refineWithLlm(rules, econMap, macroScores, geoEvents);
 
-    // ── Upsert to market_regime (single row, always same id) ─────────────────
-    // Check if row exists
+    // ── Upsert to market_regime ───────────────────────────────────────────────
     const { data: existing } = await supabase
       .from("market_regime")
       .select("id")
       .limit(1)
       .single();
 
-    const upsertData = {
-      ...regime,
-      refreshed_at: new Date().toISOString(),
-    };
+    const upsertData = { ...regime, refreshed_at: new Date().toISOString() };
 
     let dbError;
     if (existing?.id) {
@@ -375,23 +356,46 @@ async function handler(req: NextRequest) {
 
     if (dbError) throw dbError;
 
-    // Also publish regime to market_intelligence table so strategy prompt can read it
-    // from the unified snapshot without a separate query to market_regime
+    // ── Publish to market_intelligence snapshot ───────────────────────────────
     await supabase
       .from("market_intelligence")
       .upsert({
-        aspect:      "regime",
-        summary:     regime.label,
-        data:        regime,
-        score:       regime.risk_bias === "risk-on" ? 5 : regime.risk_bias === "defensive" ? -7 : regime.risk_bias === "risk-off" ? -4 : 0,
-        sentiment:   regime.risk_bias === "risk-on" ? "bullish" : (regime.risk_bias === "defensive" || regime.risk_bias === "risk-off") ? "bearish" : "neutral",
-        sources:     ["market_regime"],
-        cron_name:   "regime",
+        aspect:       "regime",
+        summary:      regime.label,
+        data:         regime,
+        score:        regime.risk_bias === "risk-on" ? 5 : regime.risk_bias === "defensive" ? -7 : regime.risk_bias === "risk-off" ? -4 : 0,
+        sentiment:    regime.risk_bias === "risk-on" ? "bullish" : (regime.risk_bias === "defensive" || regime.risk_bias === "risk-off") ? "bearish" : "neutral",
+        sources:      ["market_regime"],
+        cron_name:    "regime",
         refreshed_at: new Date().toISOString(),
       }, { onConflict: "aspect" });
 
     const elapsed = Math.round((Date.now() - started) / 1000);
     console.log(`[regime] ${elapsed}s — ${regime.label} (confidence: ${regime.confidence}%)`);
+
+    // ── Finalise log — success ────────────────────────────────────────────────
+    await log.success({
+      records_in:  macroScores.length + geoEvents.length + Object.keys(econMap).length,
+      records_out: 1,  // one regime row written
+      meta: {
+        label:             regime.label,
+        cycle_phase:       regime.cycle_phase,
+        inflation_regime:  regime.inflation_regime,
+        monetary_stance:   regime.monetary_stance,
+        risk_bias:         regime.risk_bias,
+        growth_trajectory: regime.growth_trajectory,
+        style_bias:        regime.style_bias,
+        cash_bias:         regime.cash_bias,
+        confidence:        regime.confidence,
+        favoured_sectors:  regime.favoured_sectors,
+        avoid_sectors:     regime.avoid_sectors,
+        econ_indicators:   Object.keys(econMap).length,
+        macro_scores:      macroScores.length,
+        geo_events:        geoEvents.length,
+        elapsed_s:         elapsed,
+        method:            regime.classification_method,
+      },
+    });
 
     return NextResponse.json({
       ok:      true,
@@ -408,12 +412,23 @@ async function handler(req: NextRequest) {
         avoid_sectors:     regime.avoid_sectors,
         confidence:        regime.confidence,
       },
-      rationale:   regime.rationale,
-      elapsed_s:   elapsed,
+      rationale:  regime.rationale,
+      elapsed_s:  elapsed,
     });
 
   } catch (e: any) {
+    const elapsed = Math.round((Date.now() - started) / 1000);
     console.error("[regime] fatal:", e);
+
+    // ── Finalise log — failure ────────────────────────────────────────────────
+    await log.fail(e, {
+      meta: {
+        elapsed_s:   elapsed,
+        error_stage: e.message?.includes("JSON") ? "llm_parse" :
+                     e.message?.includes("supabase") ? "db_write" : "unknown",
+      },
+    });
+
     return NextResponse.json({ ok: false, error: e.message ?? String(e) }, { status: 500 });
   }
 }

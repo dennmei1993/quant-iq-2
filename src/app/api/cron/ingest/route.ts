@@ -9,6 +9,7 @@ import { activeSources } from '@/lib/rss-sources'
 import { classifyEvent } from '@/lib/ai'
 import { generateAlertsForAllUsers } from '@/lib/alerts'
 import { generateWatchlistAlerts } from '@/lib/watchlist-alerts'
+import { cronLog } from '@/lib/cron-logger'
 
 export const runtime     = 'nodejs'
 export const maxDuration = 300
@@ -28,100 +29,82 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
-  const T0     = Date.now()
+  // ── Start log entry ─────────────────────────────────────────────────────────
+  const log_handle = await cronLog.start('ingest', 'intelligence', req as unknown as Request)
+
+  const T0       = Date.now()
   const supabase = createServiceClient()
-  const log: string[] = []
+  const log:    string[] = []
   const errors: string[] = []
 
-  // ── Step 1: Fetch RSS feeds ───────────────────────────────────────────────
-  log.push(`[${elapsed(T0)}] Fetching ${activeSources.length} RSS feeds...`)
-  const articles = await fetchAllFeeds(activeSources)
-  log.push(`[${elapsed(T0)}] Fetched ${articles.length} articles`)
+  // Counters — tracked throughout so meta is always accurate even on early exit
+  let articlesFound  = 0
+  let newArticles    = 0
+  let classified     = 0
+  let insertFailed   = 0
+  let backlogDone    = 0
+  let alertsCreated  = 0
+  let watchlistAlerts = 0
 
-  // ── Step 2: Deduplicate against DB ───────────────────────────────────────
-  log.push(`[${elapsed(T0)}] Deduplicating...`)
-  const incomingUrls = articles.map(a => a.url)
-  const { data: existingRows } = await supabase
-    .from('events')
-    .select('source_url')
-    .in('source_url', incomingUrls)
-    .not('source_url', 'is', null) as { data: { source_url: string }[] | null }
-
-  const existingUrls  = new Set((existingRows ?? []).map(r => r.source_url))
-  const newArticles   = articles.filter(a => !existingUrls.has(a.url))
-  log.push(`[${elapsed(T0)}] ${newArticles.length} new after URL dedup`)
-
-  // ── Step 2b: Fuzzy dedup ─────────────────────────────────────────────────
-  const dedupedArticles = fuzzyDeduplicateHeadlines(newArticles, 0.85)
-  log.push(`[${elapsed(T0)}] ${dedupedArticles.length} after fuzzy dedup`)
-
-  // ── Step 3 & 4: Insert + classify ────────────────────────────────────────
-  const MAX_PER_RUN = 20
-  const toInsert    = dedupedArticles.slice(0, MAX_PER_RUN)
-  let classified    = 0
-  let insertFailed  = 0
-
-  log.push(`[${elapsed(T0)}] Starting insert+classify for ${toInsert.length} articles`)
-
-  for (const article of toInsert) {
-    const t = Date.now()
-    const insertResult = await (supabase.from('events') as any)
-      .insert({
-        headline:     article.headline,
-        source:       'rss',
-        source_name:  article.sourceName,
-        source_url:   article.url,
-        published_at: article.publishedAt,
-        ai_processed: false,
-      })
-      .select('id')
-      .single()
-
-    const inserted  = (insertResult as any).data as { id: string } | null
-    const insertErr = (insertResult as any).error
-    if (insertErr || !inserted) { insertFailed++; continue }
-
-    await new Promise(r => setTimeout(r, 1000))
-
-    try {
-      const classification = await classifyEvent(article.headline, article.summary)
-      await (supabase.from('events') as any)
-        .update({
-          event_type:      classification.event_type,
-          sectors:         classification.sectors,
-          sentiment_score: classification.sentiment_score,
-          impact_score:    classification.impact_score,
-          tickers:         classification.tickers,
-          ai_summary:      classification.ai_summary,
-          ai_processed:    true,
-        })
-        .eq('id', inserted.id)
-      classified++
-      log.push(`[${elapsed(T0)}] Classified event ${classified} (took ${elapsed(t)})`)
-    } catch (aiErr) {
-      errors.push(`Claude failed for event ${inserted.id}: ${String(aiErr)}`)
-    }
-  }
-
-  log.push(`[${elapsed(T0)}] Done insert+classify: ${classified} classified, ${insertFailed} failed`)
-
-  // ── Backlog ───────────────────────────────────────────────────────────────
-  log.push(`[${elapsed(T0)}] Checking backlog...`)
   try {
-    const { data: backlog } = await supabase
-      .from('events')
-      .select('id, headline, ai_summary')
-      .eq('ai_processed', false)
-      .order('created_at', { ascending: true })
-      .limit(5) as { data: { id: string; headline: string; ai_summary: string | null }[] | null }
+    // ── Step 1: Fetch RSS feeds ─────────────────────────────────────────────
+    log.push(`[${elapsed(T0)}] Fetching ${activeSources.length} RSS feeds...`)
+    const articles = await fetchAllFeeds(activeSources)
+    articlesFound = articles.length
+    log.push(`[${elapsed(T0)}] Fetched ${articles.length} articles`)
 
-    if (backlog?.length) {
-      log.push(`[${elapsed(T0)}] Processing ${backlog.length} backlog events`)
-      let backlogClassified = 0
-      for (const event of backlog) {
+    // ── Step 2: Deduplicate against DB ──────────────────────────────────────
+    log.push(`[${elapsed(T0)}] Deduplicating...`)
+    const incomingUrls = articles.map(a => a.url)
+    const { data: existingRows } = await supabase
+      .from('events')
+      .select('source_url')
+      .in('source_url', incomingUrls)
+      .not('source_url', 'is', null) as { data: { source_url: string }[] | null }
+
+    const existingUrls = new Set((existingRows ?? []).map(r => r.source_url))
+    const fresh        = articles.filter(a => !existingUrls.has(a.url))
+    log.push(`[${elapsed(T0)}] ${fresh.length} new after URL dedup`)
+
+    // ── Step 2b: Fuzzy dedup ────────────────────────────────────────────────
+    const dedupedArticles = fuzzyDeduplicateHeadlines(fresh, 0.85)
+    newArticles = dedupedArticles.length
+    log.push(`[${elapsed(T0)}] ${dedupedArticles.length} after fuzzy dedup`)
+
+    // Skip classify if nothing new — still check backlog and alerts
+    if (dedupedArticles.length === 0) {
+      log.push(`[${elapsed(T0)}] No new articles — skipping classify step`)
+    }
+
+    // ── Step 3 & 4: Insert + classify ───────────────────────────────────────
+    const MAX_PER_RUN = 20
+    const toInsert    = dedupedArticles.slice(0, MAX_PER_RUN)
+
+    if (toInsert.length > 0) {
+      log.push(`[${elapsed(T0)}] Starting insert+classify for ${toInsert.length} articles`)
+
+      for (const article of toInsert) {
+        const t = Date.now()
+        const insertResult = await (supabase.from('events') as any)
+          .insert({
+            headline:     article.headline,
+            source:       'rss',
+            source_name:  article.sourceName,
+            source_url:   article.url,
+            published_at: article.publishedAt,
+            ai_processed: false,
+          })
+          .select('id')
+          .single()
+
+        const inserted  = (insertResult as any).data as { id: string } | null
+        const insertErr = (insertResult as any).error
+        if (insertErr || !inserted) { insertFailed++; continue }
+
         await new Promise(r => setTimeout(r, 1000))
+
         try {
-          const classification = await classifyEvent(event.headline, event.ai_summary)
+          const classification = await classifyEvent(article.headline, article.summary)
           await (supabase.from('events') as any)
             .update({
               event_type:      classification.event_type,
@@ -132,39 +115,140 @@ export async function GET(req: NextRequest) {
               ai_summary:      classification.ai_summary,
               ai_processed:    true,
             })
-            .eq('id', event.id)
-          backlogClassified++
-        } catch (err) {
-          errors.push(`Backlog failed for ${event.id}: ${String(err)}`)
+            .eq('id', inserted.id)
+          classified++
+          log.push(`[${elapsed(T0)}] Classified event ${classified} (took ${elapsed(t)})`)
+        } catch (aiErr) {
+          errors.push(`Claude failed for event ${inserted.id}: ${String(aiErr)}`)
         }
       }
-      log.push(`[${elapsed(T0)}] Backlog: ${backlogClassified} classified`)
-    } else {
-      log.push(`[${elapsed(T0)}] No backlog`)
+
+      log.push(`[${elapsed(T0)}] Done insert+classify: ${classified} classified, ${insertFailed} failed`)
     }
-  } catch (err) {
-    errors.push(`Backlog fetch failed: ${String(err)}`)
+
+    // ── Step 5: Backlog ──────────────────────────────────────────────────────
+    log.push(`[${elapsed(T0)}] Checking backlog...`)
+    try {
+      const { data: backlog } = await supabase
+        .from('events')
+        .select('id, headline, ai_summary')
+        .eq('ai_processed', false)
+        .order('created_at', { ascending: true })
+        .limit(5) as { data: { id: string; headline: string; ai_summary: string | null }[] | null }
+
+      if (backlog?.length) {
+        log.push(`[${elapsed(T0)}] Processing ${backlog.length} backlog events`)
+        for (const event of backlog) {
+          await new Promise(r => setTimeout(r, 1000))
+          try {
+            const classification = await classifyEvent(event.headline, event.ai_summary)
+            await (supabase.from('events') as any)
+              .update({
+                event_type:      classification.event_type,
+                sectors:         classification.sectors,
+                sentiment_score: classification.sentiment_score,
+                impact_score:    classification.impact_score,
+                tickers:         classification.tickers,
+                ai_summary:      classification.ai_summary,
+                ai_processed:    true,
+              })
+              .eq('id', event.id)
+            backlogDone++
+          } catch (err) {
+            errors.push(`Backlog failed for ${event.id}: ${String(err)}`)
+          }
+        }
+        log.push(`[${elapsed(T0)}] Backlog: ${backlogDone} classified`)
+      } else {
+        log.push(`[${elapsed(T0)}] No backlog`)
+      }
+    } catch (err) {
+      errors.push(`Backlog fetch failed: ${String(err)}`)
+    }
+
+    // ── Step 6: Alerts ───────────────────────────────────────────────────────
+    log.push(`[${elapsed(T0)}] Generating alerts...`)
+    try {
+      alertsCreated   = await generateAlertsForAllUsers(supabase)
+      watchlistAlerts = await generateWatchlistAlerts(supabase)
+      log.push(`[${elapsed(T0)}] Created ${alertsCreated} alerts, ${watchlistAlerts} watchlist alerts`)
+    } catch (err) {
+      errors.push(`Alert generation failed: ${String(err)}`)
+    }
+
+    const totalElapsed = elapsed(T0)
+    log.push(`[${totalElapsed}] DONE — total elapsed: ${totalElapsed}`)
+
+    // ── Finalise log ──────────────────────────────────────────────────────────
+    const ok = errors.length === 0
+
+    if (!ok) {
+      await log_handle.fail(
+        new Error(`${errors.length} error(s): ${errors.slice(0, 3).join('; ')}`),
+        {
+          records_in:  articlesFound,
+          records_out: classified + backlogDone,
+          meta: {
+            articles_found:   articlesFound,
+            articles_new:     newArticles,
+            classified,
+            insert_failed:    insertFailed,
+            backlog_done:     backlogDone,
+            alerts_created:   alertsCreated,
+            watchlist_alerts: watchlistAlerts,
+            error_count:      errors.length,
+            errors,
+            elapsed_s:        totalElapsed,
+          },
+        }
+      )
+    } else {
+      await log_handle.success({
+        records_in:  articlesFound,
+        records_out: classified + backlogDone,
+        meta: {
+          articles_found:   articlesFound,
+          articles_new:     newArticles,
+          classified,
+          insert_failed:    insertFailed,
+          backlog_done:     backlogDone,
+          alerts_created:   alertsCreated,
+          watchlist_alerts: watchlistAlerts,
+          sources:          activeSources.length,
+          elapsed_s:        totalElapsed,
+        },
+      })
+    }
+
+    return NextResponse.json({
+      status: ok ? 'ok' : 'partial',
+      log,
+      errors,
+      ts: new Date().toISOString(),
+    })
+
+  } catch (err: any) {
+    // Unexpected outer failure (RSS fetch crash, DB connection lost, etc.)
+    const totalElapsed = elapsed(T0)
+    console.error('[cron/ingest] fatal:', err)
+
+    await log_handle.fail(err, {
+      records_in:  articlesFound,
+      records_out: classified + backlogDone,
+      meta: {
+        error_stage:    'outer',
+        articles_found: articlesFound,
+        classified,
+        elapsed_s:      totalElapsed,
+        log,
+      },
+    })
+
+    return NextResponse.json(
+      { status: 'error', error: err.message ?? String(err), log },
+      { status: 500 }
+    )
   }
-
-  // ── Alerts ────────────────────────────────────────────────────────────────
-  log.push(`[${elapsed(T0)}] Generating alerts...`)
-  try {
-    const count = await generateAlertsForAllUsers(supabase)
-    log.push(`[${elapsed(T0)}] Created ${count} new alerts`)
-    const watchlistAlerts = await generateWatchlistAlerts(supabase)
-    log.push(`[${elapsed(T0)}] Created ${watchlistAlerts} watchlist alerts`)
-  } catch (err) {
-    errors.push(`Alert generation failed: ${String(err)}`)
-  }
-
-  log.push(`[${elapsed(T0)}] DONE — total elapsed: ${elapsed(T0)}`)
-
-  return NextResponse.json({
-    status: errors.length === 0 ? 'ok' : 'partial',
-    log,
-    errors,
-    ts: new Date().toISOString(),
-  })
 }
 
 // ─── Fuzzy dedup ──────────────────────────────────────────────────────────────
@@ -175,7 +259,7 @@ function fuzzyDeduplicateHeadlines<T extends { headline: string; publishedAt: st
   const sorted = [...articles].sort(
     (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   )
-  const accepted: T[] = []
+  const accepted:     T[]      = []
   const acceptedNorm: string[] = []
   for (const article of sorted) {
     const norm   = normaliseHeadline(article.headline)

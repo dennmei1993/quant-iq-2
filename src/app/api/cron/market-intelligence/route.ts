@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { cronLog } from "@/lib/cron-logger";
 
 const anthropic = new Anthropic();
 
@@ -38,7 +39,7 @@ interface AspectRow {
 
 async function askClaude(prompt: string, max_tokens = 500): Promise<any> {
   const msg = await anthropic.messages.create({
-    model:    "claude-haiku-4-5-20251001",   // fastest + cheapest for structured extraction
+    model:    "claude-haiku-4-5-20251001",
     max_tokens,
     messages: [{ role: "user", content: prompt }],
   });
@@ -48,10 +49,8 @@ async function askClaude(prompt: string, max_tokens = 500): Promise<any> {
 }
 
 // ─── Aspect: macro_indicators ─────────────────────────────────────────────────
-// Reads from our macro_scores table + asks Claude for macro narrative
 
 async function buildMacroIndicators(supabase: any): Promise<AspectRow> {
-  // Fetch both macro sentiment scores AND authoritative economic indicators
   const [scoresRes, econRes] = await Promise.all([
     supabase
       .from("macro_scores")
@@ -71,44 +70,39 @@ async function buildMacroIndicators(supabase: any): Promise<AspectRow> {
     ? scores.reduce((s: number, m: any) => s + m.score, 0) / scores.length
     : 0;
 
-  // Build structured economic data summary
   interface EconIndicator {
-    indicator: string;
-    value:     number | null;
-    previous:  number | null;
-    change:    number | null;
-    period:    string | null;
-    unit:      string;
-    direction: string;
-    commentary: string;
+    indicator: string; value: number | null; previous: number | null;
+    change: number | null; period: string | null; unit: string;
+    direction: string; commentary: string;
   }
   const econMap = new Map<string, EconIndicator>(
     (Array.isArray(econ) ? econ as EconIndicator[] : []).map(e => [e.indicator, e])
   );
-  const fedRate    = econMap.get("fed_funds_rate");
-  const t10y       = econMap.get("treasury_10y");
-  const t2y        = econMap.get("treasury_2y");
-  const spread     = econMap.get("yield_spread_10y2y");
-  const gdp        = econMap.get("gdp_growth_real");
-  const pce        = econMap.get("pce_yoy");
-  const unemp      = econMap.get("unemployment_rate");
-  const payrolls   = econMap.get("nonfarm_payrolls");
-  const sentiment  = econMap.get("consumer_sentiment");
-  const cpi        = econMap.get("cpi_yoy");
+
+  const fedRate   = econMap.get("fed_funds_rate");
+  const t10y      = econMap.get("treasury_10y");
+  const t2y       = econMap.get("treasury_2y");
+  const spread    = econMap.get("yield_spread_10y2y");
+  const gdp       = econMap.get("gdp_growth_real");
+  const pce       = econMap.get("pce_yoy");
+  const unemp     = econMap.get("unemployment_rate");
+  const payrolls  = econMap.get("nonfarm_payrolls");
+  const sentiment = econMap.get("consumer_sentiment");
+  const cpi       = econMap.get("cpi_yoy");
 
   const macroScoreText = scores
     .map((m: any) => `${m.aspect}: ${m.score > 0 ? "+" : ""}${m.score}/10 (${m.direction}) — ${m.commentary ?? ""}`)
     .join("\n");
 
   const econText = [
-    fedRate   ? `Fed funds rate: ${fedRate.value}% (${fedRate.direction})` : null,
-    t10y      ? `10Y Treasury: ${t10y.value}% (${t10y.direction})` : null,
-    t2y       ? `2Y Treasury: ${t2y.value}%` : null,
+    fedRate  ? `Fed funds rate: ${fedRate.value}% (${fedRate.direction})` : null,
+    t10y     ? `10Y Treasury: ${t10y.value}% (${t10y.direction})` : null,
+    t2y      ? `2Y Treasury: ${t2y.value}%` : null,
     spread?.value != null ? `Yield curve (10Y-2Y): ${spread.value}% ${spread.value < 0 ? "INVERTED" : ""}` : null,
-    gdp       ? `Real GDP growth: ${gdp.value}% annualised (${gdp.direction})` : null,
-    pce       ? `PCE inflation: ${pce.value}% YoY (${pce.direction})` : null,
-    cpi       ? `CPI index: ${cpi.value} in ${cpi.period}` : null,
-    unemp     ? `Unemployment: ${unemp.value}% (${unemp.direction})` : null,
+    gdp      ? `Real GDP growth: ${gdp.value}% annualised (${gdp.direction})` : null,
+    pce      ? `PCE inflation: ${pce.value}% YoY (${pce.direction})` : null,
+    cpi      ? `CPI index: ${cpi.value} in ${cpi.period}` : null,
+    unemp    ? `Unemployment: ${unemp.value}% (${unemp.direction})` : null,
     payrolls?.value != null ? `Nonfarm payrolls: ${payrolls.value > 0 ? "+" : ""}${payrolls.value}k (${payrolls.period})` : null,
     sentiment ? `Consumer sentiment: ${sentiment.value} (${sentiment.direction})` : null,
   ].filter(Boolean).join("\n");
@@ -132,20 +126,18 @@ Return ONLY valid JSON:
   "cycle_phase": "early|mid|late|recession",
   "key_risk": "the single biggest macro risk in one specific phrase with numbers",
   "avg_score": ${avgScore.toFixed(1)}
-}`,
-      500
-    );
+}`, 500);
+
     data.scores          = scores;
     data.econ_indicators = econ;
-    // Attach key economic values directly for easy access by strategy prompt
-    if (fedRate)   data.fed_funds_rate    = fedRate.value;
-    if (t10y)      data.treasury_10y      = t10y.value;
-    if (t2y)       data.treasury_2y       = t2y.value;
-    if (spread)    data.yield_spread      = spread.value;
-    if (gdp)       data.gdp_growth        = gdp.value;
-    if (pce)       data.pce_yoy           = pce.value;
-    if (unemp)     data.unemployment      = unemp.value;
-    if (payrolls)  data.nonfarm_payrolls  = payrolls.value;
+    if (fedRate)   data.fed_funds_rate     = fedRate.value;
+    if (t10y)      data.treasury_10y       = t10y.value;
+    if (t2y)       data.treasury_2y        = t2y.value;
+    if (spread)    data.yield_spread       = spread.value;
+    if (gdp)       data.gdp_growth         = gdp.value;
+    if (pce)       data.pce_yoy            = pce.value;
+    if (unemp)     data.unemployment       = unemp.value;
+    if (payrolls)  data.nonfarm_payrolls   = payrolls.value;
     if (sentiment) data.consumer_sentiment = sentiment.value;
   } catch {
     data = { summary: econText.slice(0, 400) || macroScoreText.slice(0, 300), scores, econ_indicators: econ, avg_score: avgScore };
@@ -164,7 +156,6 @@ Return ONLY valid JSON:
 }
 
 // ─── Aspect: geopolitical ─────────────────────────────────────────────────────
-// Reads recent geopolitical events from DB + Claude summarises
 
 async function buildGeopolitical(supabase: any): Promise<AspectRow> {
   const { data: events } = await supabase
@@ -197,9 +188,7 @@ Return ONLY valid JSON:
   "risk_level": "elevated|moderate|contained",
   "score": -3
 }
-score: -10 (extreme risk) to 0 (neutral).`,
-      500
-    );
+score: -10 (extreme risk) to 0 (neutral).`, 500);
   } catch {
     data = { risk_level: "moderate", active_risks: [], summary: eventText.slice(0, 200) };
   }
@@ -210,13 +199,13 @@ score: -10 (extreme risk) to 0 (neutral).`,
     summary:   data.summary ?? "",
     data:      { ...data, raw_events: rows.slice(0, 10) },
     score,
-    sentiment: score >= 0 ? "neutral" : score >= -4 ? "bearish" : "bearish",
+    sentiment: score >= 0 ? "neutral" : "bearish",
     sources:   ["events_table"],
     cron_name: "market-intelligence",
   };
 }
 
-// ─── Aspect: sector_momentum — pure DB aggregation, no LLM ───────────────────
+// ─── Aspect: sector_momentum ──────────────────────────────────────────────────
 
 async function buildSectorMomentum(supabase: any): Promise<AspectRow> {
   const { data: signals } = await supabase
@@ -265,7 +254,6 @@ async function buildSectorMomentum(supabase: any): Promise<AspectRow> {
 }
 
 // ─── Aspect: market_sentiment ─────────────────────────────────────────────────
-// Aggregates from our events + signals, Claude interprets
 
 async function buildMarketSentiment(supabase: any): Promise<AspectRow> {
   const { data: recentEvents } = await supabase
@@ -298,8 +286,6 @@ async function buildMarketSentiment(supabase: any): Promise<AspectRow> {
         }, {})
       )}
 
-Interpret the current market sentiment for US equity investors.
-
 Return ONLY valid JSON:
 {
   "summary": "2 sentence narrative on current market sentiment and what it means for investors",
@@ -308,9 +294,7 @@ Return ONLY valid JSON:
   "vix_level": "low|moderate|elevated|extreme",
   "score": 2
 }
-score -10 to +10.`,
-      400
-    );
+score -10 to +10.`, 400);
   } catch {
     data = { market_trend: "sideways", risk_appetite: "mixed", summary: `Avg sentiment: ${avgSentiment.toFixed(2)}` };
   }
@@ -327,7 +311,7 @@ score -10 to +10.`,
   };
 }
 
-// ─── Aspect: recent_events — pure DB, no LLM ─────────────────────────────────
+// ─── Aspect: recent_events ────────────────────────────────────────────────────
 
 async function buildRecentEvents(supabase: any): Promise<AspectRow> {
   const { data: events } = await supabase
@@ -368,7 +352,7 @@ async function buildRecentEvents(supabase: any): Promise<AspectRow> {
 
 // ─── GET / POST handler ───────────────────────────────────────────────────────
 
-export async function GET(req: NextRequest) { return handler(req); }
+export async function GET(req: NextRequest)  { return handler(req); }
 export async function POST(req: NextRequest) { return handler(req); }
 
 async function handler(req: NextRequest) {
@@ -381,44 +365,104 @@ async function handler(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ── Start log entry ─────────────────────────────────────────────────────────
+  const log = await cronLog.start('market-intelligence', 'intelligence', req as unknown as Request);
+
   const supabase = createServiceClient();
   const started  = Date.now();
 
-  // All 5 aspects in parallel
-  const aspects = [
-    { name: "macro_indicators", fn: () => buildMacroIndicators(supabase) },
-    { name: "geopolitical",     fn: () => buildGeopolitical(supabase)    },
-    { name: "sector_momentum",  fn: () => buildSectorMomentum(supabase)  },
-    { name: "market_sentiment", fn: () => buildMarketSentiment(supabase) },
-    { name: "recent_events",    fn: () => buildRecentEvents(supabase)    },
-  ];
+  try {
+    const aspects = [
+      { name: "macro_indicators", fn: () => buildMacroIndicators(supabase) },
+      { name: "geopolitical",     fn: () => buildGeopolitical(supabase)    },
+      { name: "sector_momentum",  fn: () => buildSectorMomentum(supabase)  },
+      { name: "market_sentiment", fn: () => buildMarketSentiment(supabase) },
+      { name: "recent_events",    fn: () => buildRecentEvents(supabase)    },
+    ];
 
-  const settled = await Promise.allSettled(aspects.map(a => a.fn()));
+    // All 5 aspects in parallel
+    const settled = await Promise.allSettled(aspects.map(a => a.fn()));
 
-  const results: string[] = [];
-  const errors:  string[] = [];
+    const results:      string[] = [];
+    const errors:       string[] = [];
+    const aspectScores: Record<string, number> = {};
 
-  await Promise.allSettled(
-    settled.map(async (result, i) => {
-      const { name } = aspects[i];
-      if (result.status === "rejected") {
-        errors.push(`${name}: ${result.reason?.message ?? "failed"}`);
-        console.error(`[market-intelligence] ${name}:`, result.reason);
-        return;
-      }
-      const { error } = await supabase
-        .from("market_intelligence")
-        .upsert(
-          { ...result.value, refreshed_at: new Date().toISOString() },
-          { onConflict: "aspect" }
-        );
-      if (error) errors.push(`${name} upsert: ${error.message}`);
-      else       results.push(`${name}: ok`);
-    })
-  );
+    await Promise.allSettled(
+      settled.map(async (result, i) => {
+        const { name } = aspects[i];
+        if (result.status === "rejected") {
+          errors.push(`${name}: ${result.reason?.message ?? "failed"}`);
+          console.error(`[market-intelligence] ${name}:`, result.reason);
+          return;
+        }
+        const row = result.value;
+        const { error } = await supabase
+          .from("market_intelligence")
+          .upsert(
+            { ...row, refreshed_at: new Date().toISOString() },
+            { onConflict: "aspect" }
+          );
+        if (error) {
+          errors.push(`${name} upsert: ${error.message}`);
+        } else {
+          results.push(`${name}: ok`);
+          aspectScores[name] = row.score;  // capture for meta
+        }
+      })
+    );
 
-  const elapsed = Math.round((Date.now() - started) / 1000);
-  console.log(`[market-intelligence] ${elapsed}s — ${results.length} ok, ${errors.length} errors`);
+    const elapsed = Math.round((Date.now() - started) / 1000);
+    const ok      = errors.length === 0;
 
-  return NextResponse.json({ ok: errors.length === 0, results, errors, elapsed_s: elapsed });
+    console.log(`[market-intelligence] ${elapsed}s — ${results.length} ok, ${errors.length} errors`);
+
+    // ── Finalise log ──────────────────────────────────────────────────────────
+    if (!ok) {
+      await log.fail(
+        new Error(`${errors.length} aspect(s) failed: ${errors.join("; ")}`),
+        {
+          records_in:  5,
+          records_out: results.length,
+          meta: {
+            aspects_ok:     results.length,
+            aspects_failed: errors.length,
+            errors,
+            results,
+            aspect_scores:  aspectScores,
+            elapsed_s:      elapsed,
+          },
+        }
+      );
+    } else {
+      await log.success({
+        records_in:  5,   // always 5 aspects attempted
+        records_out: results.length,
+        meta: {
+          aspects_ok:    results.length,
+          results,
+          aspect_scores: aspectScores,
+          elapsed_s:     elapsed,
+        },
+      });
+    }
+
+    return NextResponse.json({ ok, results, errors, elapsed_s: elapsed });
+
+  } catch (err: any) {
+    // Unexpected outer failure (e.g. Supabase connection lost before any aspect ran)
+    const elapsed = Math.round((Date.now() - started) / 1000);
+    console.error("[market-intelligence] fatal:", err);
+
+    await log.fail(err, {
+      meta: {
+        elapsed_s:   elapsed,
+        error_stage: "outer",
+      },
+    });
+
+    return NextResponse.json(
+      { ok: false, error: err.message ?? String(err) },
+      { status: 500 }
+    );
+  }
 }

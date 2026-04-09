@@ -23,6 +23,7 @@ import {
   type MacroAspect,
   type ScoringEvent,
 } from '@/lib/macro'
+import { cronLog } from '@/lib/cron-logger'
 
 export const runtime     = 'nodejs'
 export const maxDuration = 300
@@ -37,75 +38,138 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // ── Start log entry ─────────────────────────────────────────────────────────
+  const log_handle = await cronLog.start('macro', 'intelligence', req as unknown as Request)
+
   const supabase = createServiceClient()
   const log:    string[] = []
   const errors: string[] = []
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  // ── 1. Fetch events from last 7 days ──────────────────────────────────────
-  const eventsResult = await (supabase
-    .from('events')
-    .select('id, headline, ai_summary, event_type, sectors, sentiment_score, impact_score, published_at')
-    .eq('ai_processed', true)
-    .gte('published_at', since)
-    .order('published_at', { ascending: false })
-    .limit(200) as unknown as Promise<{ data: ScoringEvent[] | null }>)
+  try {
+    // ── 1. Fetch events from last 7 days ──────────────────────────────────────
+    const eventsResult = await (supabase
+      .from('events')
+      .select('id, headline, ai_summary, event_type, sectors, sentiment_score, impact_score, published_at')
+      .eq('ai_processed', true)
+      .gte('published_at', since)
+      .order('published_at', { ascending: false })
+      .limit(200) as unknown as Promise<{ data: ScoringEvent[] | null }>)
 
-  const events = eventsResult.data ?? []
-  log.push(`Loaded ${events.length} events from last 7 days`)
+    const events = eventsResult.data ?? []
+    log.push(`Loaded ${events.length} events from last 7 days`)
 
-  if (!events.length) {
-    return NextResponse.json({ ok: true, message: 'No events to score', log })
-  }
-
-  // ── 2. Score each aspect ──────────────────────────────────────────────────
-  const scores = []
-
-  for (const aspect of ASPECTS) {
-    try {
-      log.push(`Scoring ${ASPECT_CONFIG[aspect].label}...`)
-
-      // Delay between Claude calls
-      if (scores.length > 0) await new Promise(r => setTimeout(r, 1000))
-
-      const score = await scoreAspect(aspect, events)
-      scores.push(score)
-
-      log.push(`  ${aspect}: ${score.score > 0 ? '+' : ''}${score.score} (${score.direction}, ${score.event_count} events)`)
-    } catch (err) {
-      errors.push(`${aspect} scoring failed: ${String(err)}`)
+    if (!events.length) {
+      await log_handle.skip('No classified events in last 7 days')
+      return NextResponse.json({ ok: true, message: 'No events to score', log })
     }
-  }
 
-  // ── 3. Upsert into macro_scores ───────────────────────────────────────────
-  if (scores.length > 0) {
-    const upsertResult = await (supabase
-      .from('macro_scores') as any)
-      .upsert(
-        scores.map(s => ({
-          aspect:      s.aspect,
-          score:       s.score,
-          direction:   s.direction,
-          commentary:  s.commentary,
-          event_count: s.event_count,
-          scored_at:   s.scored_at,
-        })),
-        { onConflict: 'aspect' }
+    // ── 2. Score each aspect ──────────────────────────────────────────────────
+    const scores = []
+
+    for (const aspect of ASPECTS) {
+      try {
+        log.push(`Scoring ${ASPECT_CONFIG[aspect].label}...`)
+        if (scores.length > 0) await new Promise(r => setTimeout(r, 1000))
+
+        const score = await scoreAspect(aspect, events)
+        scores.push(score)
+
+        log.push(`  ${aspect}: ${score.score > 0 ? '+' : ''}${score.score} (${score.direction}, ${score.event_count} events)`)
+      } catch (err) {
+        errors.push(`${aspect} scoring failed: ${String(err)}`)
+        log.push(`  ${aspect}: ERROR — ${String(err)}`)
+      }
+    }
+
+    // ── 3. Upsert into macro_scores ───────────────────────────────────────────
+    let upsertFailed = false
+    if (scores.length > 0) {
+      const upsertResult = await (supabase.from('macro_scores') as any)
+        .upsert(
+          scores.map(s => ({
+            aspect:      s.aspect,
+            score:       s.score,
+            direction:   s.direction,
+            commentary:  s.commentary,
+            event_count: s.event_count,
+            scored_at:   s.scored_at,
+          })),
+          { onConflict: 'aspect' }
+        )
+
+      const upsertErr = (upsertResult as any).error
+      if (upsertErr) {
+        errors.push(`Upsert failed: ${upsertErr.message}`)
+        upsertFailed = true
+      } else {
+        log.push(`Upserted ${scores.length} macro scores`)
+      }
+    }
+
+    // ── Finalise log ──────────────────────────────────────────────────────────
+    const ok = errors.length === 0
+
+    // Build per-aspect score summary for meta
+    const aspectSummary = Object.fromEntries(
+      scores.map(s => [s.aspect, { score: s.score, direction: s.direction, events: s.event_count }])
+    )
+
+    if (!ok) {
+      await log_handle.fail(
+        new Error(
+          upsertFailed
+            ? `DB upsert failed after scoring ${scores.length} aspects`
+            : `${errors.length} aspect(s) failed scoring: ${errors.join('; ')}`
+        ),
+        {
+          records_in:  events.length,
+          records_out: upsertFailed ? 0 : scores.length,
+          meta: {
+            aspects_scored:  scores.length,
+            aspects_failed:  ASPECTS.length - scores.length,
+            upsert_failed:   upsertFailed,
+            event_count:     events.length,
+            aspect_scores:   aspectSummary,
+            errors,
+            log,
+          },
+        }
       )
-    const upsertErr = (upsertResult as any).error
-
-    if (upsertErr) {
-      errors.push(`Upsert failed: ${upsertErr.message}`)
     } else {
-      log.push(`Upserted ${scores.length} macro scores`)
+      await log_handle.success({
+        records_in:  events.length,
+        records_out: scores.length,
+        meta: {
+          aspects_scored: scores.length,
+          event_count:    events.length,
+          aspect_scores:  aspectSummary,
+          since,
+          log,
+        },
+      })
     }
-  }
 
-  return NextResponse.json({
-    ok:     errors.length === 0,
-    scored: scores.length,
-    log,
-    errors,
-    ts:     new Date().toISOString(),
-  })
+    return NextResponse.json({
+      ok,
+      scored: scores.length,
+      log,
+      errors,
+      ts: new Date().toISOString(),
+    })
+
+  } catch (err: any) {
+    // Unexpected outer failure (e.g. Supabase connection, import error)
+    console.error('[cron/macro] fatal:', err)
+    await log_handle.fail(err, {
+      meta: {
+        error_stage: 'outer',
+        log,
+      },
+    })
+    return NextResponse.json(
+      { ok: false, error: err.message ?? String(err), log },
+      { status: 500 }
+    )
+  }
 }

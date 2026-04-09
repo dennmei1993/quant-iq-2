@@ -6,7 +6,7 @@
     { "path": "/api/cron/themes",             "schedule": "0 10 * * *" },
     { "path": "/api/cron/regime",             "schedule": "0 11 * * *" },
     { "path": "/api/cron/market-intelligence","schedule": "0 12 * * *" },
-    { "path": "/api/cron/financials",         "schedule": "0 6 * * 1" }
+    { "path": "/api/cron/fmp",                "schedule": "0 6 * * 1" }
   ],
   "functions": {
     "src/app/api/cron/economic-data/route.ts":       { "maxDuration": 60  },
@@ -15,6 +15,6 @@
     "src/app/api/cron/themes/route.ts":              { "maxDuration": 300 },
     "src/app/api/cron/regime/route.ts":              { "maxDuration": 60  },
     "src/app/api/cron/market-intelligence/route.ts": { "maxDuration": 300 },
-    "src/app/api/cron/financials/route.ts":          { "maxDuration": 300 }
+    "src/app/api/cron/fmp/route.ts":          { "maxDuration": 300 }
   }
 }
