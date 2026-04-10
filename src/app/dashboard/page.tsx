@@ -40,6 +40,7 @@ export type HomeTheme = {
   timeframe:  string
   conviction: number | null
   momentum:   string | null
+  brief:      string | null
 }
 
 export type HomeEvent = {
@@ -107,9 +108,9 @@ export default async function DashboardHome() {
     signals,
   ] = await Promise.all([
 
-    // Market regime — most recent record, ordered by refreshed_at
+    // Market regime — cast needed until types are regenerated
     q<Regime[]>(
-      db.from('market_regime')
+      (db as any).from('market_regime')
         .select('id, label, risk_bias, style_bias, confidence, rationale, favoured_sectors, avoid_sectors, cycle_phase, cash_bias, refreshed_at')
         .order('refreshed_at', { ascending: false })
         .limit(1)
@@ -118,7 +119,7 @@ export default async function DashboardHome() {
     // Top themes by conviction, 1m first
     q<HomeTheme[]>(
       db.from('themes')
-        .select('id, name, timeframe, conviction, momentum')
+        .select('id, name, timeframe, conviction, momentum, brief')
         .eq('is_active', true)
         .order('conviction', { ascending: false })
         .limit(5)
@@ -129,9 +130,8 @@ export default async function DashboardHome() {
       db.from('events')
         .select('id, headline, sentiment_score, impact_score, event_type, published_at')
         .eq('ai_processed', true)
-        .gte('published_at', new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString())
+        .gte('published_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('impact_score', { ascending: false })
-        .order('published_at', { ascending: false })
         .limit(4)
     ),
 

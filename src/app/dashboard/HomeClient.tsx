@@ -1,6 +1,7 @@
 'use client'
 // src/app/dashboard/HomeClient.tsx
 // Client component — handles expand/collapse, hover states, navigation
+import { useState } from 'react'
 import Link from 'next/link'
 import type {
   Regime, MacroSnapshot, HomeTheme,
@@ -141,6 +142,7 @@ export default function HomeClient({
                      bias === 'risk-off' ? 'Risk-off' :
                      regime?.style_bias ?? 'Neutral'
   const actions    = buildActions(regime, themes, hasHoldings)
+  const [expandedThemeId, setExpandedThemeId] = useState<string | null>(null)
 
   const sentStr = macro.avg_sentiment !== null
     ? `${macro.avg_sentiment >= 0 ? '+' : ''}${macro.avg_sentiment.toFixed(2)}`
@@ -264,21 +266,64 @@ export default function HomeClient({
           {themes.length === 0 ? (
             <div className={styles.empty}>No active themes — run the themes cron</div>
           ) : (
-            themes.map(t => (
-              <Link
-                key={t.id}
-                href="/dashboard/themes"
-                className={styles.themeItem}
-              >
-                <div
-                  className={styles.themeDot}
-                  style={{ background: momentumColor(t.momentum) }}
-                />
-                <div className={styles.themeName}>{t.name}</div>
-                <div className={styles.themeTf}>{t.timeframe}</div>
-                <div className={styles.themeConv}>{t.conviction ?? 0}%</div>
-              </Link>
-            ))
+            themes.map(t => {
+              const isExpanded = expandedThemeId === t.id
+              return (
+                <div key={t.id}>
+                  <div
+                    className={styles.themeItem}
+                    onClick={() => setExpandedThemeId(isExpanded ? null : t.id)}
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <div
+                      className={styles.themeDot}
+                      style={{ background: momentumColor(t.momentum) }}
+                    />
+                    <div className={styles.themeName}>{t.name}</div>
+                    <div className={styles.themeTf}>{t.timeframe}</div>
+                    <div className={styles.themeConv} style={{ color: momentumColor(t.momentum) }}>
+                      {t.conviction ?? 0}%
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--text-faint)', marginLeft: 4 }}>
+                      {isExpanded ? '▲' : '▼'}
+                    </div>
+                  </div>
+                  {isExpanded && (
+                    <div style={{
+                      padding: '8px 12px 10px 24px',
+                      borderBottom: '1px solid rgba(26,32,48,0.7)',
+                      background: 'rgba(78,255,145,0.02)',
+                    }}>
+                      {t.brief && (
+                        <p style={{
+                          fontFamily: 'var(--font-sans)',
+                          fontSize: '0.72rem',
+                          color: 'var(--text-muted)',
+                          lineHeight: 1.6,
+                          margin: '0 0 8px',
+                          fontWeight: 300,
+                        }}>
+                          {t.brief}
+                        </p>
+                      )}
+                      <Link
+                        href="/dashboard/themes"
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.62rem',
+                          color: 'var(--green)',
+                          textDecoration: 'none',
+                          letterSpacing: '0.06em',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        View full theme →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )
+            })
           )}
         </div>
 
