@@ -13,6 +13,7 @@ import {
 import WatchlistButton from '@/components/dashboard/WatchlistButton'
 import ThesisButton    from '@/components/dashboard/ThesisButton'
 import PortfolioButton from '@/components/dashboard/PortfolioButton'
+import OHLCChart       from '@/components/dashboard/OHLCChart'
 
 export const dynamic    = 'force-dynamic'
 export const revalidate = 0
@@ -73,6 +74,15 @@ type AssetRow = {
   financials_updated_at: string | null
 }
 
+type OHLCRow = {
+  date:   string
+  open:   number
+  high:   number
+  low:    number
+  close:  number
+  volume: number
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function query<T>(q: any): Promise<T | null> {
@@ -105,85 +115,6 @@ function relTime(iso: string) {
   if (hrs < 1)  return 'just now'
   if (hrs < 24) return `${hrs}h ago`
   return `${Math.floor(hrs / 24)}d ago`
-}
-
-function Sparkline({ bars }: { bars: { close: number }[] }) {
-  if (bars.length < 2) return null
-
-  const closes = bars.map(b => b.close)
-  const w = 240, h = 64, pad = 6
-
-  // Include MA values in min/max so lines stay within bounds
-  const ma = (arr: number[], period: number): (number | null)[] =>
-    arr.map((_, i) => i < period - 1
-      ? null
-      : arr.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period
-    )
-
-  const ma5Values  = ma(closes, 5)
-  const ma20Values = ma(closes, 20)
-
-  const allValues  = [
-    ...closes,
-    ...ma5Values.filter((v): v is number => v !== null),
-    ...ma20Values.filter((v): v is number => v !== null),
-  ]
-  const min   = Math.min(...allValues)
-  const max   = Math.max(...allValues)
-  const range = max - min || 1
-
-  const toX = (i: number) => pad + (i / (closes.length - 1)) * (w - 2 * pad)
-  const toY = (v: number) => pad + (1 - (v - min) / range) * (h - 2 * pad)
-
-  // Price line points
-  const pricePts = closes.map((c, i) => `${toX(i)},${toY(c)}`).join(' ')
-
-  // MA line points — only where values exist
-  const maPoints = (values: (number | null)[]) =>
-    values.reduce<string[]>((acc, v, i) => {
-      if (v !== null) acc.push(`${toX(i)},${toY(v)}`)
-      return acc
-    }, []).join(' ')
-
-  const ma5Pts  = maPoints(ma5Values)
-  const ma20Pts = maPoints(ma20Values)
-
-  const priceColor = closes[closes.length - 1] >= closes[0] ? '#4eca99' : '#e87070'
-
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
-      {/* Price line */}
-      <polyline points={pricePts} fill="none" stroke={priceColor} strokeWidth="1.5"
-        strokeLinejoin="round" strokeLinecap="round" opacity="0.9" />
-      {/* MA5 line — gold */}
-      {ma5Pts && (
-        <polyline points={ma5Pts} fill="none" stroke="#c8a96e" strokeWidth="1"
-          strokeLinejoin="round" strokeDasharray="2,2" opacity="0.7" />
-      )}
-      {/* MA20 line — blue */}
-      {ma20Pts && (
-        <polyline points={ma20Pts} fill="none" stroke="#7ab4e8" strokeWidth="1"
-          strokeLinejoin="round" strokeDasharray="4,2" opacity="0.7" />
-      )}
-    </svg>
-  )
-}
-
-function SparklineLegend() {
-  return (
-    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.3rem' }}>
-      {[
-        { color: '#4eca99', dash: false, label: 'Price' },
-        { color: '#c8a96e', dash: true,  label: 'MA5'   },
-        { color: '#7ab4e8', dash: true,  label: 'MA20'  },
-      ].map(({ color, label }) => (
-        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <div style={{ width: 16, height: 2, background: color, borderRadius: 1, opacity: 0.7 }} />
-          <span style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.3)' }}>{label}</span>
-        </div>
-      ))}
-    </div>
-  )
 }
 
 // ─── AI rationale generator ───────────────────────────────────────────────────
@@ -247,24 +178,23 @@ Be specific, factual, and use plain language that a non-professional investor ca
 // ─── Signal trigger analysis ──────────────────────────────────────────────────
 
 type TriggerInfo = {
-  nextSignal:   string
-  fGap:         number | null   // points F needs to gain
-  tGap:         number | null   // points T needs to gain
-  path:         'technical' | 'fundamental' | 'both'
-  explanation:  string[]        // plain English bullets
+  nextSignal:  string
+  fGap:        number | null
+  tGap:        number | null
+  path:        'technical' | 'fundamental' | 'both'
+  explanation: string[]
 }
 
 function analyseSignalTrigger(
-  signal:    string | null,
-  f:         number | null,
-  t:         number | null,
-  fComp:     Record<string, number> | null,
-  tComp:     Record<string, number> | null,
+  signal: string | null,
+  f:      number | null,
+  t:      number | null,
+  fComp:  Record<string, number> | null,
+  tComp:  Record<string, number> | null,
 ): TriggerInfo | null {
   if (!signal || f == null || t == null) return null
-  if (signal === 'buy') return null  // already at top
+  if (signal === 'buy') return null
 
-  // Determine next signal and what's needed
   type Threshold = { fMin: number; tMin: number; label: string }
   const targets: Threshold[] = [
     { fMin: 65, tMin: 60, label: 'buy'   },
@@ -272,16 +202,14 @@ function analyseSignalTrigger(
     { fMin: 40, tMin: 60, label: 'watch' },
   ]
 
-  // Find the nearest reachable next signal
   let nearest: { label: string; fGap: number; tGap: number } | null = null
-  for (const t_ of targets) {
-    if (t_.label === signal) continue  // skip same level
-    // Skip if target is lower than current
-    const signalOrder = ['avoid', 'hold', 'watch', 'buy']
-    if (signalOrder.indexOf(t_.label) <= signalOrder.indexOf(signal)) continue
+  const signalOrder = ['avoid', 'hold', 'watch', 'buy']
 
-    const fGap = Math.max(0, t_.fMin - f)
-    const tGap = Math.max(0, t_.tMin - t)
+  for (const t_ of targets) {
+    if (t_.label === signal) continue
+    if (signalOrder.indexOf(t_.label) <= signalOrder.indexOf(signal)) continue
+    const fGap     = Math.max(0, t_.fMin - f)
+    const tGap     = Math.max(0, t_.tMin - t)
     const totalGap = fGap + tGap
     if (!nearest || totalGap < nearest.fGap + nearest.tGap) {
       nearest = { label: t_.label, fGap, tGap }
@@ -295,42 +223,21 @@ function analyseSignalTrigger(
     : nearest.tGap > 0 ? 'technical'
     : 'fundamental'
 
-  // Build plain English explanation
   const explanation: string[] = []
 
   if (nearest.tGap > 0 && tComp) {
-    const trend   = tComp.trend        ?? 50
-    const mom     = tComp.momentum     ?? 50
-    const rs      = tComp.rel_strength ?? 50
-    const vol     = tComp.volatility   ?? 50
-
-    if (trend < 55)
-      explanation.push(`Price trending below MA5/MA20 — needs sustained move above 20-day average`)
-    if (mom < 45)
-      explanation.push(`RSI momentum weak — watch for reversal above 40 RSI`)
-    if (rs < 45)
-      explanation.push(`Underperforming SPY over 30 days — needs relative strength recovery`)
-    if (vol > 65)
-      explanation.push(`High volatility reducing score — stabdlising price action would help`)
+    if ((tComp.trend        ?? 50) < 55) explanation.push(`Price trending below MA5/MA20 — needs sustained move above 20-day average`)
+    if ((tComp.momentum     ?? 50) < 45) explanation.push(`RSI momentum weak — watch for reversal above 40 RSI`)
+    if ((tComp.rel_strength ?? 50) < 45) explanation.push(`Underperforming SPY over 30 days — needs relative strength recovery`)
+    if ((tComp.volatility   ?? 50) > 65) explanation.push(`High volatility reducing score — stabilising price action would help`)
   }
 
   if (nearest.fGap > 0 && fComp) {
-    const valuation = fComp.valuation     ?? 50
-    const analyst   = fComp.analyst ?? fComp.consensus ?? 50
-    const theme     = fComp.theme         ?? 50
-    const macro     = fComp.macro         ?? 50
-    const profit    = fComp.profitability ?? 50
-
-    if (valuation < 45)
-      explanation.push(`Valuation elevated vs sector — a price pullback or earnings beat would improve this`)
-    if (analyst < 60)
-      explanation.push(`Analyst consensus weak — watch for upgrades or price target revisions`)
-    if (theme < 50)
-      explanation.push(`Not prominently featured in active themes — new theme tailwinds would boost score`)
-    if (macro < 45)
-      explanation.push(`Macro environment unfavourable for this sector — watch Fed/inflation data`)
-    if (profit < 50)
-      explanation.push(`Profitability score low — next earnings report is a key catalyst`)
+    if ((fComp.valuation                  ?? 50) < 45) explanation.push(`Valuation elevated vs sector — a price pullback or earnings beat would improve this`)
+    if ((fComp.analyst ?? fComp.consensus ?? 50) < 60) explanation.push(`Analyst consensus weak — watch for upgrades or price target revisions`)
+    if ((fComp.theme                      ?? 50) < 50) explanation.push(`Not prominently featured in active themes — new theme tailwinds would boost score`)
+    if ((fComp.macro                      ?? 50) < 45) explanation.push(`Macro environment unfavourable for this sector — watch Fed/inflation data`)
+    if ((fComp.profitability              ?? 50) < 50) explanation.push(`Profitability score low — next earnings report is a key catalyst`)
   }
 
   if (explanation.length === 0) {
@@ -338,9 +245,9 @@ function analyseSignalTrigger(
   }
 
   return {
-    nextSignal:  nearest.label,
-    fGap:        nearest.fGap > 0 ? nearest.fGap : null,
-    tGap:        nearest.tGap > 0 ? nearest.tGap : null,
+    nextSignal: nearest.label,
+    fGap:       nearest.fGap > 0 ? nearest.fGap : null,
+    tGap:       nearest.tGap > 0 ? nearest.tGap : null,
     path,
     explanation,
   }
@@ -366,7 +273,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     userId = user?.id ?? null
   } catch { /* unauthenticated */ }
 
-  // ── Active themes (two-step to avoid nested join filter issue) ────────────
+  // ── Active themes ─────────────────────────────────────────────────────────
   const activeThemes = await query<{ id: string; name: string; timeframe: string; conviction: number | null; theme_type: string }[]>(
     db.from('themes').select('id, name, timeframe, conviction, theme_type').eq('is_active', true)
   ) ?? []
@@ -403,7 +310,10 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     ),
 
     query<AssetRow>(
-      db.from('assets').select('ticker, name, asset_type, sector, pe_ratio, pb_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin, analyst_target, analyst_rating, financials_updated_at').eq('ticker', ticker).single()
+      db.from('assets')
+        .select('ticker, name, asset_type, sector, pe_ratio, pb_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin, analyst_target, analyst_rating, financials_updated_at')
+        .eq('ticker', ticker)
+        .single()
     ),
 
     userId
@@ -423,6 +333,23 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   ])
 
   if (!assetRow && !details) return notFound()
+
+  // ── OHLC price history — separate query to avoid tuple type issues ─────────
+  const ohlcRaw = await query<OHLCRow[]>(
+    db.from('daily_prices')
+      .select('date, open, high, low, close, volume')
+      .eq('ticker', ticker)
+      .order('date', { ascending: true })
+      .limit(365)
+  )
+  const ohlcPrices = (ohlcRaw ?? []).map(p => ({
+    date:   p.date,
+    open:   Number(p.open),
+    high:   Number(p.high),
+    low:    Number(p.low),
+    close:  Number(p.close),
+    volume: Number(p.volume),
+  }))
 
   // ── Auto-sync: fetch price if signal missing ──────────────────────────────
   let signalData: SignalRow | null = signal
@@ -445,8 +372,8 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     } catch { /* sync failed silently */ }
   }
 
-  // ── FMP auto-sync: fetch financials if missing or older than 7 days ────────
-  const financialsAge = assetRow?.financials_updated_at
+  // ── FMP auto-sync ─────────────────────────────────────────────────────────
+  const financialsAge   = assetRow?.financials_updated_at
     ? (Date.now() - new Date(assetRow.financials_updated_at).getTime()) / 3_600_000
     : Infinity
   const needsFinancials = assetRow?.asset_type !== 'crypto' &&
@@ -455,12 +382,11 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
   if (needsFinancials) {
     try {
-      const base    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
+      const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
       await fetch(`${base}/api/admin/sync-fmp?tickers=${ticker}`, {
         method:  'POST',
         headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '' },
       })
-      // Re-fetch assetRow with fresh financials — reassign via mutable ref
       const freshAsset = await query<AssetRow>(
         db.from('assets')
           .select('ticker, name, asset_type, sector, pe_ratio, pb_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin, analyst_target, analyst_rating, financials_updated_at')
@@ -471,13 +397,12 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     } catch { /* FMP sync failed silently */ }
   }
 
-  // ── Rationale: generate if missing, signal changed, or older than 7 days ──
-  const rationaleAge    = signalData?.rationale_updated_at
+  // ── Rationale ─────────────────────────────────────────────────────────────
+  const rationaleAge   = signalData?.rationale_updated_at
     ? (Date.now() - new Date(signalData.rationale_updated_at).getTime()) / 3_600_000
     : Infinity
-  const signalChanged   = signalData?.signal !== signalData?.rationale_signal
-  const needsRationale  = signalData?.signal && (
-    !signalData.rationale || signalChanged || rationaleAge > 168
+  const needsRationale = signalData?.signal && (
+    !signalData.rationale || signalData.signal !== signalData.rationale_signal || rationaleAge > 168
   )
 
   if (needsRationale) {
@@ -492,11 +417,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       )
       if (rationale && signalData) {
         await (db.from('asset_signals') as any)
-          .update({
-            rationale,
-            rationale_signal:     signalData.signal,
-            rationale_updated_at: new Date().toISOString(),
-          })
+          .update({ rationale, rationale_signal: signalData.signal, rationale_updated_at: new Date().toISOString() })
           .eq('ticker', ticker)
         signalData = { ...signalData, rationale, rationale_signal: signalData.signal }
       }
@@ -517,8 +438,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   const isInPortfolio = !!portfolioRow
   const recentEvents  = events ?? []
   const changeUp      = (price?.change_pct ?? 0) >= 0
-  // Use stored sparkline from asset_signals — avoids extra Polygon call
-  const sparklineBars = (signalData?.sparkline ?? []).map(c => ({ close: c }))
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -527,7 +446,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         ← Asset Screener
       </Link>
 
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', marginBottom: '0.3rem' }}>
@@ -535,11 +454,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               {ticker}
             </h1>
             {signalData?.signal && (
-              <span style={{
-                fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
-                color: signalColor(signalData.signal), background: `${signalColor(signalData.signal)}18`,
-                padding: '0.2rem 0.55rem', borderRadius: 4,
-              }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: signalColor(signalData.signal), background: `${signalColor(signalData.signal)}18`, padding: '0.2rem 0.55rem', borderRadius: 4 }}>
                 {signalData.signal}
               </span>
             )}
@@ -551,7 +466,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             </div>
           )}
         </div>
-
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <ThesisButton ticker={ticker} />
           {userId && <PortfolioButton ticker={ticker} name={name} initialAdded={isInPortfolio} />}
@@ -559,62 +473,59 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         </div>
       </div>
 
-      {/* Price row */}
+      {/* ── Price row ── */}
       {price?.close && (
-        <div style={{
-          background: 'var(--navy2)', border: '1px solid var(--dash-border)',
-          borderRadius: 10, padding: '1.2rem 1.5rem', marginBottom: '1.5rem',
-          display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '2rem', alignItems: 'center',
-        }}>
-          <div>
-            <div style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--cream)', lineHeight: 1, fontFamily: 'monospace' }}>
-              ${price.close.toFixed(2)}
+        <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.5rem', marginBottom: '1.5rem' }}>
+
+          {/* Price + stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2rem', alignItems: 'start', marginBottom: '1.2rem' }}>
+            <div>
+              <div style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--cream)', lineHeight: 1, fontFamily: 'monospace' }}>
+                ${price.close.toFixed(2)}
+              </div>
+              <div style={{ fontSize: '0.85rem', color: changeUp ? 'var(--signal-bull)' : 'var(--signal-bear)', marginTop: '0.2rem', fontWeight: 500 }}>
+                {changeUp ? '+' : ''}{price.change?.toFixed(2)} ({changeUp ? '+' : ''}{price.change_pct?.toFixed(2)}%)
+              </div>
+              {price.date && (
+                <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.2)', marginTop: '0.2rem' }}>Prev close · {price.date}</div>
+              )}
             </div>
-            <div style={{ fontSize: '0.85rem', color: changeUp ? 'var(--signal-bull)' : 'var(--signal-bear)', marginTop: '0.2rem', fontWeight: 500 }}>
-              {changeUp ? '+' : ''}{price.change?.toFixed(2)} ({changeUp ? '+' : ''}{price.change_pct?.toFixed(2)}%)
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 1.5rem' }}>
+              {[
+                ['Open',          price.open          != null ? `$${price.open.toFixed(2)}`                : '—'],
+                ['Volume',        formatVolume(price.volume)],
+                ['Mkt Cap',       formatMarketCap((assetRow?.market_cap ?? details?.market_cap) ?? null)],
+                ['52W High',      assetRow?.week_52_high   != null ? `$${assetRow.week_52_high.toFixed(2)}`  : '—'],
+                ['52W Low',       assetRow?.week_52_low    != null ? `$${assetRow.week_52_low.toFixed(2)}`   : '—'],
+                ['P/E (TTM)',     assetRow?.pe_ratio       != null ? assetRow.pe_ratio.toFixed(1)             : '—'],
+                ['EPS',           assetRow?.eps            != null ? `$${assetRow.eps.toFixed(2)}`            : '—'],
+                ['P/B Ratio',     assetRow?.pb_ratio       != null ? assetRow.pb_ratio.toFixed(2)             : '—'],
+                ['Beta',          assetRow?.beta           != null ? assetRow.beta.toFixed(2)                 : '—'],
+                ['Div Yield',     assetRow?.dividend_yield != null ? `${assetRow.dividend_yield.toFixed(2)}%` : '—'],
+                ['Revenue',       assetRow?.revenue        != null ? formatMarketCap(assetRow.revenue)        : '—'],
+                ['Profit Margin', assetRow?.profit_margin  != null ? `${assetRow.profit_margin.toFixed(1)}%`  : '—'],
+                ['Target Price',  assetRow?.analyst_target != null ? `$${assetRow.analyst_target.toFixed(2)}` : '—'],
+                ['Analyst',       assetRow?.analyst_rating ?? '—'],
+              ].filter(([, val]) => val !== '—').slice(0, 10).map(([label, val]) => (
+                <div key={label as string}>
+                  <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--cream)', fontFamily: 'monospace' }}>{val}</div>
+                </div>
+              ))}
             </div>
-            {price.date && (
-              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.2)', marginTop: '0.2rem' }}>Prev close · {price.date}</div>
-            )}
           </div>
 
-          {sparklineBars.length > 2 && (
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Sparkline bars={sparklineBars} />
-                <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.2)', marginLeft: '0.5rem' }}>30d</span>
-              </div>
-              <SparklineLegend />
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 1.5rem' }}>
-            {[
-              ['Open',         price.open       != null ? `$${price.open.toFixed(2)}`        : '—'],
-              ['Volume',       formatVolume(price.volume)],
-              ['Mkt Cap',      formatMarketCap((assetRow?.market_cap ?? details?.market_cap) ?? null)],
-              ['52W High',     assetRow?.week_52_high  != null ? `$${assetRow.week_52_high.toFixed(2)}`  : '—'],
-              ['52W Low',      assetRow?.week_52_low   != null ? `$${assetRow.week_52_low.toFixed(2)}`   : '—'],
-              ['P/E (TTM)',    assetRow?.pe_ratio      != null ? assetRow.pe_ratio.toFixed(1)             : '—'],
-              ['EPS',          assetRow?.eps           != null ? `$${assetRow.eps.toFixed(2)}`            : '—'],
-              ['P/B Ratio',    assetRow?.pb_ratio       != null ? assetRow.pb_ratio.toFixed(2)             : '—'],
-              ['Beta',         assetRow?.beta           != null ? assetRow.beta.toFixed(2)                : '—'],
-              ['Div Yield',    assetRow?.dividend_yield != null ? `${assetRow.dividend_yield.toFixed(2)}%`  : '—'],
-              ['Revenue',      assetRow?.revenue        != null ? formatMarketCap(assetRow.revenue)        : '—'],
-              ['Profit Margin',assetRow?.profit_margin  != null ? `${assetRow.profit_margin.toFixed(1)}%`  : '—'],
-              ['Target Price', assetRow?.analyst_target != null ? `$${assetRow.analyst_target.toFixed(2)}` : '—'],
-              ['Analyst',      assetRow?.analyst_rating != null ? assetRow.analyst_rating                  : '—'],
-            ].filter(([, val]) => val !== '—').slice(0, 10).map(([label, val]) => (
-              <div key={label as string}>
-                <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--cream)', fontFamily: 'monospace' }}>{val}</div>
-              </div>
-            ))}
+          {/* ── OHLC Chart — replaces sparkline ── */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
+            <OHLCChart prices={ohlcPrices} ticker={ticker} />
           </div>
         </div>
       )}
 
+      {/* ── Two-column content ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
@@ -635,6 +546,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
           {signalData?.signal && (
             <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
+
               {/* Score bars */}
               {(signalData.fundamental_score != null || signalData.technical_score != null) && (
                 <div style={{ marginBottom: '0.9rem' }}>
@@ -655,45 +567,26 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                       </div>
                     ))}
                   </div>
-                  {/* Component breakdown */}
+
                   {signalData.f_components && (
                     <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                       {Object.entries(signalData.f_components).map(([k, v]) => {
-                        const fLabels: Record<string, string> = {
-                          valuation:     'Valuation',
-                          profitability: 'Profitability',
-                          analyst:       'Consensus',
-                          consensus:     'Consensus',
-                          theme:         'Theme',
-                          macro:         'Macro',
-                        }
+                        const fLabels: Record<string, string> = { valuation: 'Valuation', profitability: 'Profitability', analyst: 'Consensus', consensus: 'Consensus', theme: 'Theme', macro: 'Macro' }
                         return (
-                          <span key={k} style={{
-                            fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3,
-                            background: 'rgba(122,180,232,0.08)', color: 'rgba(122,180,232,0.6)',
-                            border: '1px solid rgba(122,180,232,0.15)',
-                          }}>
+                          <span key={k} style={{ fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3, background: 'rgba(122,180,232,0.08)', color: 'rgba(122,180,232,0.6)', border: '1px solid rgba(122,180,232,0.15)' }}>
                             {fLabels[k] ?? k}: {Math.round(v as number)}
                           </span>
                         )
                       })}
                     </div>
                   )}
+
                   {signalData.t_components && (
                     <div style={{ marginTop: '0.3rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                       {Object.entries(signalData.t_components).map(([k, v]) => {
-                        const tLabels: Record<string, string> = {
-                          trend:        'Trend',
-                          momentum:     'Momentum',
-                          rel_strength: 'Rel Strength',
-                          volatility:   'Volatility',
-                        }
+                        const tLabels: Record<string, string> = { trend: 'Trend', momentum: 'Momentum', rel_strength: 'Rel Strength', volatility: 'Volatility' }
                         return (
-                          <span key={k} style={{
-                            fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3,
-                            background: 'rgba(78,202,153,0.08)', color: 'rgba(78,202,153,0.6)',
-                            border: '1px solid rgba(78,202,153,0.15)',
-                          }}>
+                          <span key={k} style={{ fontSize: '0.6rem', padding: '0.15rem 0.4rem', borderRadius: 3, background: 'rgba(78,202,153,0.08)', color: 'rgba(78,202,153,0.6)', border: '1px solid rgba(78,202,153,0.15)' }}>
                             {tLabels[k] ?? k.replace('_', ' ')}: {Math.round(v as number)}
                           </span>
                         )
@@ -703,7 +596,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                 </div>
               )}
 
-              {/* Signal trigger */}
+              {/* Signal trigger — upgrade path */}
               {(() => {
                 const trigger = analyseSignalTrigger(
                   signalData.signal,
@@ -713,78 +606,16 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                   signalData.t_components      as Record<string, number> | null,
                 )
                 if (!trigger) return null
-                const nextColor = ({ buy: '#4eca99', watch: '#e09845', hold: 'rgba(232,226,217,0.4)', avoid: '#e87070' } as Record<string,string>)[trigger.nextSignal] ?? 'var(--gold)'
+                const signalColors: Record<string, string> = { buy: '#4eca99', watch: '#e0c97a', hold: 'rgba(232,226,217,0.4)', avoid: '#e87070' }
+                const nextColor = signalColors[trigger.nextSignal] ?? 'var(--gold)'
                 return (
-                  <div style={{
-                    margin: '0.9rem 0', padding: '0.8rem 1rem',
-                    background: `${nextColor}08`,
-                    border: `1px solid ${nextColor}22`,
-                    borderRadius: 7,
-                  }}>
+                  <div style={{ marginBottom: '0.9rem', padding: '0.7rem 0.85rem', background: `${nextColor}08`, borderRadius: 7, border: `1px solid ${nextColor}22` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                        Upgrade path →
-                      </span>
-                      <span style={{
-                        fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
-                        color: nextColor, background: `${nextColor}18`,
-                        padding: '0.1rem 0.45rem', borderRadius: 3, letterSpacing: '0.06em',
-                      }}>
-                        {trigger.nextSignal}
-                      </span>
-                      <div style={{ flex: 1 }} />
-                      {trigger.fGap != null && (
-                        <span style={{ fontSize: '0.62rem', color: 'rgba(122,180,232,0.6)', fontFamily: 'monospace' }}>
-                          F +{trigger.fGap}
-                        </span>
-                      )}
-                      {trigger.tGap != null && (
-                        <span style={{ fontSize: '0.62rem', color: 'rgba(78,202,153,0.6)', fontFamily: 'monospace' }}>
-                          T +{trigger.tGap}
-                        </span>
-                      )}
-                    </div>
-                    <ul style={{ margin: 0, padding: '0 0 0 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      {trigger.explanation.map((e, i) => (
-                        <li key={i} style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.45)', lineHeight: 1.5 }}>
-                          {e}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )
-              })()}
-
-              {/* Signal trigger */}
-              {(() => {
-                const trigger = analyseSignalTrigger(
-                  signalData.signal,
-                  signalData.fundamental_score ?? null,
-                  signalData.technical_score   ?? null,
-                  signalData.f_components      as any,
-                  signalData.t_components      as any,
-                )
-                if (!trigger) return null
-                const signalColors: Record<string, string> = {
-                  buy: '#4eca99', watch: '#e0c97a', hold: 'rgba(232,226,217,0.4)', avoid: '#e87070'
-                }
-                return (
-                  <div style={{ marginBottom: '0.9rem', padding: '0.7rem 0.85rem', background: 'rgba(255,255,255,0.03)', borderRadius: 7, border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        Path to
-                      </span>
-                      <span style={{
-                        fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
-                        letterSpacing: '0.08em', padding: '0.1rem 0.45rem', borderRadius: 3,
-                        color: signalColors[trigger.nextSignal],
-                        background: `${signalColors[trigger.nextSignal]}18`,
-                        border: `1px solid ${signalColors[trigger.nextSignal]}33`,
-                      }}>
+                      <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Path to</span>
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0.1rem 0.45rem', borderRadius: 3, color: nextColor, background: `${nextColor}18`, border: `1px solid ${nextColor}33` }}>
                         {trigger.nextSignal}
                       </span>
                     </div>
-                    {/* Gap indicators */}
                     <div style={{ display: 'flex', gap: '0.5rem', marginBottom: trigger.explanation.length > 0 ? '0.6rem' : 0 }}>
                       {trigger.fGap != null && (
                         <div style={{ fontSize: '0.68rem', color: 'rgba(122,180,232,0.7)', background: 'rgba(122,180,232,0.08)', padding: '0.2rem 0.5rem', borderRadius: 4, border: '1px solid rgba(122,180,232,0.15)' }}>
@@ -797,12 +628,9 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                         </div>
                       )}
                       {trigger.fGap == null && trigger.tGap == null && (
-                        <div style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.3)' }}>
-                          Signal upgrade pending next price sync
-                        </div>
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.3)' }}>Signal upgrade pending next price sync</div>
                       )}
                     </div>
-                    {/* Plain English explanations */}
                     {trigger.explanation.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                         {trigger.explanation.map((e, i) => (
@@ -820,9 +648,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               {/* Rationale */}
               {signalData.rationale && (
                 <>
-                  <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-                    Signal Rationale
-                  </div>
+                  <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Signal Rationale</div>
                   <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>
                     {signalData.rationale}
                   </p>
@@ -847,11 +673,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {themes.map(row => (
-                  <div key={row.theme_id} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '0.55rem 0.75rem', background: 'rgba(255,255,255,0.025)',
-                    borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)',
-                  }}>
+                  <div key={row.theme_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.55rem 0.75rem', background: 'rgba(255,255,255,0.025)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)' }}>
                     <div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--cream)', fontWeight: 500 }}>{row.name}</div>
                       <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.25)', marginTop: '0.1rem' }}>
