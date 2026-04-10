@@ -215,16 +215,32 @@ function extractAtomLink(entry: string): string {
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
 /** Strip HTML tags and decode common entities */
+/** Strip HTML tags and decode common HTML/XML entities */
 function stripHtml(html: string): string {
   return html
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g,  '&')
-    .replace(/&lt;/g,   '<')
-    .replace(/&gt;/g,   '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g,  "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/<[^>]+>/g,    ' ')
+    .replace(/&amp;/g,      '&')
+    .replace(/&lt;/g,       '<')
+    .replace(/&gt;/g,       '>')
+    .replace(/&quot;/g,     '"')
+    .replace(/&apos;/g,     "'")   // XML entity — RSS feeds use this
+    .replace(/&#39;/g,      "'")   // decimal apostrophe
+    .replace(/&#x27;/g,     "'")   // hex apostrophe
+    .replace(/&#8216;/g,    '\u2018') // left single quote
+    .replace(/&#8217;/g,    '\u2019') // right single quote / curly apostrophe
+    .replace(/&#8220;/g,    '\u201C') // left double quote
+    .replace(/&#8221;/g,    '\u201D') // right double quote
+    .replace(/&#8211;/g,    '\u2013') // en dash
+    .replace(/&#8212;/g,    '\u2014') // em dash
+    .replace(/&#160;/g,     ' ')   // non-breaking space (decimal)
+    .replace(/&nbsp;/g,     ' ')   // non-breaking space (named)
+    .replace(/&#x[0-9a-fA-F]+;/g, c => {
+      try { return String.fromCodePoint(parseInt(c.slice(3, -1), 16)) } catch { return '' }
+    })
+    .replace(/&#[0-9]+;/g, c => {
+      try { return String.fromCodePoint(parseInt(c.slice(2, -1), 10)) } catch { return '' }
+    })
+    .replace(/\s{2,}/g,    ' ')
     .trim()
 }
 
