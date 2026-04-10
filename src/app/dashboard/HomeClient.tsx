@@ -68,7 +68,7 @@ function buildActions(
       num: '01',
       title: `Review: ${themes[0].name}`,
       sub: `${themes[0].conviction ?? 0}% conviction · ${themes[0].timeframe} horizon`,
-      href: '/dashboard/discover',
+      href: '/dashboard/themes',
     })
   }
 
@@ -77,21 +77,21 @@ function buildActions(
       num: '02',
       title: 'Find safe-haven assets',
       sub: `Regime is risk-off — defensive positioning recommended`,
-      href: '/dashboard/discover',
+      href: '/dashboard/assets',
     })
   } else if (regime?.risk_bias === 'risk-on') {
     actions.push({
       num: '02',
       title: 'Explore growth opportunities',
       sub: `Regime is risk-on — consider adding growth exposure`,
-      href: '/dashboard/discover',
+      href: '/dashboard/assets',
     })
   } else {
     actions.push({
       num: '02',
       title: 'Screen regime-aligned assets',
       sub: 'Find assets that match the current market environment',
-      href: '/dashboard/discover',
+      href: '/dashboard/assets',
     })
   }
 
@@ -259,7 +259,7 @@ export default function HomeClient({
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <span className={styles.panelTitle}>Top themes</span>
-            <Link href="/dashboard/discover" className={styles.panelLink}>All →</Link>
+            <Link href="/dashboard/themes" className={styles.panelLink}>All →</Link>
           </div>
           {themes.length === 0 ? (
             <div className={styles.empty}>No active themes — run the themes cron</div>
@@ -267,7 +267,7 @@ export default function HomeClient({
             themes.map(t => (
               <Link
                 key={t.id}
-                href="/dashboard/discover"
+                href="/dashboard/themes"
                 className={styles.themeItem}
               >
                 <div
