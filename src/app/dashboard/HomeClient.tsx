@@ -163,7 +163,7 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
           </div>
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
             {detail.tickers.map(t => (
-              <div key={t.ticker} style={{ border: "1px solid var(--border-default)", padding: "6px 9px", background: "var(--bg-base)", minWidth: 80 }}>
+              <Link key={t.ticker} href={`/dashboard/tickers/${t.ticker}`} style={{ border: "1px solid var(--border-default)", padding: "6px 9px", background: "var(--bg-base)", minWidth: 80, display: "block", textDecoration: "none" }} onClick={e => e.stopPropagation()}>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--green)", letterSpacing: "0.05em" }}>{t.ticker}</div>
                 {t.asset_type && (
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>{t.asset_type}</div>
@@ -186,7 +186,7 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
                     {t.signal}
                   </div>
                 )}
-              </div>
+              </Link>
             ))}
           </div>
         </>

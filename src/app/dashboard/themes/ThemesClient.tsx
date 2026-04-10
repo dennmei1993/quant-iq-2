@@ -129,7 +129,7 @@ function AssetPipeline({ tickers, signalMap }: { tickers: TickerWeight[]; signal
         const sig = signalMap[tw.ticker]
         const wt  = tw.final_weight != null ? Math.round(tw.final_weight) : null
         return (
-          <div key={tw.ticker} className={styles.assetPill}>
+          <Link key={tw.ticker} href={`/dashboard/tickers/${tw.ticker}`} className={styles.assetPill} style={{ textDecoration: 'none', display: 'block' }} onClick={e => e.stopPropagation()}>
             <div className={styles.assetPillTicker}>{tw.ticker}</div>
             {tw.asset_type && (
               <div className={styles.assetPillType}>{tw.asset_type}</div>
@@ -140,7 +140,7 @@ function AssetPipeline({ tickers, signalMap }: { tickers: TickerWeight[]; signal
             {sig && (
               <span className={signalClass(sig.signal)}>{signalLabel(sig.signal)}</span>
             )}
-          </div>
+          </Link>
         )
       })}
     </div>
