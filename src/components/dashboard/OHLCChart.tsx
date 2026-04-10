@@ -98,9 +98,9 @@ function makeCandlestickPlugin(slice: PriceBar[], bull: string, bear: string) {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 const PERIODS = [
-  { label: '30D', days: 30 },
-  { label: '90D', days: 90 },
-  { label: '1Y',  days: 365 },
+  { label: '1M', days: 30 },
+  { label: '3M', days: 90 },
+  { label: '1Y', days: 365 },
 ]
 
 export default function OHLCChart({ prices, ticker }: Props) {
@@ -301,7 +301,8 @@ export default function OHLCChart({ prices, ticker }: Props) {
     )
   }
 
-  const slice  = prices.slice(-period)
+  // Slice from latest date backwards — works correctly even if data is not current
+  const slice  = prices.length > 0 ? prices.slice(-Math.min(period, prices.length)) : []
   const last   = slice[slice.length - 1]
   const prev   = slice[slice.length - 2]
   const chgPct = last && prev ? ((last.close - prev.close) / prev.close * 100) : 0
@@ -321,6 +322,11 @@ export default function OHLCChart({ prices, ticker }: Props) {
             <span style={{ color: isUp ? '#26a69a' : '#ef5350', marginLeft: 6 }}>
               {isUp ? '+' : ''}{chgPct.toFixed(2)}%
             </span>
+          </span>
+        )}
+        {slice.length > 0 && (
+          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.62rem', color: 'var(--text-faint)' }}>
+            {slice[0].date} – {slice[slice.length - 1].date}
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
