@@ -713,10 +713,9 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </details>
+      )}
     </div>
   )
 }
