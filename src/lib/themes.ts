@@ -78,7 +78,7 @@ export async function fetchThemeDetail(id: string): Promise<{
     db.from('themes')
       .select('id, name, label, timeframe, conviction, momentum, brief, anchor_reason, anchored_since, expires_at, theme_type')
       .eq('id', id)
-      .single(),
+      .maybeSingle(),  // maybeSingle returns null instead of throwing on no rows
     db.from('theme_tickers')
       .select('ticker, final_weight, relevance, rationale, assets!inner(asset_type)')
       .eq('theme_id', id)
@@ -93,23 +93,53 @@ export async function fetchThemeDetail(id: string): Promise<{
     coerceTicker(r, r.assets)
   )
 
-  // Fetch signals
+  // Fetch signals + latest daily price as fallback for tickers missing from asset_signals
   const symbols = ticker_weights.map(t => t.ticker)
-  const signalRows = symbols.length > 0
-    ? await q<{ ticker: string; signal: string | null; score: number | null; price_usd: number | null; change_pct: number | null }[]>(
-        db.from('asset_signals')
-          .select('ticker, signal, score, price_usd, change_pct')
-          .in('ticker', symbols)
-      ) ?? []
-    : []
+
+  const [signalRows, latestPrices] = symbols.length > 0
+    ? await Promise.all([
+        q<{ ticker: string; signal: string | null; score: number | null; price_usd: number | null; change_pct: number | null }[]>(
+          db.from('asset_signals')
+            .select('ticker, signal, score, price_usd, change_pct')
+            .in('ticker', symbols)
+        ),
+        // Fetch latest close price per ticker using a raw RPC or subquery approach
+        // We fetch one row per ticker by using a separate query per ticker in parallel
+        Promise.all(
+          symbols.map(ticker =>
+            db.from('daily_prices')
+              .select('ticker, close, date')
+              .eq('ticker', ticker)
+              .order('date', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+              .then(r => r.data)
+          )
+        ),
+      ])
+    : [[], []]
+
+  // Build price map from daily_prices — one row per ticker guaranteed
+  const priceMap = new Map<string, number>()
+  for (const row of (latestPrices ?? [])) {
+    if (row?.ticker && row?.close != null) priceMap.set(row.ticker, row.close)
+  }
+
+  // Build signal map — use asset_signals price if available, daily_prices as fallback
+  const signalByTicker = new Map(
+    (signalRows ?? []).map(s => [s.ticker, s])
+  )
 
   const signalMap: SignalMap = Object.fromEntries(
-    signalRows.map(s => [s.ticker, {
-      signal:     s.signal,
-      score:      s.score,
-      price_usd:  s.price_usd,
-      change_pct: s.change_pct,
-    }])
+    symbols.map(ticker => {
+      const sig = signalByTicker.get(ticker)
+      return [ticker, {
+        signal:     sig?.signal     ?? null,
+        score:      sig?.score      ?? null,
+        price_usd:  sig?.price_usd  ?? priceMap.get(ticker) ?? null,
+        change_pct: sig?.change_pct ?? null,
+      }]
+    })
   )
 
   return {
