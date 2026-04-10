@@ -446,10 +446,10 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         ← Asset Screener
       </Link>
 
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* ── Header: ticker + name + signal + action buttons ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', marginBottom: '0.3rem' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', marginBottom: '0.25rem' }}>
             <h1 style={{ color: 'var(--cream)', fontFamily: 'monospace', fontSize: '2rem', fontWeight: 700, margin: 0 }}>
               {ticker}
             </h1>
@@ -458,14 +458,45 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                 {signalData.signal}
               </span>
             )}
+            {price?.close && (
+              <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--cream)', fontFamily: 'monospace' }}>
+                ${price.close.toFixed(2)}
+              </span>
+            )}
+            {price?.change_pct != null && (
+              <span style={{ fontSize: '0.85rem', color: changeUp ? 'var(--signal-bull)' : 'var(--signal-bear)', fontWeight: 500 }}>
+                {changeUp ? '+' : ''}{price.change_pct.toFixed(2)}%
+              </span>
+            )}
           </div>
           <div style={{ color: 'rgba(232,226,217,0.45)', fontSize: '0.9rem' }}>{name}</div>
           {(details?.sector || assetRow?.sector) && (
-            <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.25)', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.25)', marginTop: '0.15rem' }}>
               {details?.sector ?? assetRow?.sector} · {details?.exchange ?? assetRow?.asset_type}
             </div>
           )}
+
+          {/* ── Key financials inline under ticker ── */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.2rem', marginTop: '0.6rem' }}>
+            {[
+              ['Vol',       formatVolume(price?.volume)],
+              ['Mkt Cap',  formatMarketCap((assetRow?.market_cap ?? details?.market_cap) ?? null)],
+              ['52W H',    assetRow?.week_52_high  != null ? `$${assetRow.week_52_high.toFixed(2)}`  : null],
+              ['52W L',    assetRow?.week_52_low   != null ? `$${assetRow.week_52_low.toFixed(2)}`   : null],
+              ['P/E',      assetRow?.pe_ratio      != null ? assetRow.pe_ratio.toFixed(1)             : null],
+              ['EPS',      assetRow?.eps           != null ? `$${assetRow.eps.toFixed(2)}`            : null],
+              ['Beta',     assetRow?.beta          != null ? assetRow.beta.toFixed(2)                 : null],
+              ['Div',      assetRow?.dividend_yield != null ? `${assetRow.dividend_yield.toFixed(2)}%` : null],
+              ['Target',   assetRow?.analyst_target != null ? `$${assetRow.analyst_target.toFixed(2)}` : null],
+              ['Rating',   assetRow?.analyst_rating ?? null],
+            ].filter(([, v]) => v && v !== '—').map(([label, val]) => (
+              <span key={label as string} style={{ fontSize: '0.7rem', color: 'rgba(232,226,217,0.55)', fontFamily: 'monospace' }}>
+                <span style={{ color: 'rgba(232,226,217,0.28)', marginRight: 3 }}>{label}</span>{val}
+              </span>
+            ))}
+          </div>
         </div>
+
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <ThesisButton ticker={ticker} />
           {userId && <PortfolioButton ticker={ticker} name={name} initialAdded={isInPortfolio} />}
@@ -473,81 +504,46 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         </div>
       </div>
 
-      {/* ── Price row ── */}
-      {price?.close && (
-        <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.5rem', marginBottom: '1.5rem' }}>
-
-          {/* Price + stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2rem', alignItems: 'start', marginBottom: '1.2rem' }}>
-            <div>
-              <div style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--cream)', lineHeight: 1, fontFamily: 'monospace' }}>
-                ${price.close.toFixed(2)}
-              </div>
-              <div style={{ fontSize: '0.85rem', color: changeUp ? 'var(--signal-bull)' : 'var(--signal-bear)', marginTop: '0.2rem', fontWeight: 500 }}>
-                {changeUp ? '+' : ''}{price.change?.toFixed(2)} ({changeUp ? '+' : ''}{price.change_pct?.toFixed(2)}%)
-              </div>
-              {price.date && (
-                <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.2)', marginTop: '0.2rem' }}>Prev close · {price.date}</div>
-              )}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 1.5rem' }}>
-              {[
-                ['Open',          price.open          != null ? `$${price.open.toFixed(2)}`                : '—'],
-                ['Volume',        formatVolume(price.volume)],
-                ['Mkt Cap',       formatMarketCap((assetRow?.market_cap ?? details?.market_cap) ?? null)],
-                ['52W High',      assetRow?.week_52_high   != null ? `$${assetRow.week_52_high.toFixed(2)}`  : '—'],
-                ['52W Low',       assetRow?.week_52_low    != null ? `$${assetRow.week_52_low.toFixed(2)}`   : '—'],
-                ['P/E (TTM)',     assetRow?.pe_ratio       != null ? assetRow.pe_ratio.toFixed(1)             : '—'],
-                ['EPS',           assetRow?.eps            != null ? `$${assetRow.eps.toFixed(2)}`            : '—'],
-                ['P/B Ratio',     assetRow?.pb_ratio       != null ? assetRow.pb_ratio.toFixed(2)             : '—'],
-                ['Beta',          assetRow?.beta           != null ? assetRow.beta.toFixed(2)                 : '—'],
-                ['Div Yield',     assetRow?.dividend_yield != null ? `${assetRow.dividend_yield.toFixed(2)}%` : '—'],
-                ['Revenue',       assetRow?.revenue        != null ? formatMarketCap(assetRow.revenue)        : '—'],
-                ['Profit Margin', assetRow?.profit_margin  != null ? `${assetRow.profit_margin.toFixed(1)}%`  : '—'],
-                ['Target Price',  assetRow?.analyst_target != null ? `$${assetRow.analyst_target.toFixed(2)}` : '—'],
-                ['Analyst',       assetRow?.analyst_rating ?? '—'],
-              ].filter(([, val]) => val !== '—').slice(0, 10).map(([label, val]) => (
-                <div key={label as string}>
-                  <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.22)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--cream)', fontFamily: 'monospace' }}>{val}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── OHLC Chart — replaces sparkline ── */}
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
-            <OHLCChart prices={ohlcPrices} ticker={ticker} />
-          </div>
+      {/* ── Chart — inline, collapsible ── */}
+      <details open style={{ marginBottom: '1rem' }}>
+        <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+          <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Price Chart
+        </summary>
+        <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '0.5rem' }}>
+          <OHLCChart prices={ohlcPrices} ticker={ticker} />
         </div>
-      )}
+      </details>
 
-      {/* ── Two-column content ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-
-        {/* Left column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-
-          {details?.description && (
-            <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
-              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>About</div>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.7, margin: 0 }}>
+      {/* ── About — inline, collapsible ── */}
+      {(details?.description || assetRow) && (
+        <details style={{ marginBottom: '1rem' }}>
+          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> About
+          </summary>
+          <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '0.5rem' }}>
+            {details?.description && (
+              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.7, margin: '0 0 0.6rem' }}>
                 {details.description.slice(0, 500)}{details.description.length > 500 ? '…' : ''}
               </p>
-              {details.homepage && (
-                <a href={details.homepage} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: '0.72rem', color: 'var(--gold)', opacity: 0.6, display: 'inline-block', marginTop: '0.6rem' }}>
-                  {details.homepage.replace(/^https?:\/\//, '')} ↗
-                </a>
-              )}
-            </div>
-          )}
+            )}
+            {details?.homepage && (
+              <a href={details.homepage} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: '0.72rem', color: 'var(--gold)', opacity: 0.6, display: 'inline-block' }}>
+                {details.homepage.replace(/^https?:\/\//, '')} ↗
+              </a>
+            )}
+          </div>
+        </details>
+      )}
 
+      {/* ── Two-column: signal analysis + themes/events ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+
+        {/* Left: signal analysis */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {signalData?.signal && (
             <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
 
-              {/* Score bars */}
               {(signalData.fundamental_score != null || signalData.technical_score != null) && (
                 <div style={{ marginBottom: '0.9rem' }}>
                   <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>Signal Scores</div>
@@ -567,7 +563,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                       </div>
                     ))}
                   </div>
-
                   {signalData.f_components && (
                     <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                       {Object.entries(signalData.f_components).map(([k, v]) => {
@@ -580,7 +575,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                       })}
                     </div>
                   )}
-
                   {signalData.t_components && (
                     <div style={{ marginTop: '0.3rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                       {Object.entries(signalData.t_components).map(([k, v]) => {
@@ -596,7 +590,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                 </div>
               )}
 
-              {/* Signal trigger — upgrade path */}
               {(() => {
                 const trigger = analyseSignalTrigger(
                   signalData.signal,
@@ -645,7 +638,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                 )
               })()}
 
-              {/* Rationale */}
               {signalData.rationale && (
                 <>
                   <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Signal Rationale</div>
@@ -663,9 +655,8 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
           )}
         </div>
 
-        {/* Right column */}
+        {/* Right: themes + events */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-
           {themes.length > 0 && (
             <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem' }}>
               <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
@@ -712,7 +703,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>
