@@ -93,44 +93,48 @@ export async function fetchThemeDetail(id: string): Promise<{
     coerceTicker(r, r.assets)
   )
 
-  // Fetch signals + latest daily price as fallback for tickers missing from asset_signals
   const symbols = ticker_weights.map(t => t.ticker)
 
-  const [signalRows, latestPrices] = symbols.length > 0
-    ? await Promise.all([
-        q<{ ticker: string; signal: string | null; score: number | null; price_usd: number | null; change_pct: number | null }[]>(
-          db.from('asset_signals')
-            .select('ticker, signal, score, price_usd, change_pct')
-            .in('ticker', symbols)
-        ),
-        // Fetch latest close price per ticker using a raw RPC or subquery approach
-        // We fetch one row per ticker by using a separate query per ticker in parallel
-        Promise.all(
-          symbols.map(ticker =>
-            db.from('daily_prices')
-              .select('ticker, close, date')
-              .eq('ticker', ticker)
-              .order('date', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-              .then(r => r.data)
-          )
-        ),
-      ])
-    : [[], []]
-
-  // Build price map from daily_prices — one row per ticker guaranteed
-  const priceMap = new Map<string, number>()
-  for (const row of (latestPrices ?? [])) {
-    if (row?.ticker && row?.close != null) priceMap.set(row.ticker.toUpperCase(), row.close)
+  if (symbols.length === 0) {
+    return { theme: { ...themeRes.data, ticker_weights }, signalMap: {} }
   }
 
-  // Build signal map — use asset_signals price if available, daily_prices as fallback
-  // Normalise ticker case for reliable lookups
-  const signalByTicker = new Map(
-    (signalRows ?? []).map(s => [s.ticker.toUpperCase(), s])
+  // Step 1: fetch asset_signals
+  const signalResult = await q<{ ticker: string; signal: string | null; score: number | null; price_usd: number | null; change_pct: number | null }[]>(
+    db.from('asset_signals')
+      .select('ticker, signal, score, price_usd, change_pct')
+      .in('ticker', symbols)
   )
+  const signalRows = signalResult ?? []
+  const signalByTicker = new Map(signalRows.map(s => [s.ticker.toUpperCase(), s]))
 
+  // Step 2: for each symbol missing price in asset_signals, fetch from daily_prices
+  const missingPrice = symbols.filter(t => {
+    const sig = signalByTicker.get(t.toUpperCase())
+    return !sig || sig.price_usd == null
+  })
+
+  const priceMap = new Map<string, number>()
+  if (missingPrice.length > 0) {
+    const priceResults = await Promise.all(
+      missingPrice.map(ticker =>
+        db.from('daily_prices')
+          .select('ticker, close')
+          .eq('ticker', ticker)
+          .order('date', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          .then(r => r.data)
+      )
+    )
+    for (const row of priceResults) {
+      if (row?.ticker && row.close != null) {
+        priceMap.set(row.ticker.toUpperCase(), Number(row.close))
+      }
+    }
+  }
+
+  // Step 3: build signalMap with daily_prices fallback for price
   const signalMap: SignalMap = Object.fromEntries(
     symbols.map(ticker => {
       const key = ticker.toUpperCase()
