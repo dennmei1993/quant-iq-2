@@ -1,7 +1,7 @@
 'use client'
 // src/app/dashboard/HomeClient.tsx
 // Client component — handles expand/collapse, hover states, navigation
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import type {
   Regime, MacroSnapshot, HomeTheme,
@@ -53,6 +53,138 @@ function fmt(n: number, prefix = ''): string {
 function fmtCurrency(n: number | null): string {
   if (n === null) return '—'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+}
+
+
+// ── Theme detail types ────────────────────────────────────────────────────────
+
+interface ThemeDetailTicker {
+  ticker:       string
+  name:         string
+  asset_type:   string | null
+  final_weight: number
+  signal:       string | null
+  score:        number | null
+  price_usd:    number | null
+  change_pct:   number | null
+  rationale:    string | null
+}
+
+interface ThemeDetail {
+  theme:   any
+  tickers: ThemeDetailTicker[]
+}
+
+// ── Inline theme detail panel ─────────────────────────────────────────────────
+
+function ThemeDetailPanel({ themeId }: { themeId: string }) {
+  const [detail, setDetail] = useState<ThemeDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]   = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    fetch(`/api/themes/${themeId}`)
+      .then(r => r.json())
+      .then(d => { setDetail(d); setLoading(false) })
+      .catch(() => { setError('Failed to load'); setLoading(false) })
+  }, [themeId])
+
+  const MOMENTUM_LABEL: Record<string, string> = {
+    strong_up: '\u21911 Strong', moderate_up: '\u2191 Moderate',
+    neutral: '\u2192 Neutral', moderate_down: '\u2193 Moderate', strong_down: '\u21932 Strong',
+  }
+  const MOMENTUM_COLOR: Record<string, string> = {
+    strong_up: '#4eff91', moderate_up: '#7affb0',
+    neutral: '#e09845', moderate_down: '#ff8a9a', strong_down: '#ff4e6a',
+  }
+
+  function sigColor(s: string | null) {
+    return s === 'buy' ? '#4eff91' : s === 'avoid' ? '#ff4e6a' : s === 'watch' ? '#e09845' : '#2a3a50'
+  }
+  function sigBorder(s: string | null) {
+    return s === 'buy' ? 'rgba(78,255,145,0.3)' : s === 'avoid' ? 'rgba(255,78,106,0.3)' : s === 'watch' ? 'rgba(224,152,69,0.3)' : '#1a2030'
+  }
+
+  if (loading) return (
+    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-faint)", padding: "8px 12px" }}>
+      Loading...
+    </div>
+  )
+  if (error || !detail) return (
+    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--red)", padding: "8px 12px" }}>
+      {error ?? "No data"}
+    </div>
+  )
+
+  const mColor = MOMENTUM_COLOR[detail.theme.momentum ?? "neutral"] ?? "#e09845"
+
+  return (
+    <div style={{ padding: "10px 12px 12px" }}>
+      {detail.theme.brief && (
+        <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.74rem", color: "var(--text-muted)", lineHeight: 1.65, margin: "0 0 10px", fontWeight: 300 }}>
+          {detail.theme.brief}
+        </p>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+        {detail.theme.momentum && (
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: mColor, letterSpacing: "0.04em" }}>
+            {MOMENTUM_LABEL[detail.theme.momentum] ?? "neutral"}
+          </span>
+        )}
+        <div style={{ flex: 1, height: 2, background: "var(--border-default)" }}>
+          <div style={{ width: `${detail.theme.conviction ?? 0}%`, height: 2, background: mColor }} />
+        </div>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: mColor }}>
+          {detail.theme.conviction ?? 0}% conviction
+        </span>
+      </div>
+      {detail.theme.anchor_reason && (
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-faint)", marginBottom: 10, fontStyle: "italic" }}>
+          anchor: {detail.theme.anchor_reason}
+        </div>
+      )}
+      {detail.tickers.length > 0 && (
+        <>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--text-faint)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 6 }}>
+            ## Candidate assets
+          </div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
+            {detail.tickers.map(t => (
+              <div key={t.ticker} style={{ border: "1px solid var(--border-default)", padding: "6px 9px", background: "var(--bg-base)", minWidth: 80 }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--green)", letterSpacing: "0.05em" }}>{t.ticker}</div>
+                {t.asset_type && (
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>{t.asset_type}</div>
+                )}
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-muted)", marginTop: 2 }}>
+                  {Math.round(t.final_weight)}%
+                </div>
+                {t.price_usd != null && (
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-secondary)", marginTop: 1 }}>
+                    ${t.price_usd.toFixed(2)}
+                    {t.change_pct != null && (
+                      <span style={{ color: t.change_pct >= 0 ? "#4eff91" : "#ff4e6a", marginLeft: 4 }}>
+                        {t.change_pct >= 0 ? "+" : ""}{t.change_pct.toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
+                )}
+                {t.signal && (
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", padding: "1px 5px", border: `1px solid ${sigBorder(t.signal)}`, color: sigColor(t.signal), marginTop: 3, display: "inline-block", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    {t.signal}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <Link href="/dashboard/themes" style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--green)", textDecoration: "none", letterSpacing: "0.06em", opacity: 0.8 }} onClick={e => e.stopPropagation()}>
+        View full theme →
+      </Link>
+    </div>
+  )
 }
 
 // ── Suggested actions — derived from live state ────────────────────────────────
@@ -290,35 +422,14 @@ export default function HomeClient({
                   </div>
                   {isExpanded && (
                     <div style={{
-                      padding: '8px 12px 10px 24px',
                       borderBottom: '1px solid rgba(26,32,48,0.7)',
                       background: 'rgba(78,255,145,0.02)',
-                    }}>
-                      {t.brief && (
-                        <p style={{
-                          fontFamily: 'var(--font-sans)',
-                          fontSize: '0.72rem',
-                          color: 'var(--text-muted)',
-                          lineHeight: 1.6,
-                          margin: '0 0 8px',
-                          fontWeight: 300,
-                        }}>
-                          {t.brief}
-                        </p>
-                      )}
-                      <Link
-                        href="/dashboard/themes"
-                        style={{
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '0.62rem',
-                          color: 'var(--green)',
-                          textDecoration: 'none',
-                          letterSpacing: '0.06em',
-                        }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        View full theme →
-                      </Link>
+                      borderLeft: `2px solid ${momentumColor(t.momentum)}`,
+                      marginLeft: 12,
+                    }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <ThemeDetailPanel themeId={t.id} />
                     </div>
                   )}
                 </div>
