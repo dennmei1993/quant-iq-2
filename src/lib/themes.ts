@@ -122,21 +122,23 @@ export async function fetchThemeDetail(id: string): Promise<{
   // Build price map from daily_prices — one row per ticker guaranteed
   const priceMap = new Map<string, number>()
   for (const row of (latestPrices ?? [])) {
-    if (row?.ticker && row?.close != null) priceMap.set(row.ticker, row.close)
+    if (row?.ticker && row?.close != null) priceMap.set(row.ticker.toUpperCase(), row.close)
   }
 
   // Build signal map — use asset_signals price if available, daily_prices as fallback
+  // Normalise ticker case for reliable lookups
   const signalByTicker = new Map(
-    (signalRows ?? []).map(s => [s.ticker, s])
+    (signalRows ?? []).map(s => [s.ticker.toUpperCase(), s])
   )
 
   const signalMap: SignalMap = Object.fromEntries(
     symbols.map(ticker => {
-      const sig = signalByTicker.get(ticker)
+      const key = ticker.toUpperCase()
+      const sig = signalByTicker.get(key)
       return [ticker, {
         signal:     sig?.signal     ?? null,
         score:      sig?.score      ?? null,
-        price_usd:  sig?.price_usd  ?? priceMap.get(ticker) ?? null,
+        price_usd:  sig?.price_usd  != null ? sig.price_usd : (priceMap.get(key) ?? null),
         change_pct: sig?.change_pct ?? null,
       }]
     })

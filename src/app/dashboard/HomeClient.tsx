@@ -85,7 +85,7 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
   useEffect(() => {
     setLoading(true)
     setError(null)
-    fetch(`/api/themes/${themeId}`)
+    fetch(`/api/themes/${themeId}`, { cache: 'no-store' })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()

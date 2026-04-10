@@ -27,6 +27,8 @@ export async function GET(
       ...t,
       ...(signalMap[t.ticker] ?? { signal: null, score: null, price_usd: null, change_pct: null }),
     }))
+    // Debug: log signal coverage
+    console.log('[themes/[id]] tickers:', tickers.map(t => ({ ticker: t.ticker, signal: (t as any).signal, price: (t as any).price_usd })))
 
     return NextResponse.json({ theme, tickers })
 
