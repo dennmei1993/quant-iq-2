@@ -129,8 +129,9 @@ export default async function DashboardHome() {
       db.from('events')
         .select('id, headline, sentiment_score, impact_score, event_type, published_at')
         .eq('ai_processed', true)
-        .gte('published_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .gte('published_at', new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString())
         .order('impact_score', { ascending: false })
+        .order('published_at', { ascending: false })
         .limit(4)
     ),
 
