@@ -504,16 +504,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         </div>
       </div>
 
-      {/* ── Chart — inline, collapsible ── */}
-      <details open style={{ marginBottom: '1rem' }}>
-        <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
-          <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Price Chart
-        </summary>
-        <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '0.5rem' }}>
-          <OHLCChart prices={ohlcPrices} ticker={ticker} />
-        </div>
-      </details>
-
       {/* ── About — inline, collapsible ── */}
       {(details?.description || assetRow) && (
         <details style={{ marginBottom: '1rem' }}>
@@ -535,6 +525,16 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
           </div>
         </details>
       )}
+
+      {/* ── Chart — inline, collapsible ── */}
+      <details style={{ marginBottom: '1rem' }}>
+        <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+          <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Price Chart
+        </summary>
+        <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '0.5rem' }}>
+          <OHLCChart prices={ohlcPrices} ticker={ticker} />
+        </div>
+      </details>
 
       {/* ── Two-column: signal analysis + themes/events ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
