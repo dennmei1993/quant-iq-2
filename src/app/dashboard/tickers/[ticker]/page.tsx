@@ -339,10 +339,10 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     db.from('daily_prices')
       .select('date, open, high, low, close, volume')
       .eq('ticker', ticker)
-      .order('date', { ascending: true })
+      .order('date', { ascending: false })  // latest first
       .limit(365)
   )
-  const ohlcPrices = (ohlcRaw ?? []).map(p => ({
+  const ohlcPrices = (ohlcRaw ?? []).reverse().map(p => ({
     date:   p.date,
     open:   Number(p.open),
     high:   Number(p.high),
