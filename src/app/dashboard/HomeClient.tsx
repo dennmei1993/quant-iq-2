@@ -86,9 +86,20 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
     setLoading(true)
     setError(null)
     fetch(`/api/themes/${themeId}`)
-      .then(r => r.json())
-      .then(d => { setDetail(d); setLoading(false) })
-      .catch(() => { setError('Failed to load'); setLoading(false) })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then(d => {
+        if (d.error) throw new Error(d.error)
+        setDetail(d)
+        setLoading(false)
+      })
+      .catch((e: Error) => {
+        console.error('[ThemeDetailPanel]', e.message)
+        setError(e.message)
+        setLoading(false)
+      })
   }, [themeId])
 
   const MOMENTUM_LABEL: Record<string, string> = {
@@ -180,9 +191,7 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
           </div>
         </>
       )}
-      <Link href="/dashboard/themes" style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--green)", textDecoration: "none", letterSpacing: "0.06em", opacity: 0.8 }} onClick={e => e.stopPropagation()}>
-        View full theme →
-      </Link>
+
     </div>
   )
 }
