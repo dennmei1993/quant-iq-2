@@ -1,6 +1,6 @@
 // src/app/api/themes/[id]/route.ts
-// Returns full theme detail for the home page inline panel
-// Syncs missing asset_signals on demand before returning
+// Returns full theme detail for the home page inline panel.
+// For tickers missing from asset_signals, falls back to daily_prices directly.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchThemeDetail } from '@/lib/themes'
@@ -14,73 +14,86 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params
-
-    if (!id) {
-      return NextResponse.json({ error: 'Missing theme id' }, { status: 400 })
-    }
+    if (!id) return NextResponse.json({ error: 'Missing theme id' }, { status: 400 })
 
     const { theme, signalMap } = await fetchThemeDetail(id)
+    if (!theme) return NextResponse.json({ error: 'Theme not found' }, { status: 404 })
 
-    if (!theme) {
-      return NextResponse.json({ error: 'Theme not found' }, { status: 404 })
-    }
-
-    // Build initial tickers array
-    let tickers = theme.ticker_weights.map(t => ({
+    // Build initial tickers
+    let tickers: any[] = theme.ticker_weights.map(t => ({
       ...t,
       ...(signalMap[t.ticker] ?? { signal: null, score: null, price_usd: null, change_pct: null }),
     }))
 
-    // Find tickers missing from asset_signals entirely
-    const missingTickers = tickers
-      .filter((t: any) => t.price_usd == null && t.signal == null)
-      .map((t: any) => t.ticker as string)
+    // Find tickers still missing price — Polygon may not cover them
+    const stillMissingPrice = tickers
+      .filter(t => t.price_usd == null)
+      .map(t => t.ticker)
 
-    if (missingTickers.length > 0) {
+    if (stillMissingPrice.length > 0) {
+      // Try sync-prices first (covers Polygon-listed assets)
       try {
-        // Trigger sync — same endpoint the ticker page uses
         const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.betteroption.com.au'
-        await fetch(`${base}/api/admin/sync-prices?tickers=${missingTickers.join(',')}`, {
+        await fetch(`${base}/api/admin/sync-prices?tickers=${stillMissingPrice.join(',')}`, {
           method:  'POST',
           headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '' },
-          signal:  AbortSignal.timeout(15_000),
+          signal:  AbortSignal.timeout(12_000),
         })
+      } catch { /* sync failed — fall through to daily_prices */ }
 
-        // Re-fetch fresh signals for the synced tickers
-        const db = createServiceClient()
-        const { data: freshRows } = await db
-          .from('asset_signals')
-          .select('ticker, signal, score, price_usd, change_pct')
-          .in('ticker', missingTickers)
+      // Regardless of sync outcome, fetch latest price from daily_prices
+      // This covers ETFs/assets not on Polygon
+      const db = createServiceClient()
+      const priceResults = await Promise.all(
+        stillMissingPrice.map(ticker =>
+          db.from('daily_prices')
+            .select('ticker, close, date')
+            .eq('ticker', ticker)
+            .order('date', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+            .then(r => r.data)
+        )
+      )
 
-        if (freshRows?.length) {
-          const freshMap: Record<string, any> = { ...signalMap }
-          for (const row of freshRows) {
-            freshMap[row.ticker] = {
-              signal:     row.signal,
-              score:      row.score,
-              price_usd:  row.price_usd,
-              change_pct: row.change_pct,
-            }
-          }
-          // Rebuild tickers with fresh data
-          tickers = theme.ticker_weights.map(t => ({
-            ...t,
-            ...(freshMap[t.ticker] ?? { signal: null, score: null, price_usd: null, change_pct: null }),
-          }))
-        }
-      } catch {
-        // Sync failed — return what we have
+      // Also re-fetch asset_signals in case sync-prices just populated them
+      const { data: freshSignals } = await db
+        .from('asset_signals')
+        .select('ticker, signal, score, price_usd, change_pct')
+        .in('ticker', stillMissingPrice)
+
+      const freshSignalMap: Record<string, any> = {}
+      for (const row of freshSignals ?? []) {
+        freshSignalMap[row.ticker] = row
       }
+
+      // daily_prices price map as final fallback
+      const dailyPriceMap: Record<string, number> = {}
+      for (const row of priceResults) {
+        if (row?.ticker && row?.close != null) dailyPriceMap[row.ticker] = row.close
+      }
+
+      // Rebuild tickers with best available data
+      tickers = theme.ticker_weights.map(t => {
+        const existing = signalMap[t.ticker]
+        const fresh    = freshSignalMap[t.ticker]
+        const sig      = fresh ?? existing
+
+        return {
+          ...t,
+          signal:     sig?.signal     ?? null,
+          score:      sig?.score      ?? null,
+          // Price priority: asset_signals (fresh) → asset_signals (existing) → daily_prices
+          price_usd:  sig?.price_usd  != null ? sig.price_usd : (dailyPriceMap[t.ticker] ?? null),
+          change_pct: sig?.change_pct ?? null,
+        }
+      })
     }
 
     return NextResponse.json({ theme, tickers })
 
   } catch (e: any) {
     console.error('[api/themes/[id]]', e)
-    return NextResponse.json(
-      { error: e.message ?? 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: e.message ?? 'Server error' }, { status: 500 })
   }
 }
