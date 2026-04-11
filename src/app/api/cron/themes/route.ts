@@ -36,6 +36,7 @@ type ThemeRow = {
   conviction:        number
   candidate_tickers: string[] | null
   brief:             string | null
+  sectors:           string[] | null
 }
 
 type AssetRow = {
@@ -147,13 +148,14 @@ export async function GET(req: NextRequest) {
     const generatedThemes: Array<{
       name: string; timeframe: string
       candidate_tickers: string[]; conviction: number; brief: string
+      sectors?: string[]
     }> = []
 
     for (const tf of TIMEFRAMES) {
       try {
         const currentThemes = await query<ThemeRow[]>(
           db.from("themes")
-            .select("id, name, anchor_score, is_anchored, anchored_since, conviction, candidate_tickers, brief")
+            .select("id, name, anchor_score, is_anchored, anchored_since, conviction, candidate_tickers, brief, sectors")
             .eq("timeframe", tf)
             .eq("is_active", true)
             .limit(1)
@@ -180,6 +182,7 @@ export async function GET(req: NextRequest) {
             candidate_tickers: current.candidate_tickers ?? [],
             conviction:        current.conviction,
             brief:             current.brief ?? "",
+            sectors:           current.sectors ?? [],
           })
 
           await recalculateThemeWeights(db, current.id, current.conviction)
@@ -206,6 +209,7 @@ export async function GET(req: NextRequest) {
           momentum:          theme.momentum,
           brief:             theme.brief,
           candidate_tickers: theme.candidate_tickers,
+          sectors:           theme.sectors ?? [],
           is_active:         true,
           expires_at,
           anchor_event_id:   anchor_event?.id ?? null,

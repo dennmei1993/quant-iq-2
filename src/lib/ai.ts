@@ -11,6 +11,8 @@
  * candidate_tickers[] is kept on the return value for backward compatibility
  * with anything still reading it — derived from ticker_weights.
  *
+ * sectors[] added: affected stock market sectors for screener filtering.
+ *
  * classifyEvent() and generateAdvisoryMemo() are unchanged.
  */
 
@@ -44,9 +46,8 @@ export interface ThemeOutput {
   brief:              string        // 3-4 sentence thesis
   ticker_weights:     TickerWeight[]
   candidate_tickers:  string[]      // derived from ticker_weights, backward compat
+  sectors:            string[]      // affected stock market sectors — for screener
 }
-
-// ─── generateTheme ────────────────────────────────────────────────────────────
 
 // ─── Macro context type ───────────────────────────────────────────────────────
 
@@ -63,7 +64,6 @@ function buildRegimeLabel(overall: number, aspects: Record<string, number>): str
   if (overall >= -1) return 'Neutral — mixed signals, defensive tilt'
   if (overall >= -4) return 'Risk-off — caution warranted'
 
-  // Identify dominant negative driver
   const minAspect = Object.entries(aspects).sort((a, b) => a[1] - b[1])[0]
   const labels: Record<string, string> = {
     fed:          'Hawkish Fed shock — rate-sensitive assets under pressure',
@@ -75,6 +75,8 @@ function buildRegimeLabel(overall: number, aspects: Record<string, number>): str
   }
   return labels[minAspect[0]] ?? 'Strongly risk-off — broad defensive positioning'
 }
+
+// ─── generateTheme ────────────────────────────────────────────────────────────
 
 export async function generateTheme(
   events: EventInput[],
@@ -113,6 +115,7 @@ Respond ONLY with a valid JSON object. No markdown, no commentary, no extra keys
   "conviction": <integer 0–100>,
   "momentum": "<strong_up|moderate_up|neutral|moderate_down|strong_down>",
   "brief": "3–4 sentence investment thesis. Why now, what's the catalyst, what's the risk.",
+  "sectors": ["<1-4 sectors most affected by this theme, chosen from: Energy, Technology, Healthcare, Financial Services, Industrials, Consumer Cyclical, Consumer Defensive, Communication Services, Real Estate, Basic Materials, Utilities>"],
   "ticker_weights": [
     {
       "ticker": "TICKER",
@@ -151,17 +154,22 @@ Rules for ticker_weights:
 
   const parsed = JSON.parse(raw) as Omit<ThemeOutput, 'candidate_tickers'>
 
-  // Clamp weights to valid range in case Claude drifts
   const ticker_weights = parsed.ticker_weights.map(tw => ({
     ticker:    tw.ticker.toUpperCase().trim(),
     weight:    Math.max(0, Math.min(1, Number(tw.weight) || 0)),
     rationale: tw.rationale ?? '',
   }))
 
+  // Validate sectors — ensure array of strings, default to [] if missing
+  const sectors = Array.isArray(parsed.sectors)
+    ? parsed.sectors.filter((s: any) => typeof s === 'string')
+    : []
+
   return {
     ...parsed,
     ticker_weights,
     candidate_tickers: ticker_weights.map(tw => tw.ticker),
+    sectors,
   }
 }
 
@@ -171,7 +179,7 @@ export interface ClassificationOutput {
   event_type:    string
   sectors:       string[]
   sentiment_score: number
-  impact_score:  number   // 1–10: 1-2=low, 3-4=medium, 5-6=medium-high, 7-8=high, 9-10=breaking
+  impact_score:  number
   tickers:       string[]
   ai_summary:    string
 }
@@ -265,7 +273,7 @@ Professional, direct language. No bullet points. Plain prose only.`
     .trim()
 }
 
-// ─── generateAssetSignals ─────────────────────────────────────────────────────
+// ─── generateAssetSignals (unchanged) ────────────────────────────────────────
 
 export interface AssetSignalInput {
   ticker:     string
@@ -285,16 +293,10 @@ export interface ThemeInput {
 export interface AssetSignalOutput {
   ticker:    string
   signal:    'buy' | 'watch' | 'hold' | 'avoid'
-  score:     number   // 0–100
-  rationale: string   // one sentence
+  score:     number
+  rationale: string
 }
 
-/**
- * Score each asset against the current themes and recent events.
- * Returns a signal (buy/watch/hold/avoid), score (0-100), and rationale.
- *
- * Batches assets in groups of 20 to keep prompt size manageable.
- */
 export async function generateAssetSignals(
   assets: AssetSignalInput[],
   events: { headline: string; ai_summary?: string | null; sentiment_score?: number | null; impact_score?: number | null }[],
@@ -312,8 +314,8 @@ export async function generateAssetSignals(
     .join('\n')
 
   const results: AssetSignalOutput[] = []
-  const BATCH = 10   // reduced from 20 — keeps response well within token limit
-  const DELAY = 1500 // ms between batches
+  const BATCH = 10
+  const DELAY = 1500
 
   for (let i = 0; i < assets.length; i += BATCH) {
     const batch = assets.slice(i, i + BATCH)
@@ -350,7 +352,7 @@ Signal rules:
     try {
       const response = await anthropic.messages.create({
         model:      'claude-sonnet-4-20250514',
-        max_tokens: 2048,  // increased — 10 assets × ~80 tokens each + overhead
+        max_tokens: 2048,
         messages:   [{ role: 'user', content: prompt }],
       })
 
@@ -370,7 +372,6 @@ Signal rules:
       console.error(`[generateAssetSignals] batch ${i / BATCH + 1} failed:`, err)
     }
 
-    // Rate limit protection between batches
     if (i + BATCH < assets.length) {
       await new Promise(r => setTimeout(r, DELAY))
     }
