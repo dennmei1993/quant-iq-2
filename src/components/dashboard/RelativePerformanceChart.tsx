@@ -78,8 +78,19 @@ export default function RelativePerformanceChart({
       const qqqMap = toMap(qqqPrices)
       const secMap = toMap(sectorPrices)
 
-      // Slice ticker to period
-      const tSlice = tickerPrices.slice(-Math.min(period, tickerPrices.length))
+      // Calculate cutoff date based on period (calendar-based, not count-based)
+      const latestDate = tickerPrices[tickerPrices.length - 1]?.date ?? ''
+      const cutoff = (() => {
+        if (!latestDate) return ''
+        const d = new Date(latestDate)
+        if (period === 30)  d.setMonth(d.getMonth() - 1)
+        if (period === 90)  d.setMonth(d.getMonth() - 3)
+        if (period === 365) d.setFullYear(d.getFullYear() - 1)
+        return d.toISOString().slice(0, 10)
+      })()
+
+      // Filter ticker prices from cutoff date onwards
+      const tSlice = tickerPrices.filter(p => p.date >= cutoff)
 
       // Use ticker dates as the canonical axis — benchmarks align to these dates
       const dates     = tSlice.map(p => p.date)
@@ -239,8 +250,17 @@ export default function RelativePerformanceChart({
     return () => { chartRef.current?.destroy(); chartRef.current = null }
   }, [tickerPrices, spyPrices, qqqPrices, sectorPrices, period, visible])
 
-  // Summary stats — align by date, same logic as chart
-  const tSliceStat  = tickerPrices.slice(-Math.min(period, tickerPrices.length))
+  // Summary stats — date-based cutoff, same logic as chart
+  const latestDate  = tickerPrices[tickerPrices.length - 1]?.date ?? ''
+  const statCutoff  = (() => {
+    if (!latestDate) return ''
+    const d = new Date(latestDate)
+    if (period === 30)  d.setMonth(d.getMonth() - 1)
+    if (period === 90)  d.setMonth(d.getMonth() - 3)
+    if (period === 365) d.setFullYear(d.getFullYear() - 1)
+    return d.toISOString().slice(0, 10)
+  })()
+  const tSliceStat  = tickerPrices.filter(p => p.date >= statCutoff)
   const firstDate   = tSliceStat[0]?.date ?? ''
   const tFirst      = tSliceStat[0]?.close ?? 0
   const tLast       = tSliceStat[tSliceStat.length - 1]?.close ?? 0
