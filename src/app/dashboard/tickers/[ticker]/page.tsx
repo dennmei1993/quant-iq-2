@@ -13,7 +13,8 @@ import {
 import WatchlistButton from '@/components/dashboard/WatchlistButton'
 import ThesisButton    from '@/components/dashboard/ThesisButton'
 import PortfolioButton from '@/components/dashboard/PortfolioButton'
-import OHLCChart       from '@/components/dashboard/OHLCChart'
+import OHLCChart                  from '@/components/dashboard/OHLCChart'
+import RelativePerformanceChart   from '@/components/dashboard/RelativePerformanceChart'
 
 export const dynamic    = 'force-dynamic'
 export const revalidate = 0
@@ -351,6 +352,64 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     volume: Number(p.volume),
   }))
 
+  // ── Benchmark + sector peer prices for relative performance chart ───────────
+  const sector = assetRow?.sector ?? details?.sector ?? null
+
+  const [spyRaw, qqqRaw, sectorPeersRaw] = await Promise.all([
+    query<{ date: string; close: number }[]>(
+      db.from('daily_prices')
+        .select('date, close')
+        .eq('ticker', 'SPY')
+        .order('date', { ascending: false })
+        .limit(365)
+    ),
+    query<{ date: string; close: number }[]>(
+      db.from('daily_prices')
+        .select('date, close')
+        .eq('ticker', 'QQQ')
+        .order('date', { ascending: false })
+        .limit(365)
+    ),
+    // Sector average: get closes for up to 15 peers, average per date
+    sector && sector !== 'Unknown'
+      ? query<{ date: string; close: number; ticker: string }[]>(
+          db.from('daily_prices')
+            .select('date, close, ticker')
+            .in('ticker',
+              (await db.from('assets')
+                .select('ticker')
+                .eq('sector', sector)
+                .eq('asset_type', 'stock')
+                .eq('is_active', true)
+                .neq('ticker', ticker)
+                .limit(15)
+              ).data?.map((a: any) => a.ticker) ?? []
+            )
+            .order('date', { ascending: false })
+            .limit(365 * 15)
+        )
+      : Promise.resolve(null),
+  ])
+
+  const spyPrices = (spyRaw ?? []).reverse().map(p => ({ date: p.date, close: Number(p.close) }))
+  const qqqPrices = (qqqRaw ?? []).reverse().map(p => ({ date: p.date, close: Number(p.close) }))
+
+  // Average sector peer closes per date
+  const sectorPrices: { date: string; close: number }[] = []
+  if (sectorPeersRaw?.length) {
+    const dateMap = new Map<string, number[]>()
+    for (const row of sectorPeersRaw) {
+      const closes = dateMap.get(row.date) ?? []
+      closes.push(Number(row.close))
+      dateMap.set(row.date, closes)
+    }
+    const sortedDates = [...dateMap.keys()].sort()
+    for (const date of sortedDates) {
+      const closes = dateMap.get(date)!
+      sectorPrices.push({ date, close: +(closes.reduce((a, b) => a + b, 0) / closes.length).toFixed(4) })
+    }
+  }
+
   // ── Auto-sync: fetch price if signal missing ──────────────────────────────
   let signalData: SignalRow | null = signal
   if (!signalData?.signal || !signalData?.sparkline?.length) {
@@ -506,6 +565,25 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
           {userId && <WatchlistButton ticker={ticker} initialWatched={isWatched} />}
         </div>
       </div>
+
+      {/* ── Relative performance chart — collapsible ── */}
+      {(spyPrices.length > 0 || ohlcPrices.length > 0) && (
+        <details style={{ marginBottom: '1rem' }}>
+          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Relative Performance
+          </summary>
+          <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, overflow: 'hidden', marginTop: '0.5rem' }}>
+            <RelativePerformanceChart
+              ticker={ticker}
+              tickerPrices={ohlcPrices.map(p => ({ date: p.date, close: p.close }))}
+              spyPrices={spyPrices}
+              qqqPrices={qqqPrices}
+              sectorPrices={sectorPrices}
+              sector={sector}
+            />
+          </div>
+        </details>
+      )}
 
       {/* ── About — inline, collapsible ── */}
       {(details?.description || assetRow) && (
