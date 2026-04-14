@@ -41,11 +41,30 @@ function alignSeries(
 export default function RelativePerformanceChart({
   ticker, tickerPrices, spyPrices, qqqPrices, sectorPrices, sector,
 }: Props) {
-  const canvasRef  = useRef<HTMLCanvasElement>(null)
-  const chartRef   = useRef<any>(null)
+  const canvasRef   = useRef<HTMLCanvasElement>(null)
+  const chartRef    = useRef<any>(null)
+  const wrapRef     = useRef<HTMLDivElement>(null)
   const [period, setPeriod] = useState(90)
+  const [visible, setVisible] = useState(false)
+
+  // Detect when parent <details> is opened — canvas has no dimensions until then
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    // Walk up to find the nearest <details> ancestor
+    const details = el.closest('details')
+    if (!details) {
+      setVisible(true)  // not inside details, always visible
+      return
+    }
+    if (details.open) setVisible(true)
+    const handler = () => { if (details.open) setVisible(true) }
+    details.addEventListener('toggle', handler)
+    return () => details.removeEventListener('toggle', handler)
+  }, [])
 
   useEffect(() => {
+    if (!visible) return
     if (!canvasRef.current) return
     if (tickerPrices.length === 0) return
 
@@ -144,7 +163,7 @@ export default function RelativePerformanceChart({
       ]
 
       // Only add sector if we have data
-      if (secBase && secSlice.length > 0) {
+      if (secBase && sectorPrices.length > 0) {
         datasets.push({
           label:       sector ? `${sector} avg` : 'Sector avg',
           data:        secIndexed as any,
@@ -218,7 +237,7 @@ export default function RelativePerformanceChart({
     })
 
     return () => { chartRef.current?.destroy(); chartRef.current = null }
-  }, [tickerPrices, spyPrices, qqqPrices, sectorPrices, period])
+  }, [tickerPrices, spyPrices, qqqPrices, sectorPrices, period, visible])
 
   // Summary stats — align by date, same logic as chart
   const tSliceStat  = tickerPrices.slice(-Math.min(period, tickerPrices.length))
@@ -245,7 +264,7 @@ export default function RelativePerformanceChart({
   const alpha  = tRet - spyRet
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div ref={wrapRef} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border-default)', flexWrap: 'wrap' }}>

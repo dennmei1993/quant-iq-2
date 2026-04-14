@@ -567,25 +567,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       </div>
 
       {/* ── Relative performance chart — collapsible ── */}
-      {(spyPrices.length > 0 || ohlcPrices.length > 0) && (
-        <details style={{ marginBottom: '1rem' }}>
-          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
-            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Relative Performance
-          </summary>
-          <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, overflow: 'hidden', marginTop: '0.5rem' }}>
-            <RelativePerformanceChart
-              ticker={ticker}
-              tickerPrices={ohlcPrices.map(p => ({ date: p.date, close: p.close }))}
-              spyPrices={spyPrices}
-              qqqPrices={qqqPrices}
-              sectorPrices={sectorPrices}
-              sector={sector}
-            />
-          </div>
-        </details>
-      )}
-
-      {/* ── About — inline, collapsible ── */}
       {(details?.description || assetRow) && (
         <details style={{ marginBottom: '1rem' }}>
           <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
@@ -607,6 +588,8 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         </details>
       )}
 
+      {/* ── About — inline, collapsible ── */}
+
       {/* ── Chart — inline, collapsible ── */}
       <details style={{ marginBottom: '1rem' }}>
         <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
@@ -617,7 +600,25 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         </div>
       </details>
 
-      {/* ── Signal analysis — collapsible ── */}
+      {(spyPrices.length > 0 || ohlcPrices.length > 0) && (
+        <details style={{ marginBottom: '1rem' }}>
+          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Relative Performance
+          </summary>
+          <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, overflow: 'hidden', marginTop: '0.5rem' }}>
+            <RelativePerformanceChart
+              ticker={ticker}
+              tickerPrices={ohlcPrices.map(p => ({ date: p.date, close: p.close }))}
+              spyPrices={spyPrices}
+              qqqPrices={qqqPrices}
+              sectorPrices={sectorPrices}
+              sector={sector}
+            />
+          </div>
+        </details>
+      )}
+
+            {/* ── Signal analysis — collapsible ── */}
       {signalData?.signal && (
         <details style={{ marginBottom: '1rem' }}>
           <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
