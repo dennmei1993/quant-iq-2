@@ -60,6 +60,9 @@ type AssetRow = {
   name:            string
   asset_type:      string
   sector:          string | null
+  tags:            string[] | null
+  description:     string | null
+  logo_url:        string | null
   pe_ratio:        number | null
   pb_ratio:        number | null
   eps:             number | null
@@ -312,7 +315,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
     query<AssetRow>(
       db.from('assets')
-        .select('ticker, name, asset_type, sector, pe_ratio, pb_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin, analyst_target, analyst_rating, financials_updated_at')
+        .select('ticker, name, asset_type, sector, tags, description, logo_url, pe_ratio, pb_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin, analyst_target, analyst_rating, financials_updated_at')
         .eq('ticker', ticker)
         .single()
     ),
@@ -353,7 +356,10 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   }))
 
   // ── Benchmark + sector peer prices for relative performance chart ───────────
-  const sector = assetRow?.sector ?? details?.sector ?? null
+  const sector      = assetRow?.asset_type === 'etf' ? null : (assetRow?.sector ?? details?.sector ?? null)
+  const peerLabel   = assetRow?.asset_type === 'etf'
+    ? ((assetRow?.tags ?? []).find((t: string) => t !== 'etf') ?? 'ETF peers')
+    : (sector ?? 'Sector avg')
 
   const [spyRaw, qqqRaw, sectorPeersRaw] = await Promise.all([
     query<{ date: string; close: number }[]>(
@@ -370,9 +376,34 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         .order('date', { ascending: false })
         .limit(365)
     ),
-    // Sector average: get closes for up to 15 peers, average per date
-    sector && sector !== 'Unknown'
-      ? query<{ date: string; close: number; ticker: string }[]>(
+    // Peer prices: for ETFs use tag-based peers, for stocks use sector peers
+    (async () => {
+      const isEtf = assetRow?.asset_type === 'etf'
+      const etfTag = isEtf
+        ? (assetRow?.tags ?? []).find((t: string) => t !== 'etf') ?? null
+        : null
+
+      if (isEtf && etfTag) {
+        // ETF: find peers with the same tag (e.g. 'sector', 'broad-market')
+        return query<{ date: string; close: number; ticker: string }[]>(
+          db.from('daily_prices')
+            .select('date, close, ticker')
+            .in('ticker',
+              (await db.from('assets')
+                .select('ticker')
+                .eq('asset_type', 'etf')
+                .contains('tags', [etfTag])
+                .eq('is_active', true)
+                .neq('ticker', ticker)
+                .limit(10)
+              ).data?.map((a: any) => a.ticker) ?? []
+            )
+            .order('date', { ascending: false })
+            .limit(365 * 10)
+        )
+      } else if (!isEtf && sector && sector !== 'Unknown') {
+        // Stock: sector peers
+        return query<{ date: string; close: number; ticker: string }[]>(
           db.from('daily_prices')
             .select('date, close, ticker')
             .in('ticker',
@@ -388,7 +419,9 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             .order('date', { ascending: false })
             .limit(365 * 15)
         )
-      : Promise.resolve(null),
+      }
+      return Promise.resolve(null)
+    })(),
   ])
 
   const spyPrices = (spyRaw ?? []).reverse().map(p => ({ date: p.date, close: Number(p.close) }))
@@ -448,7 +481,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       })
       const freshAsset = await query<AssetRow>(
         db.from('assets')
-          .select('ticker, name, asset_type, sector, pe_ratio, pb_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin, analyst_target, analyst_rating, financials_updated_at')
+          .select('ticker, name, asset_type, sector, tags, description, logo_url, pe_ratio, pb_ratio, eps, dividend_yield, week_52_high, week_52_low, beta, market_cap, revenue, profit_margin, analyst_target, analyst_rating, financials_updated_at')
           .eq('ticker', ticker)
           .single()
       )
@@ -566,16 +599,19 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         </div>
       </div>
 
-      {/* ── Relative performance chart — collapsible ── */}
-      {(details?.description || assetRow) && (
+      {/* ── About — inline, collapsible ── */}
+      {(details?.description || assetRow?.description) && (
         <details style={{ marginBottom: '1rem' }}>
           <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
             <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> About
           </summary>
           <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '0.5rem' }}>
-            {details?.description && (
+            {(details?.description || assetRow?.description) && (
               <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.7, margin: '0 0 0.6rem' }}>
-                {details.description.slice(0, 500)}{details.description.length > 500 ? '…' : ''}
+                {(() => {
+                  const desc = details?.description ?? assetRow?.description ?? ''
+                  return desc.slice(0, 600) + (desc.length > 600 ? '…' : '')
+                })()}
               </p>
             )}
             {details?.homepage && (
@@ -587,8 +623,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
           </div>
         </details>
       )}
-
-      {/* ── About — inline, collapsible ── */}
 
       {/* ── Chart — inline, collapsible ── */}
       <details style={{ marginBottom: '1rem' }}>
@@ -612,7 +646,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               spyPrices={spyPrices}
               qqqPrices={qqqPrices}
               sectorPrices={sectorPrices}
-              sector={sector}
+              sector={peerLabel}
             />
           </div>
         </details>

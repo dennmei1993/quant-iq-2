@@ -114,21 +114,24 @@ export default function RelativePerformanceChart({
       // Forward-fill: if a date is missing use last known value
       const indexedValues = (
         map: Map<string, number>,
-        base: number
+        base: number,
+        invest: number = 10_000
       ): (number | null)[] => {
         if (!base) return dates.map(() => null)
         let last = base
         return dates.map(d => {
           const v = map.get(d)
           if (v != null) last = v
-          return +(last / base * 100).toFixed(3)
+          return +(last / base * invest)
         })
       }
 
-      const tData      = tSlice.map(p => tBase ? +(p.close / tBase * 100).toFixed(3) : null)
-      const spyIndexed = indexedValues(spyMap, spyBase)
-      const qqqIndexed = indexedValues(qqqMap, qqqBase)
-      const secIndexed = indexedValues(secMap, secBase)
+      const INVEST = 10_000
+
+      const tData      = tSlice.map(p => tBase ? +(p.close / tBase * INVEST) : null)
+      const spyIndexed = indexedValues(spyMap, spyBase, INVEST)
+      const qqqIndexed = indexedValues(qqqMap, qqqBase, INVEST)
+      const secIndexed = indexedValues(secMap, secBase, INVEST)
 
       const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
       const GRID   = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
@@ -211,9 +214,10 @@ export default function RelativePerformanceChart({
                 label:  (item: any) => {
                   const v = item.raw
                   if (v == null) return ''
-                  const diff = (v - 100).toFixed(1)
-                  const sign = v >= 100 ? '+' : ''
-                  return `${item.dataset.label}: ${sign}${diff}%`
+                  const gain = v - 10_000
+                  const pct  = (gain / 10_000 * 100).toFixed(1)
+                  const sign = gain >= 0 ? '+' : ''
+                  return `${item.dataset.label}: $${Math.round(v).toLocaleString()} (${sign}${pct}%)`
                 },
               },
               backgroundColor: TOOLTIP_BG,
@@ -235,8 +239,7 @@ export default function RelativePerformanceChart({
               ticks: {
                 color: TICK, font: FONT,
                 callback: (v: any) => {
-                  const diff = (v - 100).toFixed(0)
-                  return `${Number(diff) >= 0 ? '+' : ''}${diff}%`
+                  return '$' + Math.round(v).toLocaleString()
                 },
               },
               grid:   { color: GRID, lineWidth: 0.5 },
@@ -265,6 +268,7 @@ export default function RelativePerformanceChart({
   const tFirst      = tSliceStat[0]?.close ?? 0
   const tLast       = tSliceStat[tSliceStat.length - 1]?.close ?? 0
   const tRet        = tFirst ? ((tLast - tFirst) / tFirst * 100) : 0
+  const tVal        = tFirst ? +(tLast / tFirst * 10_000) : 10_000
 
   const benchReturnByDate = (prices: PricePoint[]): number => {
     if (!firstDate || prices.length === 0) return 0
@@ -289,25 +293,29 @@ export default function RelativePerformanceChart({
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border-default)', flexWrap: 'wrap' }}>
         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.65rem', color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-          vs benchmark
+          $10k invested
         </span>
 
-        {/* Summary returns */}
+        {/* $10k investment summary */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginLeft: 4 }}>
           {[
-            { label: ticker,                          val: tRet,   color: tRet >= 0 ? '#26a69a' : '#ef5350' },
-            { label: 'SPY',                           val: spyRet, color: '#7ab4e8' },
-            { label: 'QQQ',                           val: qqqRet, color: '#ff9800' },
-            ...(sectorPrices.length > 0 ? [{ label: sector ? `${sector}` : 'Sector', val: secRet, color: '#ab47bc' }] : []),
-          ].map(({ label, val, color }) => (
-            <span key={label} style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.65rem' }}>
-              <span style={{ color: 'var(--text-faint)', marginRight: 2 }}>{label}</span>
-              <span style={{ color, fontWeight: 500 }}>{val >= 0 ? '+' : ''}{val.toFixed(1)}%</span>
-            </span>
-          ))}
+            { label: ticker, val: tRet,   color: tRet >= 0 ? '#26a69a' : '#ef5350' },
+            { label: 'SPY',  val: spyRet, color: '#7ab4e8' },
+            { label: 'QQQ',  val: qqqRet, color: '#ff9800' },
+            ...(sectorPrices.length > 0 ? [{ label: sector ?? 'Sector', val: secRet, color: '#ab47bc' }] : []),
+          ].map(({ label, val, color }) => {
+            const endVal = 10_000 * (1 + val / 100)
+            return (
+              <span key={label} style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.65rem' }}>
+                <span style={{ color: 'var(--text-faint)', marginRight: 2 }}>{label}</span>
+                <span style={{ color, fontWeight: 500 }}>${Math.round(endVal).toLocaleString()}</span>
+                <span style={{ color: 'rgba(232,226,217,0.3)', marginLeft: 2, fontSize: '0.58rem' }}>({val >= 0 ? '+' : ''}{val.toFixed(1)}%)</span>
+              </span>
+            )
+          })}
         </div>
 
-        {/* Alpha badge */}
+        {/* Alpha vs SPY */}
         <span style={{
           fontFamily: "'DM Mono', monospace", fontSize: '0.6rem',
           padding: '1px 6px', marginLeft: 2,
@@ -315,7 +323,7 @@ export default function RelativePerformanceChart({
           color: alpha >= 0 ? '#26a69a' : '#ef5350',
           borderRadius: 3,
         }}>
-          α {alpha >= 0 ? '+' : ''}{alpha.toFixed(1)}%
+          vs SPY {alpha >= 0 ? '+' : ''}{alpha.toFixed(1)}%
         </span>
 
         {/* Period toggle */}
