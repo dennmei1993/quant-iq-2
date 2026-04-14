@@ -53,37 +53,52 @@ export default function RelativePerformanceChart({
       const Chart = mod.default
       if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
 
-      // Slice to period
-      const sliceN = (arr: PricePoint[]) =>
-        arr.length > 0 ? arr.slice(-Math.min(period, arr.length)) : []
-
-      const tSlice   = sliceN(tickerPrices)
-      const spySlice = sliceN(spyPrices)
-      const qqqSlice = sliceN(qqqPrices)
-      const secSlice = sliceN(sectorPrices)
-
-      // Use ticker dates as the axis
-      const dates = tSlice.map(p => p.date)
-
-      // Build lookup maps for benchmarks
+      // Build full lookup maps keyed by date for all series
       const toMap = (arr: PricePoint[]) => new Map(arr.map(p => [p.date, p.close]))
+      const spyMap = toMap(spyPrices)
+      const qqqMap = toMap(qqqPrices)
+      const secMap = toMap(sectorPrices)
 
-      // Index all series from first ticker date
-      const tIndexed   = indexSeries(tSlice)
-      const spyMap     = toMap(spySlice)
-      const qqqMap     = toMap(qqqSlice)
-      const secMap     = toMap(secSlice)
+      // Slice ticker to period
+      const tSlice = tickerPrices.slice(-Math.min(period, tickerPrices.length))
 
-      // Get base values at first ticker date
-      const firstDate  = dates[0]
-      const spyBase    = spyMap.get(firstDate) ?? spySlice[0]?.close ?? 0
-      const qqqBase    = qqqMap.get(firstDate) ?? qqqSlice[0]?.close ?? 0
-      const secBase    = secMap.get(firstDate) ?? secSlice[0]?.close ?? 0
+      // Use ticker dates as the canonical axis — benchmarks align to these dates
+      const dates     = tSlice.map(p => p.date)
+      const firstDate = dates[0]
 
-      const spyIndexed  = dates.map(d => spyBase  ? +((spyMap.get(d)  ?? spyBase)  / spyBase  * 100).toFixed(3) : null)
-      const qqqIndexed  = dates.map(d => qqqBase  ? +((qqqMap.get(d)  ?? qqqBase)  / qqqBase  * 100).toFixed(3) : null)
-      const secIndexed  = dates.map(d => secBase  ? +((secMap.get(d)  ?? secBase)  / secBase  * 100).toFixed(3) : null)
-      const tData       = tIndexed.map(p => p.close)
+      // Base values: find closest available date in each benchmark at period start
+      // Walk forward up to 5 days to handle weekends/holidays
+      const findBase = (map: Map<string, number>, startDate: string): number => {
+        const allDates = [...map.keys()].sort()
+        // Find nearest date >= startDate
+        const idx = allDates.findIndex(d => d >= startDate)
+        if (idx === -1) return map.get(allDates[allDates.length - 1]) ?? 0
+        return map.get(allDates[idx]) ?? 0
+      }
+
+      const tBase   = tSlice[0]?.close ?? 0
+      const spyBase = findBase(spyMap, firstDate)
+      const qqqBase = findBase(qqqMap, firstDate)
+      const secBase = findBase(secMap, firstDate)
+
+      // Forward-fill: if a date is missing use last known value
+      const indexedValues = (
+        map: Map<string, number>,
+        base: number
+      ): (number | null)[] => {
+        if (!base) return dates.map(() => null)
+        let last = base
+        return dates.map(d => {
+          const v = map.get(d)
+          if (v != null) last = v
+          return +(last / base * 100).toFixed(3)
+        })
+      }
+
+      const tData      = tSlice.map(p => tBase ? +(p.close / tBase * 100).toFixed(3) : null)
+      const spyIndexed = indexedValues(spyMap, spyBase)
+      const qqqIndexed = indexedValues(qqqMap, qqqBase)
+      const secIndexed = indexedValues(secMap, secBase)
 
       const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
       const GRID   = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
@@ -205,21 +220,27 @@ export default function RelativePerformanceChart({
     return () => { chartRef.current?.destroy(); chartRef.current = null }
   }, [tickerPrices, spyPrices, qqqPrices, sectorPrices, period])
 
-  // Summary stats
-  const slice  = tickerPrices.slice(-Math.min(period, tickerPrices.length))
-  const first  = slice[0]?.close ?? 0
-  const last   = slice[slice.length - 1]?.close ?? 0
-  const tRet   = first ? ((last - first) / first * 100) : 0
+  // Summary stats — align by date, same logic as chart
+  const tSliceStat  = tickerPrices.slice(-Math.min(period, tickerPrices.length))
+  const firstDate   = tSliceStat[0]?.date ?? ''
+  const tFirst      = tSliceStat[0]?.close ?? 0
+  const tLast       = tSliceStat[tSliceStat.length - 1]?.close ?? 0
+  const tRet        = tFirst ? ((tLast - tFirst) / tFirst * 100) : 0
 
-  const benchReturn = (prices: PricePoint[]) => {
-    const s = prices.slice(-Math.min(period, prices.length))
-    const f = s[0]?.close ?? 0
-    const l = s[s.length - 1]?.close ?? 0
-    return f ? ((l - f) / f * 100) : 0
+  const benchReturnByDate = (prices: PricePoint[]): number => {
+    if (!firstDate || prices.length === 0) return 0
+    const sorted = [...prices].sort((a, b) => a.date.localeCompare(b.date))
+    // Find first price at or after firstDate
+    const startIdx = sorted.findIndex(p => p.date >= firstDate)
+    if (startIdx === -1) return 0
+    const baseClose = sorted[startIdx].close
+    const lastClose = sorted[sorted.length - 1].close
+    return baseClose ? ((lastClose - baseClose) / baseClose * 100) : 0
   }
-  const spyRet = benchReturn(spyPrices)
-  const qqqRet = benchReturn(qqqPrices)
-  const secRet = benchReturn(sectorPrices)
+
+  const spyRet = benchReturnByDate(spyPrices)
+  const qqqRet = benchReturnByDate(qqqPrices)
+  const secRet = benchReturnByDate(sectorPrices)
 
   const alpha  = tRet - spyRet
 
