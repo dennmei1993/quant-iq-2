@@ -2,7 +2,7 @@
 // src/app/dashboard/themes/ThemesClient.tsx
 // Handles timeframe filter, sort, expand/collapse, asset pipeline
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import type { Theme, Regime, SignalMap, TickerWeight } from './page'
 import ThemeTickerManager from '@/components/dashboard/ThemeTickerManager'
@@ -118,7 +118,35 @@ function RegimeBar({ regime }: { regime: Regime | null }) {
   )
 }
 
-function AssetPipeline({ tickers, signalMap }: { tickers: TickerWeight[]; signalMap: SignalMap }) {
+function AssetPipeline({ themeId, tickers, signalMap: initialSignalMap }: {
+  themeId:   string
+  tickers:   TickerWeight[]
+  signalMap: SignalMap
+}) {
+  const [signalMap, setSignalMap] = useState<SignalMap>(initialSignalMap)
+  const [loading,   setLoading]   = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/themes/${themeId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return
+        const fresh: SignalMap = {}
+        for (const t of (d.tickers ?? [])) {
+          fresh[t.ticker] = {
+            signal:     t.signal,
+            score:      t.score,
+            price_usd:  t.price_usd,
+            change_pct: t.change_pct,
+          }
+        }
+        setSignalMap(fresh)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [themeId])
+
   if (tickers.length === 0) {
     return <p className={styles.empty}>No candidate assets linked to this theme yet.</p>
   }
@@ -137,8 +165,21 @@ function AssetPipeline({ tickers, signalMap }: { tickers: TickerWeight[]; signal
             {wt != null && (
               <div className={styles.assetPillWeight}>Weight {wt}%</div>
             )}
-            {sig && (
-              <span className={signalClass(sig.signal)}>{signalLabel(sig.signal)}</span>
+            {loading
+              ? <span className={styles.sigHold}>…</span>
+              : sig?.signal
+              ? <span className={signalClass(sig.signal)}>{signalLabel(sig.signal)}</span>
+              : null
+            }
+            {sig?.price_usd != null && (
+              <div className={styles.assetPillWeight}>
+                ${sig.price_usd.toFixed(2)}
+                {sig.change_pct != null && (
+                  <span style={{ color: sig.change_pct >= 0 ? 'var(--green)' : 'var(--red)', marginLeft: 4 }}>
+                    {sig.change_pct >= 0 ? '+' : ''}{sig.change_pct.toFixed(2)}%
+                  </span>
+                )}
+              </div>
             )}
           </Link>
         )
@@ -239,7 +280,7 @@ function ThemeCard({
           ) : (
             // Dynamic themes: read-only asset pipeline with signal badges
             <>
-              <AssetPipeline tickers={theme.ticker_weights} signalMap={signalMap} />
+              <AssetPipeline themeId={theme.id} tickers={theme.ticker_weights} signalMap={signalMap} />
               <div className={styles.pipelineActions}>
                 <button className={`${styles.pipelineBtn} ${styles.pipeBtnPrimary}`}>
                   + Add all BUY to watchlist
