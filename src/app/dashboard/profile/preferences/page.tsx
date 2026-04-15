@@ -3,7 +3,7 @@
 // Investment profile questionnaire — 8 scenario-based questions
 // Derives risk_score, horizon, style, volatility_tol, min_signal, min_conviction, sector_exclude
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -117,6 +117,22 @@ const QUESTIONS: Question[] = [
       { id: 'Communication Services',label: 'Social Media / Tech' },
     ],
   },
+  {
+    id:   'universe',
+    q:    'Which investment universe interests you most?',
+    sub:  'Select all that apply — this shapes what tickers and themes surface for you.',
+    type: 'multi',
+    options: [
+      { id: 'us_large',   label: 'US Large Cap Stocks',        sub: 'S&P 500 blue chips' },
+      { id: 'mag7',       label: 'Mega-cap Tech (Mag 7)',       sub: 'AAPL, MSFT, NVDA, GOOG, AMZN, META, TSLA' },
+      { id: 'dividend',   label: 'Dividend Stocks',            sub: 'Income-generating, lower volatility' },
+      { id: 'etf_broad',  label: 'Broad Market ETFs',          sub: 'SPY, QQQ, VTI — passive exposure' },
+      { id: 'etf_sector', label: 'Sector ETFs',                sub: 'XLE, XLK, XLV — targeted sector bets' },
+      { id: 'etf_global', label: 'International / Global ETFs',sub: 'VWO, EFA — exposure beyond US' },
+      { id: 'small_mid',  label: 'Small & Mid Cap',            sub: 'Higher growth potential, more volatility' },
+      { id: 'thematic',   label: 'Thematic / Trend investing', sub: 'AI, clean energy, defence, biotech' },
+    ],
+  },
 ]
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
@@ -130,6 +146,7 @@ interface Profile {
   min_conviction: number
   sector_exclude: string[]
   asset_types:    string[]
+  universe:       string[]
 }
 
 function scoreAnswers(answers: Record<string, string | string[]>): Profile {
@@ -204,8 +221,16 @@ function scoreAnswers(answers: Record<string, string | string[]>): Profile {
   // ── Sector exclusions ──
   const sectorExclude = (answers.exclusions as string[]) ?? []
 
-  // ── Asset types ──
+  // ── Asset types — derived from universe selection ──
+  const universe = (answers.universe as string[]) ?? []
   let assetTypes = ['stock', 'etf']
+  if (universe.length > 0) {
+    const wantsStock = universe.some(u => ['us_large','mag7','dividend','small_mid','thematic'].includes(u))
+    const wantsEtf   = universe.some(u => ['etf_broad','etf_sector','etf_global'].includes(u))
+    if (wantsStock && wantsEtf) assetTypes = ['stock', 'etf']
+    else if (wantsEtf)          assetTypes = ['etf']
+    else if (wantsStock)        assetTypes = ['stock']
+  }
   if (concentration === 'etf') assetTypes = ['etf']
 
   return {
@@ -217,6 +242,7 @@ function scoreAnswers(answers: Record<string, string | string[]>): Profile {
     min_conviction: minConviction,
     sector_exclude: sectorExclude,
     asset_types:    assetTypes,
+    universe,
   }
 }
 
@@ -249,15 +275,40 @@ function profileSummary(p: Profile): { label: string; desc: string; color: strin
 
 export default function PreferencesPage() {
   const router = useRouter()
-  const [step,    setStep]    = useState(0)    // 0 = intro, 1-8 = questions, 9 = results
-  const [answers, setAnswers] = useState<Record<string, string | string[]>>({})
-  const [saving,  setSaving]  = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
+  const [step,      setStep]      = useState(0)
+  const [answers,   setAnswers]   = useState<Record<string, string | string[]>>({})
+  const [saving,    setSaving]    = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
+  const [loading,   setLoading]   = useState(true)
+  const [hasExisting, setHasExisting] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
+
+  // Load existing profile on mount
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { setLoading(false); return }
+
+        const { data } = await (supabase as any)
+          .from('user_profiles')
+          .select('qa_answers, qa_completed')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (data?.qa_completed && data?.qa_answers) {
+          setAnswers(data.qa_answers)
+          setHasExisting(true)
+        }
+      } catch { /* no profile yet */ }
+      finally { setLoading(false) }
+    }
+    loadProfile()
+  }, [])
 
   const totalSteps = QUESTIONS.length
   const isIntro    = step === 0
@@ -303,11 +354,12 @@ export default function PreferencesPage() {
 
       const profile = scoreAnswers(answers)
 
-      const { error: upsertErr } = await supabase
+      const { error: upsertErr } = await (supabase as any)
         .from('user_profiles')
         .upsert({
           user_id:         user.id,
           ...profile,
+          universe:        profile.universe,
           qa_completed:    true,
           qa_answers:      answers,
           qa_version:      1,
@@ -403,6 +455,16 @@ export default function PreferencesPage() {
 
   // ── Intro screen ─────────────────────────────────────────────────────────
   if (isIntro) {
+    if (loading) {
+      return (
+        <div style={S.page}>
+          <div style={{ color: 'rgba(232,226,217,0.45)', fontSize: '0.8rem', textAlign: 'center', padding: '3rem' }}>
+            Loading…
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div style={S.page}>
         <div style={S.card}>
@@ -410,8 +472,13 @@ export default function PreferencesPage() {
             Investment Profile
           </div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 500, color: 'rgba(232,226,217,0.95)', marginBottom: '0.75rem', lineHeight: 1.3 }}>
-            Personalise your experience
+            {hasExisting ? 'Update your profile' : 'Personalise your experience'}
           </h1>
+          {hasExisting && (
+            <div style={{ background: 'rgba(78,255,145,0.06)', border: '1px solid rgba(78,255,145,0.2)', borderRadius: 6, padding: '8px 12px', marginBottom: '1rem', fontSize: '0.75rem', color: 'rgba(78,255,145,0.8)' }}>
+              ✓ You have an existing profile — your previous answers are pre-filled. Retake to update.
+            </div>
+          )}
           <p style={{ fontSize: '0.82rem', color: 'rgba(232,226,217,0.60)', lineHeight: 1.7, marginBottom: '1.5rem' }}>
             Answer 8 scenario-based questions and we'll calibrate your signals, themes, and portfolio recommendations to match how you actually invest — not how you think you should.
           </p>
@@ -488,6 +555,26 @@ export default function PreferencesPage() {
                     {s}
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {derived.universe.length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.40)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6, fontFamily: 'var(--font-mono)' }}>Universe focus</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {derived.universe.map(u => {
+                  const labels: Record<string, string> = {
+                    us_large: 'US Large Cap', mag7: 'Mag 7', dividend: 'Dividend',
+                    etf_broad: 'Broad ETFs', etf_sector: 'Sector ETFs', etf_global: 'Global ETFs',
+                    small_mid: 'Small/Mid Cap', thematic: 'Thematic',
+                  }
+                  return (
+                    <span key={u} style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(200,169,110,0.1)', color: 'rgba(200,169,110,0.85)', border: '1px solid rgba(200,169,110,0.25)', borderRadius: 3 }}>
+                      {labels[u] ?? u}
+                    </span>
+                  )
+                })}
               </div>
             </div>
           )}
