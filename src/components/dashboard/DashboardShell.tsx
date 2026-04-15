@@ -1,9 +1,6 @@
 'use client'
 // src/components/dashboard/DashboardShell.tsx
-// Desktop: sticky left sidebar
-// Mobile : fixed bottom tab bar + "More" slide-up sheet
-// NOTE: Mobile styles are inlined via <style> tag to bypass CSS module caching issues
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -16,14 +13,15 @@ interface Props {
 }
 
 const NAV = [
-  { href: '/dashboard',           label: 'Overview',  icon: '⬡', section: 'Core',     separator: false },
-  { href: '/dashboard/events',    label: 'Events',    icon: '↯', section: null,        separator: false },
-  { href: '/dashboard/themes',    label: 'Themes',    icon: '◈', section: 'Advisory',  separator: false },
-  { href: '/dashboard/assets',    label: 'Screener',  icon: '▤', section: null,        separator: false },
-  { href: '/dashboard/watchlist', label: 'Watchlist', icon: '★', section: null,        separator: true  },
-  { href: '/dashboard/portfolio', label: 'Portfolio', icon: '▦', section: 'Account',   separator: false },
-  { href: '/dashboard/alerts',    label: 'Alerts',    icon: '◉', section: null,        separator: false },
-  { href: '/dashboard/profile',   label: 'Profile',   icon: '◎', section: null,        separator: false },
+  { href: '/dashboard',                        label: 'Overview',     icon: '⬡', section: 'Core',     separator: false },
+  { href: '/dashboard/events',                 label: 'Events',       icon: '↯', section: null,        separator: false },
+  { href: '/dashboard/themes',                 label: 'Themes',       icon: '◈', section: 'Advisory',  separator: false },
+  { href: '/dashboard/assets',                 label: 'Screener',     icon: '▤', section: null,        separator: false },
+  { href: '/dashboard/watchlist',              label: 'Watchlist',    icon: '★', section: null,        separator: true  },
+  { href: '/dashboard/portfolio',              label: 'Portfolio',    icon: '▦', section: 'Account',   separator: false },
+  { href: '/dashboard/alerts',                 label: 'Alerts',       icon: '◉', section: null,        separator: false },
+  { href: '/dashboard/profile',                label: 'Profile',      icon: '◎', section: null,        separator: false },
+  { href: '/dashboard/profile/preferences',    label: 'Preferences',  icon: '⚙', section: null,        separator: false },
 ]
 
 const PRIMARY_TABS = [
@@ -171,10 +169,20 @@ const MOBILE_CSS = `
 `
 
 export default function DashboardShell({ user, children }: Props) {
-  const [moreOpen, setMoreOpen] = useState(false)
+  const [moreOpen,  setMoreOpen]  = useState(false)
+  const [isMobile,  setIsMobile]  = useState(false)
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createClient()
+
+  // Detect mobile — only render bottom nav on mobile
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    setIsMobile(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   const initials = (user.fullName || user.email)
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -186,12 +194,10 @@ export default function DashboardShell({ user, children }: Props) {
   }
 
   const isMoreActive = !PRIMARY_TABS.some(t => t.href === pathname)
-
-  const pageLabel = NAV.find(n => n.href === pathname)?.label ?? 'Dashboard'
+  const pageLabel    = NAV.find(n => n.href === pathname)?.label ?? 'Dashboard'
 
   return (
     <>
-      {/* Inject mobile styles — guaranteed to be in the DOM */}
       <style dangerouslySetInnerHTML={{ __html: MOBILE_CSS }} />
 
       <div id="qiq-shell" className={styles.shell}>
@@ -220,6 +226,16 @@ export default function DashboardShell({ user, children }: Props) {
                   {item.label}
                   {item.label === 'Alerts' && (
                     <span className={styles.alertBadge}>3</span>
+                  )}
+                  {item.label === 'Preferences' && (
+                    <span style={{
+                      fontSize: '0.52rem', fontFamily: 'var(--font-mono)',
+                      padding: '1px 5px', border: '1px solid rgba(200,169,110,0.3)',
+                      color: 'rgba(200,169,110,0.6)', borderRadius: 2,
+                      marginLeft: 'auto', letterSpacing: '0.06em',
+                    }}>
+                      NEW
+                    </span>
                   )}
                 </Link>
               </div>
@@ -260,64 +276,68 @@ export default function DashboardShell({ user, children }: Props) {
 
       </div>
 
-      {/* ── MOBILE BOTTOM TAB BAR ── */}
-      <nav id="qiq-bottomnav" style={{ display: 'none' }}>
-        {PRIMARY_TABS.map(tab => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={`qiq-tab ${pathname === tab.href ? 'qiq-tab-active' : ''}`}
-          >
-            <span className="qiq-tab-icon">{tab.icon}</span>
-            <span className="qiq-tab-label">{tab.label}</span>
-          </Link>
-        ))}
-        <button
-          className={`qiq-tab ${isMoreActive ? 'qiq-tab-active' : ''}`}
-          onClick={() => setMoreOpen(true)}
-        >
-          <span className="qiq-tab-icon">☰</span>
-          <span className="qiq-tab-label">More</span>
-          <span className="qiq-alert-dot" />
-        </button>
-      </nav>
+      {/* ── MOBILE BOTTOM TAB BAR — only rendered on mobile ── */}
+      {isMobile && (
+        <>
+          <nav id="qiq-bottomnav" style={{ display: 'none' }}>
+            {PRIMARY_TABS.map(tab => (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`qiq-tab ${pathname === tab.href ? 'qiq-tab-active' : ''}`}
+              >
+                <span className="qiq-tab-icon">{tab.icon}</span>
+                <span className="qiq-tab-label">{tab.label}</span>
+              </Link>
+            ))}
+            <button
+              className={`qiq-tab ${isMoreActive ? 'qiq-tab-active' : ''}`}
+              onClick={() => setMoreOpen(true)}
+            >
+              <span className="qiq-tab-icon">☰</span>
+              <span className="qiq-tab-label">More</span>
+              <span className="qiq-alert-dot" />
+            </button>
+          </nav>
 
-      {/* ── MOBILE MORE OVERLAY ── */}
-      <div
-        id="qiq-moreoverlay"
-        className={moreOpen ? 'open' : ''}
-        onClick={() => setMoreOpen(false)}
-      />
-
-      {/* ── MOBILE MORE SHEET ── */}
-      <div id="qiq-moresheet" className={moreOpen ? 'open' : ''}>
-        <div className="qiq-sheet-handle" />
-        <div className="qiq-sheet-header">// navigation</div>
-
-        <div className="qiq-sheet-user">
-          <div className={styles.avatar}>{initials}</div>
-          <div>
-            <div className={styles.userName}>{user.fullName || user.email.split('@')[0]}</div>
-            <div className={styles.userPlan}>{user.plan.toUpperCase()}</div>
-          </div>
-        </div>
-
-        {NAV.map(item => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`qiq-sheet-item ${pathname === item.href ? 'qiq-sheet-item-active' : ''}`}
+          {/* Backdrop */}
+          <div
+            id="qiq-moreoverlay"
+            className={moreOpen ? 'open' : ''}
             onClick={() => setMoreOpen(false)}
-          >
-            <span className="qiq-sheet-icon">{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
+          />
 
-        <button onClick={handleSignOut} className="qiq-sheet-signout">
-          Sign out
-        </button>
-      </div>
+          {/* More sheet */}
+          <div id="qiq-moresheet" className={moreOpen ? 'open' : ''}>
+            <div className="qiq-sheet-handle" />
+            <div className="qiq-sheet-header">// navigation</div>
+
+            <div className="qiq-sheet-user">
+              <div className={styles.avatar}>{initials}</div>
+              <div>
+                <div className={styles.userName}>{user.fullName || user.email.split('@')[0]}</div>
+                <div className={styles.userPlan}>{user.plan.toUpperCase()}</div>
+              </div>
+            </div>
+
+            {NAV.map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`qiq-sheet-item ${pathname === item.href ? 'qiq-sheet-item-active' : ''}`}
+                onClick={() => setMoreOpen(false)}
+              >
+                <span className="qiq-sheet-icon">{item.icon}</span>
+                {item.label}
+              </Link>
+            ))}
+
+            <button onClick={handleSignOut} className="qiq-sheet-signout">
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
     </>
   )
 }
