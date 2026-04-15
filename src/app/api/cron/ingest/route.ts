@@ -24,36 +24,45 @@ function elapsed(start: number): string {
   return `${((Date.now() - start) / 1000).toFixed(1)}s`
 }
 
+function elapsedMs(start: number): number {
+  return Date.now() - start
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorised(req)) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
-  // ── Start log entry ─────────────────────────────────────────────────────────
   const log_handle = await cronLog.start('ingest', 'intelligence', req as unknown as Request)
 
-  const T0       = Date.now()
-  const supabase = createServiceClient()
+  const T0        = Date.now()
+  const startedAt = new Date(T0).toISOString()
+  const supabase  = createServiceClient()
   const log:    string[] = []
   const errors: string[] = []
 
-  // Counters — tracked throughout so meta is always accurate even on early exit
-  let articlesFound  = 0
-  let newArticles    = 0
-  let classified     = 0
-  let insertFailed   = 0
-  let backlogDone    = 0
-  let alertsCreated  = 0
+  // Step timings
+  const timings: Record<string, number> = {}
+
+  let articlesFound   = 0
+  let newArticles     = 0
+  let classified      = 0
+  let insertFailed    = 0
+  let backlogDone     = 0
+  let alertsCreated   = 0
   let watchlistAlerts = 0
 
   try {
     // ── Step 1: Fetch RSS feeds ─────────────────────────────────────────────
+    const t1 = Date.now()
     log.push(`[${elapsed(T0)}] Fetching ${activeSources.length} RSS feeds...`)
     const articles = await fetchAllFeeds(activeSources)
-    articlesFound = articles.length
-    log.push(`[${elapsed(T0)}] Fetched ${articles.length} articles`)
+    articlesFound  = articles.length
+    timings.fetch_feeds_ms = elapsedMs(t1)
+    log.push(`[${elapsed(T0)}] Fetched ${articles.length} articles (${timings.fetch_feeds_ms}ms)`)
 
     // ── Step 2: Deduplicate against DB ──────────────────────────────────────
+    const t2 = Date.now()
     log.push(`[${elapsed(T0)}] Deduplicating...`)
     const incomingUrls = articles.map(a => a.url)
     const { data: existingRows } = await supabase
@@ -62,16 +71,13 @@ export async function GET(req: NextRequest) {
       .in('source_url', incomingUrls)
       .not('source_url', 'is', null) as { data: { source_url: string }[] | null }
 
-    const existingUrls = new Set((existingRows ?? []).map(r => r.source_url))
-    const fresh        = articles.filter(a => !existingUrls.has(a.url))
-    log.push(`[${elapsed(T0)}] ${fresh.length} new after URL dedup`)
-
-    // ── Step 2b: Fuzzy dedup ────────────────────────────────────────────────
+    const existingUrls    = new Set((existingRows ?? []).map(r => r.source_url))
+    const fresh           = articles.filter(a => !existingUrls.has(a.url))
     const dedupedArticles = fuzzyDeduplicateHeadlines(fresh, 0.85)
     newArticles = dedupedArticles.length
-    log.push(`[${elapsed(T0)}] ${dedupedArticles.length} after fuzzy dedup`)
+    timings.dedup_ms = elapsedMs(t2)
+    log.push(`[${elapsed(T0)}] ${fresh.length} new after URL dedup, ${dedupedArticles.length} after fuzzy dedup (${timings.dedup_ms}ms)`)
 
-    // Skip classify if nothing new — still check backlog and alerts
     if (dedupedArticles.length === 0) {
       log.push(`[${elapsed(T0)}] No new articles — skipping classify step`)
     }
@@ -79,6 +85,7 @@ export async function GET(req: NextRequest) {
     // ── Step 3 & 4: Insert + classify ───────────────────────────────────────
     const MAX_PER_RUN = 20
     const toInsert    = dedupedArticles.slice(0, MAX_PER_RUN)
+    const t3 = Date.now()
 
     if (toInsert.length > 0) {
       log.push(`[${elapsed(T0)}] Starting insert+classify for ${toInsert.length} articles`)
@@ -123,10 +130,12 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      log.push(`[${elapsed(T0)}] Done insert+classify: ${classified} classified, ${insertFailed} failed`)
+      timings.classify_ms = elapsedMs(t3)
+      log.push(`[${elapsed(T0)}] Done insert+classify: ${classified} classified, ${insertFailed} failed (${timings.classify_ms}ms)`)
     }
 
     // ── Step 5: Backlog ──────────────────────────────────────────────────────
+    const t5 = Date.now()
     log.push(`[${elapsed(T0)}] Checking backlog...`)
     try {
       const { data: backlog } = await supabase
@@ -165,8 +174,10 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       errors.push(`Backlog fetch failed: ${String(err)}`)
     }
+    timings.backlog_ms = elapsedMs(t5)
 
     // ── Step 6: Alerts ───────────────────────────────────────────────────────
+    const t6 = Date.now()
     log.push(`[${elapsed(T0)}] Generating alerts...`)
     try {
       alertsCreated   = await generateAlertsForAllUsers(supabase)
@@ -175,60 +186,53 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       errors.push(`Alert generation failed: ${String(err)}`)
     }
+    timings.alerts_ms = elapsedMs(t6)
 
+    const finishedAt   = new Date().toISOString()
     const totalElapsed = elapsed(T0)
-    log.push(`[${totalElapsed}] DONE — total elapsed: ${totalElapsed}`)
+    const totalMs      = elapsedMs(T0)
+    log.push(`[${totalElapsed}] DONE`)
 
-    // ── Finalise log ──────────────────────────────────────────────────────────
     const ok = errors.length === 0
+
+    const summary = {
+      started_at:      startedAt,
+      finished_at:     finishedAt,
+      total_elapsed_s: parseFloat(totalElapsed),
+      total_ms:        totalMs,
+      articles_found:  articlesFound,
+      articles_new:    newArticles,
+      classified,
+      insert_failed:   insertFailed,
+      backlog_done:    backlogDone,
+      alerts_created:  alertsCreated,
+      watchlist_alerts: watchlistAlerts,
+      errors:          errors.length,
+      timings,
+    }
 
     if (!ok) {
       await log_handle.fail(
         new Error(`${errors.length} error(s): ${errors.slice(0, 3).join('; ')}`),
-        {
-          records_in:  articlesFound,
-          records_out: classified + backlogDone,
-          meta: {
-            articles_found:   articlesFound,
-            articles_new:     newArticles,
-            classified,
-            insert_failed:    insertFailed,
-            backlog_done:     backlogDone,
-            alerts_created:   alertsCreated,
-            watchlist_alerts: watchlistAlerts,
-            error_count:      errors.length,
-            errors,
-            elapsed_s:        totalElapsed,
-          },
-        }
+        { records_in: articlesFound, records_out: classified + backlogDone, meta: { ...summary, error_list: errors, log } }
       )
     } else {
       await log_handle.success({
         records_in:  articlesFound,
         records_out: classified + backlogDone,
-        meta: {
-          articles_found:   articlesFound,
-          articles_new:     newArticles,
-          classified,
-          insert_failed:    insertFailed,
-          backlog_done:     backlogDone,
-          alerts_created:   alertsCreated,
-          watchlist_alerts: watchlistAlerts,
-          sources:          activeSources.length,
-          elapsed_s:        totalElapsed,
-        },
+        meta: { ...summary, sources: activeSources.length, log },
       })
     }
 
     return NextResponse.json({
-      status: ok ? 'ok' : 'partial',
-      log,
+      status:  ok ? 'ok' : 'partial',
+      summary,
       errors,
-      ts: new Date().toISOString(),
+      log,
     })
 
   } catch (err: any) {
-    // Unexpected outer failure (RSS fetch crash, DB connection lost, etc.)
+    const finishedAt   = new Date().toISOString()
     const totalElapsed = elapsed(T0)
     console.error('[cron/ingest] fatal:', err)
 
@@ -236,16 +240,18 @@ export async function GET(req: NextRequest) {
       records_in:  articlesFound,
       records_out: classified + backlogDone,
       meta: {
-        error_stage:    'outer',
+        started_at:   startedAt,
+        finished_at:  finishedAt,
+        elapsed_s:    parseFloat(totalElapsed),
+        error_stage:  'outer',
         articles_found: articlesFound,
         classified,
-        elapsed_s:      totalElapsed,
         log,
       },
     })
 
     return NextResponse.json(
-      { status: 'error', error: err.message ?? String(err), log },
+      { status: 'error', error: err.message ?? String(err), started_at: startedAt, finished_at: finishedAt, log },
       { status: 500 }
     )
   }
