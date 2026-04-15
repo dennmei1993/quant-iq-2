@@ -119,7 +119,7 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
   }
 
   if (loading) return (
-    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-faint)", padding: "8px 12px" }}>
+    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "rgba(232,226,217,0.45)", padding: "8px 12px" }}>
       Loading...
     </div>
   )
@@ -134,7 +134,7 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
   return (
     <div style={{ padding: "10px 12px 12px" }}>
       {detail.theme.brief && (
-        <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.74rem", color: "var(--text-muted)", lineHeight: 1.65, margin: "0 0 10px", fontWeight: 300 }}>
+        <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.74rem", color: "rgba(232,226,217,0.55)", lineHeight: 1.65, margin: "0 0 10px", fontWeight: 300 }}>
           {detail.theme.brief}
         </p>
       )}
@@ -152,13 +152,13 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
         </span>
       </div>
       {detail.theme.anchor_reason && (
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-faint)", marginBottom: 10, fontStyle: "italic" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "rgba(232,226,217,0.45)", marginBottom: 10, fontStyle: "italic" }}>
           anchor: {detail.theme.anchor_reason}
         </div>
       )}
       {detail.tickers.length > 0 && (
         <>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--text-faint)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "rgba(232,226,217,0.45)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 6 }}>
             ## Candidate assets
           </div>
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
@@ -166,13 +166,13 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
               <Link key={t.ticker} href={`/dashboard/tickers/${t.ticker}`} style={{ border: "1px solid var(--border-default)", padding: "6px 9px", background: "var(--bg-base)", minWidth: 80, display: "block", textDecoration: "none" }} onClick={e => e.stopPropagation()}>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--green)", letterSpacing: "0.05em" }}>{t.ticker}</div>
                 {t.asset_type && (
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>{t.asset_type}</div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", color: "rgba(232,226,217,0.45)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>{t.asset_type}</div>
                 )}
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-muted)", marginTop: 2 }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "rgba(232,226,217,0.55)", marginTop: 2 }}>
                   {Math.round(t.final_weight)}%
                 </div>
                 {t.price_usd != null && (
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-secondary)", marginTop: 1 }}>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "rgba(232,226,217,0.65)", marginTop: 1 }}>
                     ${t.price_usd.toFixed(2)}
                     {t.change_pct != null && (
                       <span style={{ color: t.change_pct >= 0 ? "#4eff91" : "#ff4e6a", marginLeft: 4 }}>
@@ -324,7 +324,7 @@ export default function HomeClient({
               <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
                 {regime.favoured_sectors && regime.favoured_sectors.length > 0 && (
                   <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'var(--text-faint)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Favour</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'rgba(232,226,217,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Favour</span>
                     {regime.favoured_sectors.slice(0, 4).map(s => (
                       <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', padding: '1px 7px', border: '1px solid rgba(78,255,145,0.25)', color: 'var(--green)', letterSpacing: '0.06em' }}>{s}</span>
                     ))}
@@ -332,7 +332,7 @@ export default function HomeClient({
                 )}
                 {regime.avoid_sectors && regime.avoid_sectors.length > 0 && (
                   <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'var(--text-faint)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Avoid</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'rgba(232,226,217,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Avoid</span>
                     {regime.avoid_sectors.slice(0, 3).map(s => (
                       <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', padding: '1px 7px', border: '1px solid rgba(255,78,106,0.25)', color: 'var(--red)', letterSpacing: '0.06em' }}>{s}</span>
                     ))}
@@ -356,7 +356,7 @@ export default function HomeClient({
         <div className={styles.regime}>
           <div className={styles.regimeMain}>
             <div className={styles.regimeLabel}>Market regime</div>
-            <div className={styles.regimeName} style={{ color: 'var(--text-faint)' }}>
+            <div className={styles.regimeName} style={{ color: 'rgba(232,226,217,0.45)' }}>
               No regime data — run the regime cron to generate
             </div>
           </div>
@@ -425,7 +425,7 @@ export default function HomeClient({
                     <div className={styles.themeConv} style={{ color: momentumColor(t.momentum) }}>
                       {t.conviction ?? 0}%
                     </div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--text-faint)', marginLeft: 4 }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'rgba(232,226,217,0.45)', marginLeft: 4 }}>
                       {isExpanded ? '▲' : '▼'}
                     </div>
                   </div>
@@ -495,8 +495,8 @@ export default function HomeClient({
             <div className={styles.portfolioEmpty}>
               <div className={styles.portfolioEmptyIcon}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <rect x="1" y="4" width="12" height="9" rx="1" stroke="var(--text-faint)" strokeWidth="1"/>
-                  <path d="M4 4V3a3 3 0 016 0v1" stroke="var(--text-faint)" strokeWidth="1"/>
+                  <rect x="1" y="4" width="12" height="9" rx="1" stroke="rgba(232,226,217,0.45)" strokeWidth="1"/>
+                  <path d="M4 4V3a3 3 0 016 0v1" stroke="rgba(232,226,217,0.45)" strokeWidth="1"/>
                 </svg>
               </div>
               <div className={styles.portfolioEmptyTitle}>No holdings yet</div>
@@ -529,14 +529,14 @@ export default function HomeClient({
                       ? `${portfolio.total_pnl_pct >= 0 ? '+' : ''}${portfolio.total_pnl_pct.toFixed(1)}%`
                       : '—'}
                   </div>
-                  <div className={styles.portfolioKpiSub} style={{ color: 'var(--text-faint)' }}>unrealised</div>
+                  <div className={styles.portfolioKpiSub} style={{ color: 'rgba(232,226,217,0.45)' }}>unrealised</div>
                 </div>
                 <div className={styles.portfolioKpiCell}>
                   <div className={styles.portfolioKpiLabel}>Holdings</div>
-                  <div className={styles.portfolioKpiVal} style={{ color: 'var(--text-muted)' }}>
+                  <div className={styles.portfolioKpiVal} style={{ color: 'rgba(232,226,217,0.55)' }}>
                     {portfolio.holdings_count}
                   </div>
-                  <div className={styles.portfolioKpiSub} style={{ color: 'var(--text-faint)' }}>positions</div>
+                  <div className={styles.portfolioKpiSub} style={{ color: 'rgba(232,226,217,0.45)' }}>positions</div>
                 </div>
               </div>
 

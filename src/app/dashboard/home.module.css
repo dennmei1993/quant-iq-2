@@ -25,7 +25,7 @@
 .regimeLabel {
   font-family: var(--font-mono);
   font-size: 0.6rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   margin-bottom: 4px;
@@ -39,7 +39,7 @@
 }
 .regimeSub {
   font-size: 0.72rem;
-  color: var(--text-muted);
+  color: rgba(232,226,217,0.65);
   line-height: 1.6;
   max-width: 480px;
 }
@@ -76,7 +76,7 @@
 .regimeConvLabel {
   font-family: var(--font-mono);
   font-size: 0.58rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -105,7 +105,7 @@
 .macroCellLabel {
   font-family: var(--font-mono);
   font-size: 0.6rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 4px;
@@ -145,7 +145,7 @@
 .panelTitle {
   font-family: var(--font-mono);
   font-size: 0.6rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
@@ -182,14 +182,14 @@
 }
 .themeName {
   font-size: 0.78rem;
-  color: var(--text-secondary);
+  color: rgba(232,226,217,0.82);
   flex: 1;
   font-weight: 300;
 }
 .themeTf {
   font-family: var(--font-mono);
   font-size: 0.62rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
 }
 .themeConv {
   font-family: var(--font-mono);
@@ -222,7 +222,7 @@
 }
 .eventHeadline {
   font-size: 0.76rem;
-  color: var(--text-secondary);
+  color: rgba(232,226,217,0.82);
   flex: 1;
   line-height: 1.45;
   font-weight: 300;
@@ -236,7 +236,7 @@
 .eventMeta {
   font-family: var(--font-mono);
   font-size: 0.62rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   margin-top: 3px;
   letter-spacing: 0.04em;
 }
@@ -266,12 +266,12 @@
 .portfolioEmptyTitle {
   font-family: 'Syne', var(--font-sans);
   font-size: 0.88rem;
-  color: var(--text-muted);
+  color: rgba(232,226,217,0.65);
   font-weight: 500;
 }
 .portfolioEmptySub {
   font-size: 0.72rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   line-height: 1.65;
   max-width: 240px;
   font-weight: 300;
@@ -309,7 +309,7 @@
 .portfolioKpiLabel {
   font-family: var(--font-mono);
   font-size: 0.58rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 4px;
@@ -353,14 +353,14 @@
 }
 .alertSub {
   font-size: 0.68rem;
-  color: var(--text-muted);
+  color: rgba(232,226,217,0.65);
   line-height: 1.55;
   font-weight: 300;
 }
 .alertTime {
   font-family: var(--font-mono);
   font-size: 0.62rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   flex-shrink: 0;
 }
 
@@ -380,7 +380,7 @@
 .actionNum {
   font-family: var(--font-mono);
   font-size: 0.62rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   min-width: 18px;
   padding-top: 1px;
 }
@@ -393,13 +393,13 @@
 }
 .actionSub {
   font-size: 0.68rem;
-  color: var(--text-muted);
+  color: rgba(232,226,217,0.65);
   line-height: 1.5;
   font-weight: 300;
 }
 .actionArrow {
   font-size: 0.72rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   padding-top: 1px;
 }
 
@@ -407,14 +407,14 @@
 .up   { color: var(--green); }
 .down { color: var(--red); }
 .neut { color: var(--amber); }
-.mute { color: var(--text-muted); }
+.mute { color: rgba(232,226,217,0.65); }
 
 /* ── Empty / loading ── */
 .empty {
   padding: 20px 12px;
   text-align: center;
   font-size: 0.74rem;
-  color: var(--text-faint);
+  color: rgba(232,226,217,0.50);
   font-weight: 300;
 }
 
