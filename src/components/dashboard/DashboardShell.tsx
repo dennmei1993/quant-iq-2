@@ -21,7 +21,6 @@ const NAV = [
   { href: '/dashboard/portfolio',              label: 'Portfolio',    icon: '▦', section: 'Account',   separator: false },
   { href: '/dashboard/alerts',                 label: 'Alerts',       icon: '◉', section: null,        separator: false },
   { href: '/dashboard/profile',                label: 'Profile',      icon: '◎', section: null,        separator: false },
-  { href: '/dashboard/profile/preferences',    label: 'Preferences',  icon: '⚙', section: null,        separator: false },
 ]
 
 const PRIMARY_TABS = [
@@ -226,16 +225,6 @@ export default function DashboardShell({ user, children }: Props) {
                   {item.label}
                   {item.label === 'Alerts' && (
                     <span className={styles.alertBadge}>3</span>
-                  )}
-                  {item.label === 'Preferences' && (
-                    <span style={{
-                      fontSize: '0.52rem', fontFamily: 'var(--font-mono)',
-                      padding: '1px 5px', border: '1px solid rgba(200,169,110,0.3)',
-                      color: 'rgba(200,169,110,0.6)', borderRadius: 2,
-                      marginLeft: 'auto', letterSpacing: '0.06em',
-                    }}>
-                      NEW
-                    </span>
                   )}
                 </Link>
               </div>
