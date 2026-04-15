@@ -98,9 +98,9 @@ function signalColor(s: string | null) {
   return ({
     buy:   'var(--signal-bull)',
     watch: 'var(--signal-neut)',
-    hold:  'rgba(232,226,217,0.70)',
+    hold:  'rgba(232,226,217,0.4)',
     avoid: 'var(--signal-bear)',
-  } as Record<string, string>)[s ?? ''] ?? 'rgba(232,226,217,0.70)'
+  } as Record<string, string>)[s ?? ''] ?? 'rgba(232,226,217,0.4)'
 }
 
 function sentimentColor(s: number | null) {
@@ -561,14 +561,14 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               </span>
             )}
             {price?.volume != null && (
-              <span style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.60)', fontFamily: 'monospace' }}>
+              <span style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.3)', fontFamily: 'monospace' }}>
                 Vol {formatVolume(price.volume)}
               </span>
             )}
           </div>
-          <div style={{ color: 'rgba(232,226,217,0.60)', fontSize: '0.9rem' }}>{name}</div>
+          <div style={{ color: 'rgba(232,226,217,0.45)', fontSize: '0.9rem' }}>{name}</div>
           {(details?.sector || assetRow?.sector) && (
-            <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.40)', marginTop: '0.15rem' }}>
+            <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.25)', marginTop: '0.15rem' }}>
               {details?.sector ?? assetRow?.sector} · {details?.exchange ?? assetRow?.asset_type}
             </div>
           )}
@@ -585,8 +585,8 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               ['Div',      assetRow?.dividend_yield != null ? `${assetRow.dividend_yield.toFixed(2)}%` : null],
               ['Target',   assetRow?.analyst_target != null ? `$${assetRow.analyst_target.toFixed(2)}` : null],
             ].filter(([, v]) => v && v !== '—').map(([label, val]) => (
-              <span key={label as string} style={{ fontSize: '0.7rem', color: 'rgba(232,226,217,0.70)', fontFamily: 'monospace' }}>
-                <span style={{ color: 'rgba(232,226,217,0.42)', marginRight: 3 }}>{label}</span>{val}
+              <span key={label as string} style={{ fontSize: '0.7rem', color: 'rgba(232,226,217,0.55)', fontFamily: 'monospace' }}>
+                <span style={{ color: 'rgba(232,226,217,0.28)', marginRight: 3 }}>{label}</span>{val}
               </span>
             ))}
           </div>
@@ -602,12 +602,12 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       {/* ── About — inline, collapsible ── */}
       {(details?.description || assetRow?.description) && (
         <details style={{ marginBottom: '1rem' }}>
-          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.60)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
-            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.52)' }}>▶</span> About
+          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> About
           </summary>
           <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '0.5rem' }}>
             {(details?.description || assetRow?.description) && (
-              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.70)', lineHeight: 1.7, margin: '0 0 0.6rem' }}>
+              <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.7, margin: '0 0 0.6rem' }}>
                 {(() => {
                   const desc = details?.description ?? assetRow?.description ?? ''
                   return desc.slice(0, 600) + (desc.length > 600 ? '…' : '')
@@ -626,8 +626,8 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
       {/* ── Chart — inline, collapsible ── */}
       <details style={{ marginBottom: '1rem' }}>
-        <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.60)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
-          <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.52)' }}>▶</span> Price Chart
+        <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+          <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Price Chart
         </summary>
         <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '0.5rem' }}>
           <OHLCChart prices={ohlcPrices} ticker={ticker} />
@@ -636,8 +636,8 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
       {(spyPrices.length > 0 || ohlcPrices.length > 0) && (
         <details style={{ marginBottom: '1rem' }}>
-          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.60)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
-            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.52)' }}>▶</span> Relative Performance
+          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Relative Performance
           </summary>
           <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, overflow: 'hidden', marginTop: '0.5rem' }}>
             <RelativePerformanceChart
@@ -655,14 +655,14 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             {/* ── Signal analysis — collapsible ── */}
       {signalData?.signal && (
         <details style={{ marginBottom: '1rem' }}>
-          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.60)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
-            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.52)' }}>▶</span> Signal Analysis
+          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Signal Analysis
           </summary>
           <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem', marginTop: '0.5rem' }}>
 
               {(signalData.fundamental_score != null || signalData.technical_score != null) && (
                 <div style={{ marginBottom: '0.9rem' }}>
-                  <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>Signal Scores</div>
+                  <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>Signal Scores</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {[
                       { label: 'Fundamental', score: signalData.fundamental_score, color: '#7ab4e8' },
@@ -670,7 +670,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                     ].map(({ label, score, color }) => score != null && (
                       <div key={label}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                          <span style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.70)' }}>{label}</span>
+                          <span style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.4)' }}>{label}</span>
                           <span style={{ fontSize: '0.68rem', fontWeight: 600, color, fontFamily: 'monospace' }}>{score}/100</span>
                         </div>
                         <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
@@ -715,12 +715,12 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                   signalData.t_components      as Record<string, number> | null,
                 )
                 if (!trigger) return null
-                const signalColors: Record<string, string> = { buy: '#4eca99', watch: '#e0c97a', hold: 'rgba(232,226,217,0.70)', avoid: '#e87070' }
+                const signalColors: Record<string, string> = { buy: '#4eca99', watch: '#e0c97a', hold: 'rgba(232,226,217,0.4)', avoid: '#e87070' }
                 const nextColor = signalColors[trigger.nextSignal] ?? 'var(--gold)'
                 return (
                   <div style={{ marginBottom: '0.9rem', padding: '0.7rem 0.85rem', background: `${nextColor}08`, borderRadius: 7, border: `1px solid ${nextColor}22` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.60)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Path to</span>
+                      <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Path to</span>
                       <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0.1rem 0.45rem', borderRadius: 3, color: nextColor, background: `${nextColor}18`, border: `1px solid ${nextColor}33` }}>
                         {trigger.nextSignal}
                       </span>
@@ -737,15 +737,15 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                         </div>
                       )}
                       {trigger.fGap == null && trigger.tGap == null && (
-                        <div style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.60)' }}>Signal upgrade pending next price sync</div>
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.3)' }}>Signal upgrade pending next price sync</div>
                       )}
                     </div>
                     {trigger.explanation.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                         {trigger.explanation.map((e, i) => (
                           <div key={i} style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
-                            <span style={{ color: 'rgba(232,226,217,0.52)', fontSize: '0.65rem', marginTop: '0.05rem', flexShrink: 0 }}>›</span>
-                            <span style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.60)', lineHeight: 1.5 }}>{e}</span>
+                            <span style={{ color: 'rgba(232,226,217,0.2)', fontSize: '0.65rem', marginTop: '0.05rem', flexShrink: 0 }}>›</span>
+                            <span style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.45)', lineHeight: 1.5 }}>{e}</span>
                           </div>
                         ))}
                       </div>
@@ -756,12 +756,12 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
               {signalData.rationale && (
                 <>
-                  <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Signal Rationale</div>
-                  <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.70)', lineHeight: 1.65, margin: 0 }}>
+                  <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Signal Rationale</div>
+                  <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, margin: 0 }}>
                     {signalData.rationale}
                   </p>
                   {signalData.rationale_updated_at && (
-                    <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.52)', marginTop: '0.5rem' }}>
+                    <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.18)', marginTop: '0.5rem' }}>
                       Updated {relTime(signalData.rationale_updated_at)}
                     </div>
                   )}
@@ -774,11 +774,11 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       {/* ── Themes — collapsible ── */}
       {themes.length > 0 && (
         <details style={{ marginBottom: '1rem' }}>
-          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.60)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
-            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.52)' }}>▶</span> Active Themes · {themes.length}
+          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Active Themes · {themes.length}
           </summary>
           <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem', marginTop: '0.5rem' }}>
-              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
+              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
                 Active Themes · {themes.length}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -786,15 +786,15 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                   <div key={row.theme_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.55rem 0.75rem', background: 'rgba(255,255,255,0.025)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)' }}>
                     <div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--cream)', fontWeight: 500 }}>{row.name}</div>
-                      <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)', marginTop: '0.1rem' }}>
+                      <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.25)', marginTop: '0.1rem' }}>
                         {row.theme_type === 'watchlist' ? '📌 Watchlist' : tfLabel(row.timeframe)} · {row.conviction ?? 0} conviction
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: row.final_weight >= 0.7 ? 'var(--signal-bull)' : row.final_weight >= 0.4 ? 'var(--signal-neut)' : 'rgba(232,226,217,0.52)' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: row.final_weight >= 0.7 ? 'var(--signal-bull)' : row.final_weight >= 0.4 ? 'var(--signal-neut)' : 'rgba(232,226,217,0.35)' }}>
                         {(row.final_weight * 100).toFixed(0)}%
                       </div>
-                      <div style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.52)' }}>weight</div>
+                      <div style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.2)' }}>weight</div>
                     </div>
                   </div>
                 ))}
@@ -806,11 +806,11 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
       {/* ── Events — collapsible ── */}
       {recentEvents.length > 0 && (
         <details style={{ marginBottom: '1rem' }}>
-          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.60)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
-            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.52)' }}>▶</span> Recent Events · {recentEvents.length}
+          <summary style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', userSelect: 'none' }}>
+            <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.2)' }}>▶</span> Recent Events · {recentEvents.length}
           </summary>
           <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.2rem 1.4rem', marginTop: '0.5rem' }}>
-              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
+              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
                 Recent Events · {recentEvents.length}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -819,7 +819,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                     <div style={{ width: 7, height: 7, borderRadius: '50%', background: sentimentColor(e.sentiment_score), marginTop: '0.3rem', flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '0.78rem', color: 'var(--cream)', lineHeight: 1.4 }}>{e.ai_summary ?? e.headline}</div>
-                      <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)', marginTop: '0.15rem' }}>
+                      <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.25)', marginTop: '0.15rem' }}>
                         {relTime(e.published_at)} · impact {e.impact_score ?? '?'}/10
                       </div>
                     </div>
