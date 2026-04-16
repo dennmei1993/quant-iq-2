@@ -332,7 +332,12 @@ export default function ProfilePage() {
           setQaCompleted(data.qa_completed ?? false)
           setQaCompletedAt(data.qa_completed_at ?? null)
           if (data.qa_completed && data.qa_answers) {
-            setAnswers(data.qa_answers)
+            // Normalise multi-select fields: if stored as string (legacy), convert to array
+            const qa = { ...data.qa_answers }
+            for (const field of ['style', 'exclusions', 'universe']) {
+              if (typeof qa[field] === 'string') qa[field] = [qa[field]]
+            }
+            setAnswers(qa)
           }
         }
       } catch {}
@@ -385,7 +390,9 @@ export default function ProfilePage() {
   }
   function handleMulti(qId: string, oId: string) {
     setAnswers(prev => {
-      const cur = (prev[qId] as string[]) ?? []
+      // Guard: if stored as string (legacy single-select), wrap in array first
+      const raw = prev[qId]
+      const cur: string[] = Array.isArray(raw) ? raw : (raw && typeof raw === 'string' && raw.length > 1) ? [raw] : []
       return { ...prev, [qId]: cur.includes(oId) ? cur.filter(id => id !== oId) : [...cur, oId] }
     })
   }
