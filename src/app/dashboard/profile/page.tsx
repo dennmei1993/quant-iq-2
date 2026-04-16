@@ -1,594 +1,895 @@
-'use client'
-// src/app/dashboard/profile/page.tsx
-// Merged profile + investment personality questionnaire
-// Navbar entry: Profile
+"use client";
+// src/app/dashboard/portfolio/page.tsx
+// Portfolio page:
+// - Each section in expandable panel
+// - Creation inherits QA-derived user_profiles defaults
+// - Single "Build Portfolio" button (data-driven + LLM narrative)
+// - Total separation per portfolio
 
-import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { PortfolioSignalDistribution } from "@/components/dashboard/PortfolioSignalDistribution";
+import { PortfolioWatchlist } from "@/components/dashboard/PortfolioWatchlist";
+import { PortfolioBuildHistory } from "@/components/dashboard/PortfolioBuildHistory";
+import {
+  computeCapitalMetrics,
+  type PortfolioCapitalMetrics,
+} from "@/types/portfolio-preferences";
+import type { RiskAppetite, InvestmentHorizon } from "@/types/portfolio-preferences";
 
-// ─── Questions & types ───────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Option {
-  id:    string
-  label: string
-  sub?:  string
-}
+type Holding = {
+  id:         string;
+  ticker:     string;
+  name:       string | null;
+  asset_type: string | null;
+  quantity:   number | null;
+  avg_cost:   number | null;
+  notes:      string | null;
+  signal: {
+    signal:     string;
+    price_usd:  number | null;
+    change_pct: number | null;
+  } | null;
+};
 
-interface Question {
-  id:      string
-  q:       string
-  sub?:    string
-  type:    'single' | 'multi'
-  options: Option[]
-}
+type Portfolio = {
+  id:                 string;
+  name:               string;
+  risk_appetite:      RiskAppetite;
+  benchmark:          string;
+  target_holdings:    number;
+  preferred_assets:   string[];
+  cash_pct:           number;
+  investment_horizon: InvestmentHorizon;
+  total_capital:      number;
+};
 
-const QUESTIONS: Question[] = [
-  {
-    id:   'drawdown',
-    q:    'Your portfolio drops 20% in a month. What do you do?',
-    sub:  'Be honest — what would you actually do, not what you think you should do.',
-    type: 'single',
-    options: [
-      { id: 'sell',      label: 'Sell everything',           sub: 'Protect what\'s left and wait for clarity' },
-      { id: 'hold',      label: 'Hold and wait',             sub: 'Markets recover — stay the course' },
-      { id: 'rebalance', label: 'Rebalance to target',       sub: 'Systematic approach, buy what\'s fallen' },
-      { id: 'buy_more',  label: 'Buy more aggressively',     sub: 'Great buying opportunity' },
-    ],
-  },
-  {
-    id:   'gamble',
-    q:    'You have $10,000 to invest. Which outcome do you prefer?',
-    type: 'single',
-    options: [
-      { id: 'safe',       label: '$9,800 guaranteed',                    sub: 'Certain, small loss' },
-      { id: 'moderate',   label: '70% chance of $11,500 · 30% of $8,000', sub: 'Likely gain, limited downside' },
-      { id: 'aggressive', label: '50% chance of $15,000 · 50% of $7,000', sub: 'High upside, meaningful downside' },
-      { id: 'speculative', label: '25% chance of $25,000 · 75% of $6,500', sub: 'Long shot, could lose a lot' },
-    ],
-  },
-  {
-    id:   'winner',
-    q:    'A stock you own surges 40% in two weeks. What do you do?',
-    type: 'single',
-    options: [
-      { id: 'sell_all',    label: 'Sell all — lock in the gain',         sub: 'A win is a win' },
-      { id: 'sell_half',   label: 'Sell half — take some profit',        sub: 'Reduce risk, keep upside' },
-      { id: 'hold',        label: 'Hold — the trend may continue',       sub: 'Winners keep winning' },
-      { id: 'buy_more',    label: 'Buy more — conviction is higher',     sub: 'Price action confirms the thesis' },
-    ],
-  },
-  {
-    id:   'style',
-    q:    'Which type of investment appeals to you?',
-    sub:  'Select all that apply — you can have multiple styles.',
-    type: 'multi',
-    options: [
-      { id: 'value',     label: 'Undervalued companies',        sub: 'Trading below what they\'re worth' },
-      { id: 'growth',    label: 'High-growth businesses',       sub: 'Expanding fast, reinvesting profits' },
-      { id: 'momentum',  label: 'Stocks making new highs',      sub: 'Price action and trend following' },
-      { id: 'income',    label: 'Dividend payers',              sub: 'Steady income, lower volatility' },
-    ],
-  },
-  {
-    id:   'horizon',
-    q:    'How often do you plan to review and act on your portfolio?',
-    type: 'single',
-    options: [
-      { id: 'daily',     label: 'Daily or more',           sub: 'I watch markets closely' },
-      { id: 'weekly',    label: 'Weekly',                  sub: 'Stay on top of it' },
-      { id: 'monthly',   label: 'Monthly',                 sub: 'Regular but not obsessive' },
-      { id: 'quarterly', label: 'Quarterly or less',       sub: 'Set and forget mostly' },
-    ],
-  },
-  {
-    id:   'goal',
-    q:    'Which best describes your primary investment goal?',
-    type: 'single',
-    options: [
-      { id: 'preserve',  label: 'Preserve capital',          sub: 'Don\'t lose what I have' },
-      { id: 'income',    label: 'Generate income',           sub: 'Regular returns I can use' },
-      { id: 'grow',      label: 'Grow wealth steadily',      sub: '8-12% per year, manageable risk' },
-      { id: 'maximise',  label: 'Maximise long-term returns', sub: 'Willing to ride out volatility' },
-    ],
-  },
-  {
-    id:   'concentration',
-    q:    'How many positions are you comfortable actively tracking?',
-    type: 'single',
-    options: [
-      { id: 'few',      label: '5 – 10 positions',      sub: 'Concentrated, high conviction' },
-      { id: 'moderate', label: '10 – 20 positions',     sub: 'Balanced diversification' },
-      { id: 'many',     label: '20 – 40 positions',     sub: 'Broad exposure' },
-      { id: 'etf',      label: 'Mainly ETFs',           sub: 'Minimal stock picking' },
-    ],
-  },
-  {
-    id:   'exclusions',
-    q:    'Are there sectors you want excluded from recommendations?',
-    sub:  'Select all that apply. Leave blank for no exclusions.',
-    type: 'multi',
-    options: [
-      { id: 'Energy',                label: 'Fossil fuels / Energy' },
-      { id: 'Industrials',           label: 'Defence / Weapons' },
-      { id: 'Consumer Defensive',    label: 'Tobacco / Alcohol' },
-      { id: 'Financial Services',    label: 'Gambling / Finance' },
-      { id: 'Healthcare',            label: 'Pharmaceuticals' },
-      { id: 'Communication Services',label: 'Social Media / Tech' },
-    ],
-  },
-  {
-    id:   'universe',
-    q:    'Which investment universe interests you most?',
-    sub:  'Select all that apply — this shapes what tickers and themes surface for you.',
-    type: 'multi',
-    options: [
-      { id: 'us_large',   label: 'US Large Cap Stocks',        sub: 'S&P 500 blue chips' },
-      { id: 'mag7',       label: 'Mega-cap Tech (Mag 7)',       sub: 'AAPL, MSFT, NVDA, GOOG, AMZN, META, TSLA' },
-      { id: 'dividend',   label: 'Dividend Stocks',            sub: 'Income-generating, lower volatility' },
-      { id: 'etf_broad',  label: 'Broad Market ETFs',          sub: 'SPY, QQQ, VTI — passive exposure' },
-      { id: 'etf_sector', label: 'Sector ETFs',                sub: 'XLE, XLK, XLV — targeted sector bets' },
-      { id: 'etf_global', label: 'International / Global ETFs',sub: 'VWO, EFA — exposure beyond US' },
-      { id: 'small_mid',  label: 'Small & Mid Cap',            sub: 'Higher growth potential, more volatility' },
-      { id: 'thematic',   label: 'Thematic / Trend investing', sub: 'AI, clean energy, defence, biotech' },
-    ],
-  },
-]
+type Memo   = { id: string; content: string; created_at: string };
+type AssetMatch = { ticker: string; name: string; asset_type: string; sector: string | null };
+type ProfileDefaults = Omit<Portfolio, "id" | "name" | "user_id" | "created_at">;
 
-// ─── Scoring ──────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-interface Profile {
-  risk_score:     number
-  horizon:        'short' | 'medium' | 'long'
-  style:          'value' | 'growth' | 'momentum' | 'income' | 'thematic'
-  volatility_tol: 'low' | 'medium' | 'high'
-  min_signal:     'buy' | 'watch' | 'hold'
-  min_conviction: number
-  sector_exclude: string[]
-  asset_types:    string[]
-  universe:       string[]
-}
+const SIG_COLOR: Record<string, string> = {
+  buy:   "var(--signal-bull)",
+  watch: "var(--signal-neut)",
+  hold:  "rgba(232,226,217,0.3)",
+  avoid: "var(--signal-bear)",
+};
 
-function scoreAnswers(answers: Record<string, string | string[]>): Profile {
-  // ── Risk score (1=very conservative, 10=very aggressive) ──
-  let riskScore = 5
-  const drawdown = answers.drawdown as string
-  if (drawdown === 'sell')       riskScore -= 3
-  if (drawdown === 'hold')       riskScore -= 1
-  if (drawdown === 'rebalance')  riskScore += 1
-  if (drawdown === 'buy_more')   riskScore += 3
+const ASSET_TYPE_OPTIONS = ["equities", "etf", "crypto", "commodities", "bonds", "fx"];
 
-  const gamble = answers.gamble as string
-  if (gamble === 'safe')        riskScore -= 2
-  if (gamble === 'moderate')    riskScore -= 0
-  if (gamble === 'aggressive')  riskScore += 2
-  if (gamble === 'speculative') riskScore += 3
+const PREF_LABELS = {
+  risk_appetite:      { aggressive: "Aggressive", moderate: "Moderate", conservative: "Conservative" },
+  investment_horizon: { short: "Short <1yr", medium: "Medium 1-3yr", long: "Long 3+yr" },
+};
 
-  const winner = answers.winner as string
-  if (winner === 'sell_all')  riskScore -= 1
-  if (winner === 'hold')      riskScore += 1
-  if (winner === 'buy_more')  riskScore += 2
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
-  const goal = answers.goal as string
-  if (goal === 'preserve')  riskScore -= 2
-  if (goal === 'income')    riskScore -= 1
-  if (goal === 'maximise')  riskScore += 2
+const labelStyle: React.CSSProperties = {
+  display: "block", fontSize: "0.68rem", color: "rgba(232,226,217,0.45)",
+  marginBottom: "0.25rem", textTransform: "uppercase", letterSpacing: "0.08em",
+};
 
-  riskScore = Math.max(1, Math.min(10, riskScore))
+const inputStyle: React.CSSProperties = {
+  width: "100%", padding: "0.5rem 0.7rem", background: "rgba(255,255,255,0.05)",
+  border: "1px solid var(--dash-border)", borderRadius: 6, color: "var(--cream)",
+  fontSize: "0.85rem", outline: "none", boxSizing: "border-box",
+};
 
-  // ── Volatility tolerance ──
-  const volatilityTol: 'low' | 'medium' | 'high' =
-    riskScore <= 3 ? 'low' :
-    riskScore <= 6 ? 'medium' : 'high'
-
-  // ── Investment horizon ──
-  const horizonAnswer = answers.horizon as string
-  const goalAnswer    = answers.goal as string
-  let horizon: 'short' | 'medium' | 'long' =
-    horizonAnswer === 'daily' || horizonAnswer === 'weekly' ? 'short' :
-    horizonAnswer === 'monthly' ? 'medium' : 'long'
-
-  // Goal modifies horizon
-  if (goalAnswer === 'maximise' && horizon !== 'short') horizon = 'long'
-  if (goalAnswer === 'preserve') horizon = 'short'
-
-  // ── Style — pick primary style from multi-select ──
-  const styleAnswers = Array.isArray(answers.style) ? answers.style as string[] : answers.style ? [answers.style as string] : []
-  // Primary style = first selected; if income selected, adjust risk score down slightly
-  const style: Profile['style'] =
-    styleAnswers.includes('value')    ? 'value' :
-    styleAnswers.includes('growth')   ? 'growth' :
-    styleAnswers.includes('momentum') ? 'momentum' :
-    styleAnswers.includes('income')   ? 'income' : 'thematic'
-  // Income preference → slightly conservative
-  if (styleAnswers.includes('income')) riskScore = Math.max(1, riskScore - 1)
-
-  // ── Min signal — how selective to be ──
-  let minSignal: 'buy' | 'watch' | 'hold' = 'watch'
-  if (riskScore <= 3) minSignal = 'buy'    // conservative — only strong signals
-  if (riskScore >= 8) minSignal = 'hold'   // aggressive — wants to see everything
-
-  // Override based on concentration preference
-  const concentration = answers.concentration as string
-  if (concentration === 'few')  minSignal = 'buy'   // concentrated = only best signals
-  if (concentration === 'many') minSignal = 'hold'  // broad = show more
-  if (concentration === 'etf')  minSignal = 'watch' // ETF focus
-
-  // ── Min conviction threshold ──
-  let minConviction = 60
-  if (riskScore <= 3) minConviction = 70  // conservative — high conviction only
-  if (riskScore >= 7) minConviction = 50  // aggressive — willing to act on lower conviction
-  if (concentration === 'few') minConviction = 75
-  if (concentration === 'many' || concentration === 'etf') minConviction = 50
-
-  // ── Sector exclusions ──
-  const sectorExclude = (answers.exclusions as string[]) ?? []
-
-  // ── Asset types — derived from universe selection ──
-  const universe = (answers.universe as string[]) ?? []
-  let assetTypes = ['stock', 'etf']
-  if (universe.length > 0) {
-    const wantsStock = universe.some(u => ['us_large','mag7','dividend','small_mid','thematic'].includes(u))
-    const wantsEtf   = universe.some(u => ['etf_broad','etf_sector','etf_global'].includes(u))
-    if (wantsStock && wantsEtf) assetTypes = ['stock', 'etf']
-    else if (wantsEtf)          assetTypes = ['etf']
-    else if (wantsStock)        assetTypes = ['stock']
-  }
-  if (concentration === 'etf') assetTypes = ['etf']
-
+function pillStyle(active: boolean, saving = false): React.CSSProperties {
   return {
-    risk_score:     riskScore,
-    horizon,
-    style,
-    volatility_tol: volatilityTol,
-    min_signal:     minSignal,
-    min_conviction: minConviction,
-    sector_exclude: sectorExclude,
-    asset_types:    assetTypes,
-    universe,
-  }
+    padding: "0.3rem 0.75rem",
+    background: active ? "rgba(200,169,110,0.18)" : "rgba(255,255,255,0.04)",
+    border: `1px solid ${active ? "rgba(200,169,110,0.45)" : "var(--dash-border)"}`,
+    color: active ? "var(--gold)" : "rgba(232,226,217,0.40)",
+    borderRadius: 5, fontSize: "0.75rem", fontWeight: active ? 600 : 400,
+    cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.5 : 1,
+    transition: "all 0.15s", whiteSpace: "nowrap" as const,
+  };
 }
 
-// ─── Profile summary labels ───────────────────────────────────────────────────
-
-function profileSummary(p: Profile): { label: string; desc: string; color: string } {
-  if (p.risk_score <= 3) return {
-    label: 'Conservative',
-    desc:  'Capital preservation first. High-conviction BUY signals only, avoiding volatile sectors.',
-    color: '#7ab4e8',
-  }
-  if (p.risk_score <= 5) return {
-    label: 'Balanced',
-    desc:  'Moderate risk for steady growth. BUY and WATCH signals, diversified across sectors.',
-    color: '#e0c97a',
-  }
-  if (p.risk_score <= 7) return {
-    label: 'Growth-oriented',
-    desc:  'Comfortable with volatility for higher returns. Wider signal range, theme-driven ideas.',
-    color: '#4eca99',
-  }
-  return {
-    label: 'Aggressive',
-    desc:  'Maximum growth focus. Full signal range, high conviction in concentrated positions.',
-    color: '#ff9800',
-  }
+function formatCurrency(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
+  if (v >= 1_000)     return `$${(v / 1_000).toFixed(1)}K`;
+  return `$${v.toFixed(0)}`;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function relTime(iso: string) {
-  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
-  if (d === 0) return 'today'
-  if (d === 1) return 'yesterday'
-  return `${d} days ago`
+function formatPct(v: number): string {
+  return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 }
 
-const universeLabel: Record<string, string> = {
-  us_large: 'US Large Cap', mag7: 'Mag 7', dividend: 'Dividend',
-  etf_broad: 'Broad ETFs', etf_sector: 'Sector ETFs', etf_global: 'Global ETFs',
-  small_mid: 'Small/Mid', thematic: 'Thematic',
+// ─── Expandable panel ─────────────────────────────────────────────────────────
+
+function Panel({
+  title, badge, defaultOpen = true, children, action,
+}: {
+  title:        string;
+  badge?:       React.ReactNode;
+  defaultOpen?: boolean;
+  children:     React.ReactNode;
+  action?:      React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{
+      background: "var(--navy2)", border: "1px solid var(--dash-border)",
+      borderRadius: 10, marginBottom: "1rem", overflow: "hidden",
+    }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "0.75rem 1.2rem", background: "none", border: "none",
+          cursor: "pointer", borderBottom: open ? "1px solid var(--dash-border)" : "none",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <span style={{ fontSize: "0.6rem", color: open ? "var(--green)" : "rgba(232,226,217,0.35)", transition: "color 0.15s" }}>
+            {open ? "▼" : "▶"}
+          </span>
+          <span style={{ fontSize: "0.72rem", fontFamily: "var(--font-mono)", color: "rgba(232,226,217,0.60)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+            {title}
+          </span>
+          {badge}
+        </div>
+        {action && <div onClick={e => e.stopPropagation()}>{action}</div>}
+      </button>
+      {open && (
+        <div style={{ padding: "1rem 1.2rem" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
 }
-const signalLabel:  Record<string, string> = { buy: 'BUY only', watch: 'BUY + WATCH', hold: 'All signals' }
-const horizonLabel: Record<string, string> = { short: 'Short-term', medium: 'Medium-term', long: 'Long-term' }
-const riskLabel = (s: number | null) => !s ? '—' : s <= 3 ? 'Conservative' : s <= 5 ? 'Balanced' : s <= 7 ? 'Growth' : 'Aggressive'
-const riskColor = (s: number | null) => !s ? 'rgba(232,226,217,0.40)' : s <= 3 ? '#7ab4e8' : s <= 5 ? '#e0c97a' : s <= 7 ? '#4eca99' : '#ff9800'
+
+// ─── Capital summary ──────────────────────────────────────────────────────────
+
+function CapitalSummaryBar({ metrics, cashFloorPct = 0 }: {
+  metrics: PortfolioCapitalMetrics; cashFloorPct?: number;
+}) {
+  const investedPct  = metrics.total_capital > 0 ? (metrics.invested / metrics.total_capital) * 100 : 0;
+  const gainColor    = metrics.capital_gain >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
+  const cashFloorAmt = metrics.total_capital * (cashFloorPct / 100);
+  const belowFloor   = cashFloorPct > 0 && metrics.cash_available < cashFloorAmt;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
+        <Metric label="Total Capital"   value={formatCurrency(metrics.total_capital)} sub="Allocated to this portfolio" />
+        <Metric label="Invested"        value={formatCurrency(metrics.invested)} sub={`${investedPct.toFixed(0)}% deployed`} />
+        <Metric label="Cash Available"  value={formatCurrency(metrics.cash_available)} valueColor="#63b3ed" sub="Ready to invest" />
+        <Metric label="Current Value"   value={formatCurrency(metrics.current_value)} sub={
+          <span>
+            <span style={{ color: gainColor, fontWeight: 600 }}>{metrics.capital_gain >= 0 ? "+" : ""}{formatCurrency(Math.abs(metrics.capital_gain))}</span>
+            {" "}<span style={{ color: gainColor, fontWeight: 700 }}>{formatPct(metrics.return_pct)}</span> return
+          </span>
+        } />
+      </div>
+
+      {belowFloor && (
+        <div style={{ background: "rgba(252,92,101,0.08)", border: "1px solid rgba(252,92,101,0.25)", borderRadius: 6, padding: "0.4rem 0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ color: "#fc5c65", fontSize: "0.75rem", fontWeight: 600 }}>⚠ Below min cash reserve</span>
+          <span style={{ color: "rgba(232,226,217,0.45)", fontSize: "0.72rem" }}>
+            Floor is {cashFloorPct}% ({formatCurrency(cashFloorAmt)}). Available: {formatCurrency(metrics.cash_available)}.
+          </span>
+        </div>
+      )}
+
+      {metrics.total_capital > 0 && (
+        <div>
+          <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${Math.min(100, investedPct)}%`, background: "linear-gradient(90deg, rgba(200,169,110,0.6), rgba(200,169,110,0.9))", borderRadius: 3, transition: "width 0.5s" }} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.3rem" }}>
+            <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{formatCurrency(metrics.invested)} invested</span>
+            <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{formatCurrency(metrics.cash_available)} available</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Metric({ label, value, sub, valueColor }: { label: string; value: string; sub?: React.ReactNode; valueColor?: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.25rem" }}>{label}</div>
+      <div style={{ fontSize: "1.25rem", fontWeight: 700, color: valueColor ?? "var(--cream)", letterSpacing: "-0.02em", marginBottom: "0.2rem" }}>{value}</div>
+      {sub && <div style={{ fontSize: "0.68rem", color: "rgba(232,226,217,0.35)", lineHeight: 1.4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ─── Preference panel ─────────────────────────────────────────────────────────
+
+function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpdate: (key: keyof Portfolio, value: any) => Promise<void> }) {
+  const [saving,       setSaving]       = useState<string | null>(null);
+  const [capitalInput, setCapitalInput] = useState(portfolio.total_capital > 0 ? String(portfolio.total_capital) : "");
+
+  async function save(key: keyof Portfolio, value: any) {
+    setSaving(key); await onUpdate(key, value); setSaving(null);
+  }
+  async function saveCapital() {
+    const parsed = parseFloat(capitalInput.replace(/[^0-9.]/g, ""));
+    if (isNaN(parsed) || parsed < 0) return;
+    await save("total_capital", parsed);
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+        {/* Capital */}
+        <div>
+          <div style={labelStyle}>Total Capital</div>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: "0.6rem", top: "50%", transform: "translateY(-50%)", color: "rgba(232,226,217,0.45)", fontSize: "0.85rem" }}>$</span>
+            <input value={capitalInput} onChange={e => setCapitalInput(e.target.value)} onBlur={saveCapital} onKeyDown={e => e.key === "Enter" && saveCapital()}
+              placeholder="100,000" style={{ ...inputStyle, width: 130, paddingLeft: "1.4rem", opacity: saving === "total_capital" ? 0.5 : 1 }} />
+          </div>
+        </div>
+        {/* Risk */}
+        <div>
+          <div style={labelStyle}>Risk</div>
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            {(["aggressive", "moderate", "conservative"] as RiskAppetite[]).map(a => (
+              <button key={a} disabled={saving === "risk_appetite"} onClick={() => save("risk_appetite", a)} style={pillStyle(portfolio.risk_appetite === a, saving === "risk_appetite")}>
+                {PREF_LABELS.risk_appetite[a]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Horizon */}
+        <div>
+          <div style={labelStyle}>Horizon</div>
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            {(["short", "medium", "long"] as InvestmentHorizon[]).map(h => (
+              <button key={h} disabled={saving === "investment_horizon"} onClick={() => save("investment_horizon", h)} style={pillStyle(portfolio.investment_horizon === h, saving === "investment_horizon")}>
+                {h.charAt(0).toUpperCase() + h.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Benchmark */}
+        <div>
+          <div style={labelStyle}>Benchmark</div>
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            {["SPY", "QQQ", "AXJO"].map(b => (
+              <button key={b} disabled={saving === "benchmark"} onClick={() => save("benchmark", b)} style={pillStyle(portfolio.benchmark === b, saving === "benchmark")}>{b}</button>
+            ))}
+          </div>
+        </div>
+        {/* Target holdings */}
+        <div>
+          <div style={labelStyle}>Target holdings</div>
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            {[10, 15, 20, 30].map(n => (
+              <button key={n} disabled={saving === "target_holdings"} onClick={() => save("target_holdings", n)} style={pillStyle(portfolio.target_holdings === n, saving === "target_holdings")}>{n}</button>
+            ))}
+          </div>
+        </div>
+        {/* Cash reserve */}
+        <div>
+          <div style={labelStyle}>Min cash reserve</div>
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            {[0, 5, 10, 15, 20].map(n => (
+              <button key={n} disabled={saving === "cash_pct"} onClick={() => save("cash_pct", n)} style={pillStyle(portfolio.cash_pct === n, saving === "cash_pct")}>{n}%</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Asset types */}
+      <div>
+        <div style={labelStyle}>Preferred asset types</div>
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          {ASSET_TYPE_OPTIONS.map(a => {
+            const active = portfolio.preferred_assets.includes(a);
+            const next   = active ? portfolio.preferred_assets.filter(x => x !== a) : [...portfolio.preferred_assets, a];
+            return (
+              <button key={a} disabled={saving === "preferred_assets"} onClick={() => save("preferred_assets", next)} style={pillStyle(active, saving === "preferred_assets")}>
+                {a.charAt(0).toUpperCase() + a.slice(1)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── New portfolio modal ──────────────────────────────────────────────────────
+
+function NewPortfolioModal({ defaults, onClose, onCreate, isFirstRun = false }: {
+  defaults: ProfileDefaults; onClose: () => void;
+  onCreate: (name: string, prefs: ProfileDefaults) => Promise<void>; isFirstRun?: boolean;
+}) {
+  const [name,       setName]       = useState("");
+  const [prefs,      setPrefs]      = useState<ProfileDefaults>(defaults);
+  const [capitalStr, setCapitalStr] = useState("");
+  const [saving,     setSaving]     = useState(false);
+  const [err,        setErr]        = useState("");
+
+  function setPref<K extends keyof ProfileDefaults>(key: K, value: ProfileDefaults[K]) {
+    setPrefs(p => ({ ...p, [key]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) { setErr("Name is required"); return; }
+    setSaving(true);
+    const capital = parseFloat(capitalStr.replace(/[^0-9.]/g, "")) || 0;
+    try { await onCreate(name.trim(), { ...prefs, total_capital: capital }); onClose(); }
+    catch (e: any) { setErr(e.message ?? "Failed to create"); setSaving(false); }
+  }
+
+  const pill = (active: boolean): React.CSSProperties => ({ ...pillStyle(active), fontSize: "0.75rem" });
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 10, padding: "1.6rem", width: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.2rem" }}>
+          <div>
+            <h3 style={{ color: "var(--cream)", fontFamily: "serif", fontSize: "1.25rem", margin: "0 0 0.3rem" }}>
+              {isFirstRun ? "Create your first portfolio" : "New portfolio"}
+            </h3>
+            <p style={{ fontSize: "0.78rem", color: "rgba(232,226,217,0.40)", margin: 0 }}>
+              {isFirstRun
+                ? "Pre-filled from your investment personality — adjust per-portfolio below."
+                : "Inherits your investment personality defaults — adjust as needed."}
+            </p>
+          </div>
+          {!isFirstRun && (
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(232,226,217,0.35)", cursor: "pointer", fontSize: "1.2rem", padding: "0 4px", lineHeight: 1 }}>×</button>
+          )}
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+          <div>
+            <label style={labelStyle}>Portfolio name</label>
+            <input value={name} onChange={e => { setName(e.target.value); setErr(""); }} placeholder="e.g. Core Growth, Dividend, Speculative" style={inputStyle} />
+            {err && <div style={{ fontSize: "0.72rem", color: "var(--signal-bear)", marginTop: "0.3rem" }}>{err}</div>}
+          </div>
+
+          <div>
+            <label style={labelStyle}>Total capital</label>
+            <div style={{ position: "relative", width: 160 }}>
+              <span style={{ position: "absolute", left: "0.6rem", top: "50%", transform: "translateY(-50%)", color: "rgba(232,226,217,0.45)", fontSize: "0.85rem" }}>$</span>
+              <input value={capitalStr} onChange={e => setCapitalStr(e.target.value)} placeholder="50,000" style={{ ...inputStyle, paddingLeft: "1.4rem" }} />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Risk appetite</label>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              {(["aggressive", "moderate", "conservative"] as RiskAppetite[]).map(a => (
+                <button key={a} type="button" onClick={() => setPref("risk_appetite", a)} style={pill(prefs.risk_appetite === a)}>
+                  {PREF_LABELS.risk_appetite[a]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Investment horizon</label>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              {(["short", "medium", "long"] as InvestmentHorizon[]).map(h => (
+                <button key={h} type="button" onClick={() => setPref("investment_horizon", h)} style={pill(prefs.investment_horizon === h)}>
+                  {PREF_LABELS.investment_horizon[h]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Benchmark</label>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              {["SPY", "QQQ", "AXJO"].map(b => (
+                <button key={b} type="button" onClick={() => setPref("benchmark", b)} style={pill(prefs.benchmark === b)}>{b}</button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Target holdings</label>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              {[10, 15, 20, 30].map(n => (
+                <button key={n} type="button" onClick={() => setPref("target_holdings", n)} style={pill(prefs.target_holdings === n)}>{n}</button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Min cash reserve</label>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              {[0, 5, 10, 15, 20].map(n => (
+                <button key={n} type="button" onClick={() => setPref("cash_pct", n)} style={pill(prefs.cash_pct === n)}>{n}%</button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Preferred asset types</label>
+            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+              {ASSET_TYPE_OPTIONS.map(a => {
+                const active = prefs.preferred_assets.includes(a);
+                const next   = active ? prefs.preferred_assets.filter(x => x !== a) : [...prefs.preferred_assets, a];
+                return <button key={a} type="button" onClick={() => setPref("preferred_assets", next)} style={pill(active)}>{a.charAt(0).toUpperCase() + a.slice(1)}</button>;
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end", marginTop: "0.4rem" }}>
+            {!isFirstRun && (
+              <button type="button" onClick={onClose} style={{ padding: "0.5rem 1rem", background: "transparent", border: "1px solid var(--dash-border)", color: "rgba(232,226,217,0.45)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem" }}>Cancel</button>
+            )}
+            <button type="submit" disabled={saving}
+              style={{ padding: "0.5rem 1.1rem", background: "var(--gold)", color: "var(--navy)", fontWeight: 700, borderRadius: 6, border: "none", fontSize: "0.82rem", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
+              {saving ? "Creating…" : "Create portfolio"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Ticker autocomplete ──────────────────────────────────────────────────────
+
+function TickerAutocomplete({ value, onChange, onSelect, error }: {
+  value: string; onChange: (v: string) => void;
+  onSelect: (asset: AssetMatch) => void; error?: string;
+}) {
+  const [results,   setResults]   = useState<AssetMatch[]>([]);
+  const [open,      setOpen]      = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapRef     = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!value.trim()) { setResults([]); setOpen(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res  = await fetch(`/api/assets/search?q=${encodeURIComponent(value)}&limit=8`);
+        const data = await res.json();
+        setResults(data.assets ?? []); setOpen((data.assets ?? []).length > 0); setActiveIdx(-1);
+      } catch { setResults([]); setOpen(false); }
+      finally { setSearching(false); }
+    }, 200);
+  }, [value]);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  function handleKey(e: React.KeyboardEvent) {
+    if (!open) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, results.length - 1)); }
+    if (e.key === "ArrowUp")   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, -1)); }
+    if (e.key === "Enter" && activeIdx >= 0) { e.preventDefault(); onSelect(results[activeIdx]); setOpen(false); setResults([]); }
+    if (e.key === "Escape") setOpen(false);
+  }
+
+  const typeColor: Record<string, string> = { stock: "rgba(78,202,153,0.7)", etf: "rgba(200,169,110,0.7)", crypto: "rgba(122,180,232,0.7)", commodity: "rgba(232,180,122,0.7)" };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <label style={labelStyle}>Ticker</label>
+      <input value={value} onChange={e => onChange(e.target.value.toUpperCase())} onKeyDown={handleKey}
+        onFocus={() => results.length > 0 && setOpen(true)} placeholder="Search AAPL, XLE…" autoComplete="off"
+        style={{ ...inputStyle, background: error ? "rgba(232,112,112,0.06)" : "rgba(255,255,255,0.05)", border: `1px solid ${error ? "rgba(232,112,112,0.4)" : "var(--dash-border)"}` }} />
+      {searching && <div style={{ position: "absolute", right: "0.6rem", top: "2.1rem", fontSize: "0.65rem", color: "rgba(232,226,217,0.35)" }}>…</div>}
+      {open && results.length > 0 && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 6, marginTop: 2, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
+          {results.map((asset, i) => (
+            <div key={asset.ticker} onMouseDown={() => { onSelect(asset); setOpen(false); setResults([]); }} onMouseEnter={() => setActiveIdx(i)}
+              style={{ padding: "0.55rem 0.8rem", cursor: "pointer", background: i === activeIdx ? "rgba(255,255,255,0.06)" : "transparent", borderBottom: i < results.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <span style={{ fontWeight: 700, color: "var(--gold)", fontFamily: "monospace", fontSize: "0.85rem", minWidth: "3.5rem" }}>{asset.ticker}</span>
+              <span style={{ fontSize: "0.75rem", color: "rgba(232,226,217,0.55)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{asset.name}</span>
+              <span style={{ fontSize: "0.6rem", color: typeColor[asset.asset_type] ?? "rgba(232,226,217,0.35)", textTransform: "uppercase", flexShrink: 0 }}>{asset.asset_type}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {error && <div style={{ fontSize: "0.72rem", color: "var(--signal-bear)", marginTop: "0.3rem" }}>{error}</div>}
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={inputStyle} />
+    </div>
+  );
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ProfilePage() {
-  // ── Identity state ──
-  const [displayName, setDisplayName] = useState('')
-  const [savingName,  setSavingName]  = useState(false)
-  const [savedName,   setSavedName]   = useState(false)
-  const [nameError,   setNameError]   = useState('')
+export default function PortfolioPage() {
+  const router   = useRouter();
+  const supabase = createClient();
 
-  // ── QA state ──
-  const [qaMode,      setQaMode]      = useState<'summary' | 'qa'>('summary')
-  const [step,        setStep]        = useState(1)
-  const [answers,     setAnswers]     = useState<Record<string, string | string[]>>({})
-  const [saving,      setSaving]      = useState(false)
-  const [saved,       setSaved]       = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
-  const [loading,     setLoading]     = useState(true)
-  const [qaCompleted, setQaCompleted] = useState(false)
-  const [qaCompletedAt, setQaCompletedAt] = useState<string | null>(null)
+  const [portfolios,  setPortfolios]  = useState<Portfolio[]>([]);
+  const [selectedId,  setSelectedId]  = useState<string | null>(null);
+  const [holdings,    setHoldings]    = useState<Holding[]>([]);
+  const [memos,       setMemos]       = useState<Memo[]>([]);
+  const [userId,      setUserId]      = useState<string | null>(null);
+  const [defaults,    setDefaults]    = useState<ProfileDefaults | null>(null);
+  const [initLoading, setInitLoading] = useState(true);
+  const [showNew,     setShowNew]     = useState(false);
+  const [isFirstRun,  setIsFirstRun]  = useState(false);
+  const [activeTab,   setActiveTab]   = useState<"holdings" | "watchlist" | "distribution" | "history">("holdings");
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const [ticker,      setTicker]      = useState("");
+  const [quantity,    setQuantity]    = useState("");
+  const [avgCost,     setAvgCost]     = useState("");
+  const [editMap,     setEditMap]     = useState<Record<string, { quantity: string; avg_cost: string; dirty: boolean }>>({});
+  const [committing,  setCommitting]  = useState(false);
+  const [adding,      setAdding]      = useState(false);
+  const [generating,  setGenerating]  = useState(false);
+  const [formError,   setFormError]   = useState("");
+  const [tickerError, setTickerError] = useState("");
 
   useEffect(() => {
-    async function load() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-        const { data } = await (supabase as any)
-          .from('user_profiles')
-          .select('display_name, risk_score, horizon, style, min_signal, min_conviction, sector_exclude, universe, qa_completed, qa_completed_at, qa_answers')
-          .eq('user_id', user.id)
-          .maybeSingle()
-        if (data) {
-          setDisplayName(data.display_name ?? '')
-          setQaCompleted(data.qa_completed ?? false)
-          setQaCompletedAt(data.qa_completed_at ?? null)
-          if (data.qa_completed && data.qa_answers) {
-            // Normalise multi-select fields: if stored as string (legacy), convert to array
-            const qa = { ...data.qa_answers }
-            for (const field of ['style', 'exclusions', 'universe']) {
-              if (typeof qa[field] === 'string') qa[field] = [qa[field]]
-            }
-            setAnswers(qa)
-          }
-        }
-      } catch {}
-      finally { setLoading(false) }
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setInitLoading(false); return; }
+      setUserId(user.id);
+
+      // Load portfolios and user_profiles in parallel
+      const [portRes, profileRes] = await Promise.all([
+        fetch("/api/portfolio").then(r => r.json()),
+        (supabase as any).from("user_profiles")
+          .select("risk_score, horizon, min_conviction, sector_exclude, asset_types, universe")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
+
+      // Derive portfolio defaults from QA profile
+      const qp = profileRes?.data;
+      const riskToAppetite = (score: number | null): RiskAppetite =>
+        !score ? "moderate" : score <= 3 ? "conservative" : score >= 7 ? "aggressive" : "moderate";
+      const horizonMap: Record<string, InvestmentHorizon> = { short: "short", medium: "medium", long: "long" };
+
+      setDefaults({
+        risk_appetite:      riskToAppetite(qp?.risk_score ?? null),
+        benchmark:          "SPY",
+        target_holdings:    qp?.min_conviction ? (qp.min_conviction >= 70 ? 10 : 20) : 20,
+        preferred_assets:   qp?.asset_types ?? ["equities", "etf"],
+        cash_pct:           0,
+        investment_horizon: horizonMap[qp?.horizon ?? ""] ?? "medium",
+        total_capital:      0,
+      });
+
+      const all = portRes.portfolios ?? (portRes.portfolio ? [portRes.portfolio] : []);
+      setPortfolios(all);
+      if (all.length) { setSelectedId(all[0].id); }
+      else            { setShowNew(true); setIsFirstRun(true); }
+      setInitLoading(false);
     }
-    load()
-  }, [])
+    init();
+  }, []);
 
-  async function handleSaveName() {
-    setSavingName(true); setSavedName(false); setNameError('')
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not logged in')
-      const { error: err } = await (supabase as any)
-        .from('user_profiles')
-        .upsert({ user_id: user.id, display_name: displayName || null, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-      if (err) throw err
-      setSavedName(true)
-      setTimeout(() => setSavedName(false), 3000)
-    } catch (e: any) { setNameError(e.message ?? 'Failed') }
-    finally { setSavingName(false) }
+  const loadPortfolioData = useCallback(async (portfolioId: string) => {
+    const [pRes, mRes] = await Promise.all([
+      fetch(`/api/portfolio?portfolio_id=${portfolioId}`).then(r => r.json()),
+      fetch(`/api/advisory?portfolio_id=${portfolioId}`).then(r => r.json()),
+    ]);
+    const loaded: Holding[] = pRes.holdings ?? [];
+    setHoldings(loaded);
+    setMemos(mRes.memos ?? []);
+    setEditMap(Object.fromEntries(loaded.map(h => [h.id, {
+      quantity: h.quantity != null ? String(h.quantity) : "",
+      avg_cost: h.avg_cost != null ? String(h.avg_cost) : "",
+      dirty:    false,
+    }])));
+  }, []);
+
+  useEffect(() => { if (selectedId) loadPortfolioData(selectedId); }, [selectedId, loadPortfolioData]);
+
+  async function handleCreatePortfolio(name: string, prefs: ProfileDefaults) {
+    const res  = await fetch("/api/portfolio", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body:   JSON.stringify({ action: "create_portfolio", name, ...prefs }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Failed to create");
+    const newPort = data.portfolio as Portfolio;
+    setPortfolios(prev => [...prev, newPort]);
+    setSelectedId(newPort.id);
+    setIsFirstRun(false); setShowNew(false);
   }
 
-  async function handleSaveQA() {
-    setSaving(true); setError(null)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not logged in')
-      const profile = scoreAnswers(answers)
-      const now = new Date().toISOString()
-      const { error: err } = await (supabase as any)
-        .from('user_profiles')
-        .upsert({
-          user_id: user.id, ...profile,
-          qa_completed: true, qa_answers: answers, qa_version: 1,
-          qa_completed_at: now, updated_at: now,
-        }, { onConflict: 'user_id' })
-      if (err) throw err
-      setQaCompleted(true)
-      setQaCompletedAt(now)
-      setQaMode('summary')
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    } catch (e: any) { setError(e.message ?? 'Failed to save') }
-    finally { setSaving(false) }
+  async function updatePreference(key: keyof Portfolio, value: any) {
+    if (!selectedId) return;
+    await fetch("/api/portfolio", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body:   JSON.stringify({ portfolio_id: selectedId, [key]: value }),
+    });
+    setPortfolios(prev => prev.map(p => p.id === selectedId ? { ...p, [key]: value } : p));
   }
 
-  function handleSingle(qId: string, oId: string) {
-    setAnswers(prev => ({ ...prev, [qId]: oId }))
-  }
-  function handleMulti(qId: string, oId: string) {
-    setAnswers(prev => {
-      // Guard: if stored as string (legacy single-select), wrap in array first
-      const raw = prev[qId]
-      const cur: string[] = Array.isArray(raw) ? raw : (raw && typeof raw === 'string' && raw.length > 1) ? [raw] : []
-      return { ...prev, [qId]: cur.includes(oId) ? cur.filter(id => id !== oId) : [...cur, oId] }
-    })
-  }
-  function canAdvance() {
-    const q = QUESTIONS[step - 1]
-    if (!q) return true
-    if (q.type === 'multi') return true
-    return !!answers[q.id]
-  }
-  function advance() {
-    if (step === QUESTIONS.length) { handleSaveQA(); return }
-    setStep(s => s + 1)
+  async function addHolding(e: React.FormEvent) {
+    e.preventDefault();
+    const t = ticker.trim();
+    if (!t) { setTickerError("Please select a ticker"); return; }
+    if (!selectedId) return;
+    setAdding(true); setFormError(""); setTickerError("");
+    const res = await fetch("/api/portfolio", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body:   JSON.stringify({ action: "add_holding", portfolio_id: selectedId, ticker: t.toUpperCase(), quantity: quantity || undefined, avg_cost: avgCost || undefined }),
+    });
+    if (res.ok) {
+      setTicker(""); setQuantity(""); setAvgCost("");
+      await loadPortfolioData(selectedId);
+    } else {
+      const d   = await res.json();
+      const msg = d.error ?? "Failed to add";
+      if (msg.toLowerCase().includes("ticker")) setTickerError(msg); else setFormError(msg);
+    }
+    setAdding(false);
   }
 
-  const derived  = qaCompleted || qaMode === 'qa' ? scoreAnswers(answers) : null
-  const summary  = derived ? profileSummary(derived) : null
-  const currentQ = qaMode === 'qa' ? QUESTIONS[step - 1] : null
-  const progress = Math.round((step / QUESTIONS.length) * 100)
+  async function removeHolding(id: string) {
+    await fetch(`/api/portfolio?holding_id=${id}`, { method: "DELETE" });
+    setHoldings(h => h.filter(x => x.id !== id));
+  }
 
-  // ── Shared button styles ──
-  const btnGreen: React.CSSProperties = { padding: '8px 20px', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(78,255,145,0.35)', background: 'rgba(78,255,145,0.08)', color: 'var(--green)', borderRadius: 4, cursor: 'pointer' }
-  const btnGold:  React.CSSProperties = { padding: '8px 20px', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(200,169,110,0.35)', background: 'rgba(200,169,110,0.1)', color: 'var(--gold)', borderRadius: 4, cursor: 'pointer' }
-  const btnGhost: React.CSSProperties = { fontSize: '0.72rem', color: 'rgba(232,226,217,0.40)', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 12px' }
-  const btnDisabled: React.CSSProperties = { ...btnGreen, opacity: 0.35, cursor: 'not-allowed' }
-  const card: React.CSSProperties = { background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1.4rem 1.6rem' }
+  async function generateMemo() {
+    if (!selectedId) return;
+    setGenerating(true); setFormError("");
+    const res = await fetch("/api/advisory", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body:   JSON.stringify({ portfolio_id: selectedId }),
+    });
+    const d = await res.json();
+    if (res.ok) setMemos(m => [d.memo, ...m.slice(0, 4)]);
+    else        setFormError(d.error ?? "Failed to generate");
+    setGenerating(false);
+  }
 
-  if (loading) return <div style={{ color: 'rgba(232,226,217,0.45)', fontSize: '0.82rem', padding: '2rem 0' }}>Loading…</div>
+  function setEdit(id: string, field: "quantity" | "avg_cost", value: string) {
+    setEditMap(prev => ({ ...prev, [id]: { ...prev[id], [field]: value, dirty: true } }));
+  }
+
+  async function commitEdits() {
+    const dirty = Object.entries(editMap).filter(([, v]) => v.dirty);
+    if (!dirty.length) return;
+    setCommitting(true);
+    await Promise.all(dirty.map(([id, vals]) =>
+      fetch(`/api/portfolio?holding_id=${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body:   JSON.stringify({ quantity: vals.quantity !== "" ? Number(vals.quantity) : null, avg_cost: vals.avg_cost !== "" ? Number(vals.avg_cost) : null }),
+      })
+    ));
+    if (selectedId) await loadPortfolioData(selectedId);
+    setCommitting(false);
+  }
+
+  const selectedPortfolio = portfolios.find(p => p.id === selectedId) ?? null;
+  const capitalMetrics: PortfolioCapitalMetrics | null = selectedPortfolio
+    ? computeCapitalMetrics(selectedPortfolio.total_capital, holdings.map(h => {
+        const edit = editMap[h.id];
+        const qty  = edit?.quantity !== "" ? Number(edit?.quantity ?? h.quantity ?? 0) : (h.quantity ?? 0);
+        const cost = edit?.avg_cost !== "" ? Number(edit?.avg_cost ?? h.avg_cost ?? 0) : (h.avg_cost ?? 0);
+        return { ticker: h.ticker, quantity: qty, avg_cost: cost, price_usd: h.signal?.price_usd ?? null };
+      }))
+    : null;
+  const hasDirtyEdits = Object.values(editMap).some(v => v.dirty);
+
+  if (initLoading) return <div style={{ color: "rgba(232,226,217,0.25)", fontSize: "0.85rem", padding: "3rem 0" }}>Loading…</div>;
 
   return (
-    <div style={{ maxWidth: 640 }}>
-      <h1 style={{ color: 'var(--cream)', fontFamily: "'Syne', serif", fontSize: '1.8rem', marginBottom: '0.3rem' }}>Profile</h1>
-      <p style={{ color: 'rgba(232,226,217,0.50)', fontSize: '0.82rem', marginBottom: '2rem' }}>
-        Your account identity and investment personality.
-      </p>
+    <>
+      {showNew && defaults && (
+        <NewPortfolioModal defaults={defaults} isFirstRun={isFirstRun}
+          onClose={() => { if (!isFirstRun) setShowNew(false); }}
+          onCreate={handleCreatePortfolio}
+        />
+      )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* ── Header ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.2rem" }}>
+        <h1 style={{ color: "var(--cream)", fontFamily: "serif", fontSize: "1.8rem", margin: 0 }}>Portfolio</h1>
+        <button onClick={() => setShowNew(true)}
+          style={{ padding: "0.45rem 0.9rem", background: "rgba(200,169,110,0.12)", border: "1px solid rgba(200,169,110,0.3)", color: "var(--gold)", borderRadius: 6, fontSize: "0.8rem", cursor: "pointer", fontWeight: 500 }}>
+          + New portfolio
+        </button>
+      </div>
 
-        {/* ── Display name ── */}
-        <div style={card}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(232,226,217,0.65)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>Display Name</div>
-          <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', marginBottom: '0.8rem' }}>How you'd like to be addressed</div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. Alex"
-              style={{ width: 240, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(232,226,217,0.12)', borderRadius: 6, padding: '0.55rem 0.85rem', color: 'rgba(232,226,217,0.88)', fontSize: '0.85rem', outline: 'none' }}
-            />
-            <button onClick={handleSaveName} disabled={savingName} style={btnGold}>{savingName ? 'Saving…' : 'Save'}</button>
-            {savedName && <span style={{ fontSize: '0.72rem', color: '#4eca99' }}>✓ Saved</span>}
-            {nameError && <span style={{ fontSize: '0.72rem', color: '#e87070' }}>{nameError}</span>}
-          </div>
-        </div>
+      {/* ── Portfolio selector tabs ── */}
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.2rem", flexWrap: "wrap" }}>
+        {portfolios.map(p => (
+          <button key={p.id} onClick={() => setSelectedId(p.id)}
+            style={{ padding: "0.4rem 1rem", background: p.id === selectedId ? "rgba(200,169,110,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${p.id === selectedId ? "rgba(200,169,110,0.4)" : "var(--dash-border)"}`, color: p.id === selectedId ? "var(--gold)" : "rgba(232,226,217,0.45)", borderRadius: 6, fontSize: "0.82rem", fontWeight: p.id === selectedId ? 600 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+            {p.name}
+          </button>
+        ))}
+      </div>
 
-        {/* ── Investment personality ── */}
-        <div style={card}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <div>
-              <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(232,226,217,0.65)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Investment Personality</div>
-              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', marginTop: 2 }}>Scenario-based questionnaire · drives signal filtering and theme matching</div>
-            </div>
-            {qaMode === 'summary' && qaCompleted && (
-              <button onClick={() => { setStep(1); setQaMode('qa') }} style={btnGhost}>Retake →</button>
-            )}
-          </div>
-
-          {/* ── Summary view ── */}
-          {qaMode === 'summary' && (
-            qaCompleted && derived && summary ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '1.4rem', fontWeight: 700, color: summary.color, fontFamily: 'var(--font-mono)' }}>{summary.label}</span>
-                  <span style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'rgba(232,226,217,0.45)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 3 }}>Risk {derived.risk_score}/10</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.8rem' }}>
-                  {[
-                    { label: 'Risk profile',   value: riskLabel(derived.risk_score),  color: riskColor(derived.risk_score) },
-                    { label: 'Horizon',        value: horizonLabel[derived.horizon ?? ''] ?? '—', color: 'rgba(232,226,217,0.82)' },
-                    { label: 'Style',          value: Array.isArray(answers.style) ? (answers.style as string[]).map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join(', ') : derived.style.charAt(0).toUpperCase() + derived.style.slice(1), color: 'rgba(232,226,217,0.82)' },
-                    { label: 'Signals',        value: signalLabel[derived.min_signal ?? ''] ?? '—', color: 'rgba(232,226,217,0.82)' },
-                    { label: 'Min conviction', value: `${derived.min_conviction}%+`, color: 'rgba(232,226,217,0.82)' },
-                    { label: 'Volatility',     value: derived.volatility_tol.charAt(0).toUpperCase() + derived.volatility_tol.slice(1), color: 'rgba(232,226,217,0.82)' },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 6, padding: '0.5rem 0.7rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.38)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2, fontFamily: 'var(--font-mono)' }}>{label}</div>
-                      <div style={{ fontSize: '0.75rem', color, fontWeight: 500 }}>{value}</div>
-                    </div>
-                  ))}
-                </div>
-                {derived.universe.length > 0 && (
-                  <div style={{ marginBottom: '0.6rem' }}>
-                    <div style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.38)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5, fontFamily: 'var(--font-mono)' }}>Universe</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                      {derived.universe.map(u => (
-                        <span key={u} style={{ fontSize: '0.65rem', padding: '1px 7px', background: 'rgba(200,169,110,0.1)', color: 'rgba(200,169,110,0.8)', border: '1px solid rgba(200,169,110,0.2)', borderRadius: 3 }}>{universeLabel[u] ?? u}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {derived.sector_exclude.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.38)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5, fontFamily: 'var(--font-mono)' }}>Excluded sectors</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                      {derived.sector_exclude.map(s => (
-                        <span key={s} style={{ fontSize: '0.65rem', padding: '1px 7px', background: 'rgba(239,83,80,0.08)', color: '#ef5350', border: '1px solid rgba(239,83,80,0.2)', borderRadius: 3 }}>{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {qaCompletedAt && (
-                  <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.30)', marginTop: '0.8rem', fontFamily: 'var(--font-mono)' }}>Last updated {relTime(qaCompletedAt)}</div>
-                )}
-                {saved && <div style={{ fontSize: '0.72rem', color: '#4eca99', marginTop: 8 }}>✓ Profile saved</div>}
-              </>
-            ) : (
-              <div>
-                <p style={{ fontSize: '0.8rem', color: 'rgba(232,226,217,0.55)', lineHeight: 1.65, marginBottom: '1rem' }}>
-                  Answer 9 scenario-based questions to calibrate your signals, themes and portfolio recommendations.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: '1.2rem' }}>
-                  {['Signals filtered to your risk appetite', 'Themes matched to your investment horizon', 'Excluded sectors hidden throughout', 'Takes about 3 minutes'].map(item => (
-                    <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem', color: 'rgba(232,226,217,0.60)' }}>
-                      <span style={{ color: 'var(--green)', fontSize: '0.65rem' }}>✓</span>{item}
-                    </div>
-                  ))}
-                </div>
-                <button onClick={() => { setStep(1); setQaMode('qa') }} style={btnGreen}>Start questionnaire →</button>
-              </div>
-            )
+      {selectedPortfolio && (
+        <>
+          {/* ── Panel 1: Capital overview ── */}
+          {capitalMetrics && selectedPortfolio.total_capital > 0 && (
+            <Panel title="Capital Overview" defaultOpen={true}
+              badge={
+                <span style={{ fontSize: "0.68rem", color: capitalMetrics.return_pct >= 0 ? "var(--signal-bull)" : "var(--signal-bear)", fontFamily: "var(--font-mono)", marginLeft: 4 }}>
+                  {formatPct(capitalMetrics.return_pct)}
+                </span>
+              }
+            >
+              <CapitalSummaryBar metrics={capitalMetrics} cashFloorPct={selectedPortfolio.cash_pct} />
+            </Panel>
           )}
 
-          {/* ── QA view ── */}
-          {qaMode === 'qa' && currentQ && (
-            <div>
-              {/* Progress bar */}
-              <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, marginBottom: '1.2rem', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${progress}%`, background: 'var(--green)', borderRadius: 2, transition: 'width 0.3s' }} />
-              </div>
-              <div style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.40)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: '1rem' }}>
-                Question {step} of {QUESTIONS.length}
-              </div>
+          {/* ── Panel 2: Portfolio settings ── */}
+          <Panel title="Portfolio Settings" defaultOpen={false}>
+            <PreferencePanel portfolio={selectedPortfolio} onUpdate={updatePreference} />
+          </Panel>
 
-              <p style={{ fontSize: '1rem', fontWeight: 500, color: 'rgba(232,226,217,0.95)', lineHeight: 1.5, marginBottom: '0.35rem' }}>{currentQ.q}</p>
-              {currentQ.sub && <p style={{ fontSize: '0.76rem', color: 'rgba(232,226,217,0.50)', lineHeight: 1.55, marginBottom: '1.2rem' }}>{currentQ.sub}</p>}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: '1.5rem' }}>
-                {currentQ.options.map(opt => {
-                  const sel = currentQ.type === 'single'
-                    ? answers[currentQ.id] === opt.id
-                    : ((answers[currentQ.id] as string[]) ?? []).includes(opt.id)
-                  return (
-                    <button key={opt.id}
-                      onClick={() => currentQ.type === 'single' ? handleSingle(currentQ.id, opt.id) : handleMulti(currentQ.id, opt.id)}
-                      style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', background: sel ? 'rgba(78,255,145,0.05)' : 'rgba(255,255,255,0.02)', border: `1px solid ${sel ? 'rgba(78,255,145,0.35)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 6, cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.1s' }}>
-                      <div style={{ width: 15, height: 15, borderRadius: currentQ.type === 'multi' ? 3 : '50%', border: `1px solid ${sel ? 'var(--green)' : 'rgba(255,255,255,0.25)'}`, background: sel ? 'var(--green)' : 'none', flexShrink: 0, marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {sel && <div style={{ width: 5, height: 5, borderRadius: currentQ.type === 'multi' ? 1 : '50%', background: '#0f1c2e' }} />}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.8rem', color: sel ? 'rgba(232,226,217,0.95)' : 'rgba(232,226,217,0.72)', fontWeight: sel ? 500 : 400, lineHeight: 1.4 }}>{opt.label}</div>
-                        {opt.sub && <div style={{ fontSize: '0.67rem', color: 'rgba(232,226,217,0.38)', marginTop: 2, lineHeight: 1.4 }}>{opt.sub}</div>}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button style={btnGhost} onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1}>← Back</button>
-                  {qaCompleted && <button style={btnGhost} onClick={() => setQaMode('summary')}>Cancel</button>}
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {currentQ.type === 'single' && !answers[currentQ.id] && (
-                    <button style={btnGhost} onClick={() => setStep(s => s + 1)}>Skip</button>
-                  )}
-                  {error && <span style={{ fontSize: '0.7rem', color: '#ef5350' }}>{error}</span>}
-                  <button style={canAdvance() ? btnGreen : btnDisabled} onClick={advance} disabled={!canAdvance()}>
-                    {saving ? 'Saving…' : step === QUESTIONS.length ? 'Save profile →' : 'Next →'}
+          {/* ── Panel 3: Holdings ── */}
+          <Panel
+            title="Holdings"
+            defaultOpen={true}
+            badge={
+              holdings.length > 0
+                ? <span style={{ fontSize: "0.62rem", background: "rgba(200,169,110,0.15)", color: "var(--gold)", border: "1px solid rgba(200,169,110,0.25)", borderRadius: 10, padding: "1px 7px", marginLeft: 6 }}>{holdings.length}</span>
+                : undefined
+            }
+            action={
+              <button
+                onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}`)}
+                disabled={!selectedPortfolio?.total_capital}
+                style={{ padding: "0.35rem 0.9rem", background: "rgba(200,169,110,0.12)", border: "1px solid rgba(200,169,110,0.3)", color: "var(--gold)", borderRadius: 5, fontSize: "0.72rem", fontWeight: 600, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer", opacity: !selectedPortfolio?.total_capital ? 0.4 : 1, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                ✦ Build portfolio
+              </button>
+            }
+          >
+            {/* Add holding form */}
+            <form onSubmit={addHolding} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--dash-border)", borderRadius: 7, padding: "0.85rem 1rem", marginBottom: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 0.9fr auto", gap: "0.6rem", alignItems: "flex-start" }}>
+                <TickerAutocomplete value={ticker} onChange={v => { setTicker(v); setTickerError(""); }} onSelect={a => { setTicker(a.ticker); setTickerError(""); }} error={tickerError} />
+                <Field label="Quantity" value={quantity} onChange={setQuantity} placeholder="100" />
+                <Field label="Avg cost ($)" value={avgCost} onChange={setAvgCost} placeholder="182.50" />
+                <div style={{ paddingTop: "1.35rem" }}>
+                  <button type="submit" disabled={adding}
+                    style={{ padding: "0.55rem 1rem", background: "var(--gold)", color: "var(--navy)", fontWeight: 700, borderRadius: 6, border: "none", fontSize: "0.82rem", cursor: "pointer", opacity: adding ? 0.6 : 1 }}>
+                    {adding ? "…" : "Add"}
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+              {formError && <div style={{ color: "var(--signal-bear)", fontSize: "0.78rem", marginTop: "0.5rem" }}>{formError}</div>}
+            </form>
 
-        {/* ── Portfolio settings link ── */}
-        <div style={card}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(232,226,217,0.65)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Portfolio Settings</div>
-              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', marginTop: 2 }}>Benchmark, target holdings and cash allocation — configured per portfolio</div>
-            </div>
-            <a href="/dashboard/portfolio" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.08em', padding: '5px 12px', borderRadius: 4, textDecoration: 'none', border: '1px solid rgba(200,169,110,0.25)', color: 'rgba(200,169,110,0.7)', background: 'rgba(200,169,110,0.05)', whiteSpace: 'nowrap' }}>
-              Go to Portfolio →
-            </a>
-          </div>
-        </div>
+            {/* Unsaved changes bar */}
+            {hasDirtyEdits && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(200,169,110,0.06)", border: "1px solid rgba(200,169,110,0.25)", borderRadius: 7, padding: "0.6rem 1rem", marginBottom: "0.75rem" }}>
+                <span style={{ fontSize: "0.78rem", color: "rgba(200,169,110,0.75)" }}>Unsaved changes — capital allocation previewed live</span>
+                <button onClick={commitEdits} disabled={committing}
+                  style={{ padding: "0.4rem 1rem", background: "var(--gold)", color: "var(--navy)", fontWeight: 700, borderRadius: 6, border: "none", fontSize: "0.8rem", cursor: committing ? "not-allowed" : "pointer", opacity: committing ? 0.6 : 1 }}>
+                  {committing ? "Saving…" : "Commit changes"}
+                </button>
+              </div>
+            )}
 
-      </div>
-    </div>
-  )
+            {/* Holdings table */}
+            {holdings.length > 0 ? (
+              <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 2rem", gap: "0.5rem", padding: "0.5rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                  <span>Ticker</span><span style={{ textAlign: "right" }}>Qty</span><span style={{ textAlign: "right" }}>Avg cost</span>
+                  <span style={{ textAlign: "right" }}>Live price</span><span style={{ textAlign: "right" }}>Mkt value</span>
+                  <span style={{ textAlign: "right" }}>Gain/Loss</span><span style={{ textAlign: "right" }}>Day chg</span><span />
+                </div>
+                {holdings.map((h, idx) => {
+                  const edit      = editMap[h.id] ?? { quantity: "", avg_cost: "", dirty: false };
+                  const sig       = h.signal;
+                  const sc        = sig?.signal ?? "hold";
+                  const scCol     = SIG_COLOR[sc] ?? "rgba(232,226,217,0.3)";
+                  const livePrice = sig?.price_usd ?? null;
+                  const chg       = sig?.change_pct ?? null;
+                  const qty       = edit.quantity !== "" ? Number(edit.quantity) : (h.quantity ?? null);
+                  const cost      = edit.avg_cost !== "" ? Number(edit.avg_cost) : (h.avg_cost ?? null);
+                  const mktVal    = livePrice != null && qty != null ? livePrice * qty : null;
+                  const costBase  = cost != null && qty != null ? cost * qty : null;
+                  const gain      = mktVal != null && costBase != null ? mktVal - costBase : null;
+                  const isDraft   = h.quantity == null && h.avg_cost == null;
+                  const isDirty   = edit.dirty;
+
+                  return (
+                    <div key={h.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 2rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: idx < holdings.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: isDirty ? "rgba(200,169,110,0.03)" : isDraft ? "rgba(99,179,237,0.03)" : "transparent" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                          <span style={{ fontWeight: 700, color: "var(--cream)", fontSize: "0.85rem" }}>{h.ticker}</span>
+                          <span style={{ fontSize: "0.58rem", color: scCol, background: `${scCol}15`, padding: "0.05rem 0.3rem", borderRadius: 8, textTransform: "uppercase" }}>{sc}</span>
+                          {isDraft && <span style={{ fontSize: "0.58rem", color: "#63b3ed", background: "rgba(99,179,237,0.12)", padding: "0.05rem 0.3rem", borderRadius: 8 }}>draft</span>}
+                          {isDirty && <span style={{ fontSize: "0.58rem", color: "rgba(200,169,110,0.7)" }}>●</span>}
+                        </div>
+                        {h.name && <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{h.name}</span>}
+                      </div>
+
+                      {(["quantity", "avg_cost"] as const).map(field => (
+                        <div key={field} style={{ textAlign: "right" }}>
+                          <input type="number" value={edit[field]} onChange={e => setEdit(h.id, field, e.target.value)} placeholder="—"
+                            style={{ width: "100%", textAlign: "right", background: "rgba(255,255,255,0.05)", border: `1px solid ${isDirty ? "rgba(200,169,110,0.35)" : "rgba(255,255,255,0.07)"}`, borderRadius: 4, color: "var(--cream)", fontSize: "0.8rem", outline: "none", padding: "0.25rem 0.4rem" }} />
+                        </div>
+                      ))}
+
+                      <div style={{ textAlign: "right", fontSize: "0.8rem", color: "rgba(232,226,217,0.60)" }}>{livePrice != null ? `$${livePrice.toFixed(2)}` : "—"}</div>
+                      <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--cream)" }}>{mktVal != null ? formatCurrency(mktVal) : "—"}</div>
+                      <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: gain == null ? "rgba(232,226,217,0.25)" : gain >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
+                        {gain != null ? `${gain >= 0 ? "+" : ""}${formatCurrency(gain)}` : "—"}
+                      </div>
+                      <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: chg == null ? "rgba(232,226,217,0.25)" : chg >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
+                        {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : "—"}
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <button onClick={() => removeHolding(h.id)} style={{ background: "none", border: "none", color: "rgba(232,226,217,0.25)", cursor: "pointer", fontSize: "1rem", padding: 0, lineHeight: 1 }} title="Remove">×</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ color: "rgba(232,226,217,0.35)", fontSize: "0.82rem", padding: "0.5rem 0" }}>
+                No holdings yet. Add a ticker above or use <strong style={{ color: "var(--gold)" }}>✦ Build portfolio</strong> to generate a data-driven allocation.
+              </div>
+            )}
+          </Panel>
+
+          {/* ── Panel 4: AI Advisory ── */}
+          <Panel title="AI Advisory" defaultOpen={false}
+            action={
+              <button onClick={generateMemo} disabled={generating || !holdings.length}
+                style={{ padding: "0.3rem 0.8rem", background: "rgba(200,169,110,0.1)", border: "1px solid rgba(200,169,110,0.25)", color: "var(--gold)", borderRadius: 4, fontSize: "0.7rem", cursor: generating || !holdings.length ? "not-allowed" : "pointer", opacity: generating || !holdings.length ? 0.5 : 1 }}>
+                {generating ? "Generating…" : "Generate memo"}
+              </button>
+            }
+          >
+            {!holdings.length ? (
+              <div style={{ color: "rgba(232,226,217,0.35)", fontSize: "0.82rem" }}>Add holdings first to generate an advisory memo.</div>
+            ) : memos.length === 0 ? (
+              <div style={{ color: "rgba(232,226,217,0.35)", fontSize: "0.82rem" }}>Click "Generate memo" for an AI-powered advisory based on your holdings and recent market events.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+                {memos.map((m, i) => (
+                  <div key={m.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--dash-border)", borderRadius: 7, padding: "1rem 1.2rem" }}>
+                    <div style={{ fontSize: "0.62rem", color: "rgba(200,169,110,0.45)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.6rem" }}>
+                      {i === 0 ? "Latest" : new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </div>
+                    <p style={{ fontSize: "0.83rem", color: "rgba(232,226,217,0.65)", lineHeight: 1.7, margin: 0 }}>{m.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          {/* ── Panel 5: Analysis tabs ── */}
+          <Panel title="Analysis" defaultOpen={false}>
+            <div style={{ display: "flex", marginBottom: "1rem", background: "rgba(255,255,255,0.03)", border: "1px solid var(--dash-border)", borderRadius: 6, overflow: "hidden", width: "fit-content" }}>
+              {([["watchlist", "Watchlist"], ["distribution", "Signal Distribution"], ["history", "Build History"]] as const).map(([tab, label]) => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  style={{ padding: "0.4rem 1rem", background: activeTab === tab ? "rgba(255,255,255,0.08)" : "transparent", border: "none", color: activeTab === tab ? "var(--cream)" : "rgba(232,226,217,0.40)", fontSize: "0.78rem", fontWeight: activeTab === tab ? 600 : 400, cursor: "pointer" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === "watchlist"    && <PortfolioWatchlist portfolioId={selectedPortfolio.id} />}
+            {activeTab === "distribution" && userId && <PortfolioSignalDistribution userId={userId} />}
+            {activeTab === "history"      && <PortfolioBuildHistory portfolioId={selectedPortfolio.id} />}
+          </Panel>
+        </>
+      )}
+    </>
+  );
 }
