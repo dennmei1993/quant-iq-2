@@ -563,8 +563,10 @@ export default function PortfolioPage() {
   const [committing,  setCommitting]  = useState(false);
   const [adding,      setAdding]      = useState(false);
   const [generating,  setGenerating]  = useState(false);
-  const [formError,   setFormError]   = useState("");
-  const [tickerError, setTickerError] = useState("");
+  const [formError,          setFormError]          = useState("");
+  const [tickerError,        setTickerError]        = useState("");
+  const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(false);
+  const [deleting,           setDeleting]           = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -671,6 +673,22 @@ export default function PortfolioPage() {
     setHoldings(h => h.filter(x => x.id !== id));
   }
 
+  async function handleDeletePortfolio() {
+    if (!selectedId) return;
+    setDeleting(true);
+    const res = await fetch(`/api/portfolio?portfolio_id=${selectedId}`, { method: "DELETE" });
+    if (res.ok) {
+      const remaining = portfolios.filter(p => p.id !== selectedId);
+      setPortfolios(remaining);
+      setSelectedId(remaining.length > 0 ? remaining[0].id : null);
+      setHoldings([]);
+      setMemos([]);
+      setShowDeleteConfirm(false);
+      if (remaining.length === 0) { setShowNew(true); setIsFirstRun(true); }
+    }
+    setDeleting(false);
+  }
+
   async function generateMemo() {
     if (!selectedId) return;
     setGenerating(true); setFormError("");
@@ -734,14 +752,51 @@ export default function PortfolioPage() {
       </div>
 
       {/* ── Portfolio selector tabs ── */}
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.2rem", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.2rem", flexWrap: "wrap" }}>
         {portfolios.map(p => (
           <button key={p.id} onClick={() => setSelectedId(p.id)}
             style={{ padding: "0.4rem 1rem", background: p.id === selectedId ? "rgba(200,169,110,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${p.id === selectedId ? "rgba(200,169,110,0.4)" : "var(--dash-border)"}`, color: p.id === selectedId ? "var(--gold)" : "rgba(232,226,217,0.45)", borderRadius: 6, fontSize: "0.82rem", fontWeight: p.id === selectedId ? 600 : 400, cursor: "pointer", transition: "all 0.15s" }}>
             {p.name}
           </button>
         ))}
+        {/* Delete current portfolio */}
+        {selectedPortfolio && (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            style={{ marginLeft: "auto", padding: "0.4rem 0.8rem", background: "none", border: "1px solid rgba(232,112,112,0.25)", color: "rgba(232,112,112,0.55)", borderRadius: 6, fontSize: "0.75rem", cursor: "pointer", transition: "all 0.15s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(232,112,112,0.55)"; e.currentTarget.style.color = "rgba(232,112,112,0.85)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(232,112,112,0.25)"; e.currentTarget.style.color = "rgba(232,112,112,0.55)"; }}
+          >
+            Delete portfolio
+          </button>
+        )}
       </div>
+
+      {/* ── Delete confirmation modal ── */}
+      {showDeleteConfirm && selectedPortfolio && (
+        <>
+          <div onClick={() => setShowDeleteConfirm(false)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.55)" }} />
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 201, background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 8, padding: "1.6rem", width: 360, boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+            <div style={{ fontSize: "0.72rem", fontFamily: "var(--font-mono)", color: "rgba(232,112,112,0.7)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.8rem" }}>Delete portfolio</div>
+            <p style={{ fontSize: "0.88rem", color: "rgba(232,226,217,0.75)", lineHeight: 1.6, marginBottom: "0.4rem" }}>
+              Delete <strong style={{ color: "var(--cream)" }}>{selectedPortfolio.name}</strong>?
+            </p>
+            <p style={{ fontSize: "0.78rem", color: "rgba(232,226,217,0.45)", lineHeight: 1.55, marginBottom: "1.4rem" }}>
+              This will permanently remove the portfolio and all {holdings.length > 0 ? `${holdings.length} holding${holdings.length !== 1 ? "s" : ""}` : "holdings"}. This cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end" }}>
+              <button onClick={() => setShowDeleteConfirm(false)}
+                style={{ padding: "0.5rem 1rem", background: "transparent", border: "1px solid var(--dash-border)", color: "rgba(232,226,217,0.45)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem" }}>
+                Cancel
+              </button>
+              <button onClick={handleDeletePortfolio} disabled={deleting}
+                style={{ padding: "0.5rem 1.1rem", background: "rgba(232,112,112,0.15)", border: "1px solid rgba(232,112,112,0.4)", color: "#e87070", fontWeight: 600, borderRadius: 6, cursor: deleting ? "not-allowed" : "pointer", fontSize: "0.82rem", opacity: deleting ? 0.6 : 1 }}>
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {selectedPortfolio && (
         <>
@@ -758,11 +813,8 @@ export default function PortfolioPage() {
             {capitalMetrics && selectedPortfolio.total_capital > 0 ? (
               <CapitalSummaryBar metrics={capitalMetrics} cashFloorPct={selectedPortfolio.cash_pct} />
             ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: "1.2rem", padding: "0.5rem 0" }}>
-                <div style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.45)" }}>
-                  Set your total capital to track investment, cash available and returns.
-                </div>
-                <CapitalInput portfolioId={selectedPortfolio.id} onSave={(v) => updatePreference("total_capital", v)} />
+              <div style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.45)", padding: "0.5rem 0" }}>
+                No capital set — update Total Capital in <strong style={{ color: "rgba(200,169,110,0.7)" }}>Portfolio Settings</strong> to track performance.
               </div>
             )}
           </Panel>
