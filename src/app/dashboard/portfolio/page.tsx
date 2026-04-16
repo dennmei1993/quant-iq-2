@@ -185,10 +185,7 @@ function CapitalSummaryBar({ metrics, cashFloorPct = 0 }: {
           <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${Math.min(100, investedPct)}%`, background: "linear-gradient(90deg, rgba(200,169,110,0.6), rgba(200,169,110,0.9))", borderRadius: 3, transition: "width 0.5s" }} />
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.3rem" }}>
-            <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{formatCurrency(metrics.invested)} invested</span>
-            <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{formatCurrency(metrics.cash_available)} available</span>
-          </div>
+
         </div>
       )}
     </div>
@@ -208,30 +205,15 @@ function Metric({ label, value, sub, valueColor }: { label: string; value: strin
 // ─── Preference panel ─────────────────────────────────────────────────────────
 
 function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpdate: (key: keyof Portfolio, value: any) => Promise<void> }) {
-  const [saving,       setSaving]       = useState<string | null>(null);
-  const [capitalInput, setCapitalInput] = useState(portfolio.total_capital > 0 ? String(portfolio.total_capital) : "");
+  const [saving, setSaving] = useState<string | null>(null);
 
   async function save(key: keyof Portfolio, value: any) {
     setSaving(key); await onUpdate(key, value); setSaving(null);
   }
-  async function saveCapital() {
-    const parsed = parseFloat(capitalInput.replace(/[^0-9.]/g, ""));
-    if (isNaN(parsed) || parsed < 0) return;
-    await save("total_capital", parsed);
-  }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", alignItems: "flex-end" }}>
-        {/* Capital */}
-        <div>
-          <div style={labelStyle}>Total Capital</div>
-          <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: "0.6rem", top: "50%", transform: "translateY(-50%)", color: "rgba(232,226,217,0.45)", fontSize: "0.85rem" }}>$</span>
-            <input value={capitalInput} onChange={e => setCapitalInput(e.target.value)} onBlur={saveCapital} onKeyDown={e => e.key === "Enter" && saveCapital()}
-              placeholder="100,000" style={{ ...inputStyle, width: 130, paddingLeft: "1.4rem", opacity: saving === "total_capital" ? 0.5 : 1 }} />
-          </div>
-        </div>
+
         {/* Risk */}
         <div>
           <div style={labelStyle}>Risk</div>
