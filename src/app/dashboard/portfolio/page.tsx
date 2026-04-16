@@ -102,6 +102,44 @@ function formatPct(v: number): string {
   return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 }
 
+// ─── Capital input (used in overview empty state) ────────────────────────────
+
+function CapitalInput({ portfolioId, onSave }: { portfolioId: string; onSave: (v: number) => Promise<void> }) {
+  const [val,    setVal]    = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+
+  async function handleSave() {
+    const parsed = parseFloat(val.replace(/[^0-9.]/g, ""));
+    if (isNaN(parsed) || parsed <= 0) return;
+    setSaving(true);
+    await onSave(parsed);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <div style={{ position: "relative" }}>
+        <span style={{ position: "absolute", left: "0.6rem", top: "50%", transform: "translateY(-50%)", color: "rgba(232,226,217,0.45)", fontSize: "0.85rem" }}>$</span>
+        <input
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleSave()}
+          placeholder="e.g. 50,000"
+          style={{ paddingLeft: "1.4rem", padding: "0.45rem 0.7rem 0.45rem 1.4rem", background: "rgba(255,255,255,0.05)", border: "1px solid var(--dash-border)", borderRadius: 6, color: "var(--cream)", fontSize: "0.82rem", outline: "none", width: 140 }}
+        />
+      </div>
+      <button onClick={handleSave} disabled={saving || !val}
+        style={{ padding: "0.45rem 1rem", background: "var(--gold)", color: "var(--navy)", fontWeight: 700, borderRadius: 5, border: "none", fontSize: "0.78rem", cursor: saving || !val ? "not-allowed" : "pointer", opacity: saving || !val ? 0.5 : 1 }}>
+        {saving ? "…" : "Set capital"}
+      </button>
+      {saved && <span style={{ fontSize: "0.72rem", color: "var(--signal-bull)" }}>✓</span>}
+    </div>
+  );
+}
+
 // ─── Expandable panel ─────────────────────────────────────────────────────────
 
 function Panel({
@@ -213,6 +251,12 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+
+        {/* Capital */}
+        <div>
+          <div style={labelStyle}>Total Capital</div>
+          <CapitalInput portfolioId={portfolio.id} onSave={async (v) => { await onUpdate("total_capital", v); }} />
+        </div>
 
         {/* Risk */}
         <div>
@@ -702,17 +746,26 @@ export default function PortfolioPage() {
       {selectedPortfolio && (
         <>
           {/* ── Panel 1: Capital overview ── */}
-          {capitalMetrics && selectedPortfolio.total_capital > 0 && (
-            <Panel title="Capital Overview" defaultOpen={true}
-              badge={
-                <span style={{ fontSize: "0.68rem", color: capitalMetrics.return_pct >= 0 ? "var(--signal-bull)" : "var(--signal-bear)", fontFamily: "var(--font-mono)", marginLeft: 4 }}>
-                  {formatPct(capitalMetrics.return_pct)}
-                </span>
-              }
-            >
+          <Panel title="Capital Overview" defaultOpen={true}
+            badge={
+              capitalMetrics && selectedPortfolio.total_capital > 0
+                ? <span style={{ fontSize: "0.68rem", color: capitalMetrics.return_pct >= 0 ? "var(--signal-bull)" : "var(--signal-bear)", fontFamily: "var(--font-mono)", marginLeft: 4 }}>
+                    {formatPct(capitalMetrics.return_pct)}
+                  </span>
+                : undefined
+            }
+          >
+            {capitalMetrics && selectedPortfolio.total_capital > 0 ? (
               <CapitalSummaryBar metrics={capitalMetrics} cashFloorPct={selectedPortfolio.cash_pct} />
-            </Panel>
-          )}
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "1.2rem", padding: "0.5rem 0" }}>
+                <div style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.45)" }}>
+                  Set your total capital to track investment, cash available and returns.
+                </div>
+                <CapitalInput portfolioId={selectedPortfolio.id} onSave={(v) => updatePreference("total_capital", v)} />
+              </div>
+            )}
+          </Panel>
 
           {/* ── Panel 2: Portfolio settings ── */}
           <Panel title="Portfolio Settings" defaultOpen={false}>
