@@ -9,9 +9,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { PortfolioSignalDistribution } from "@/components/dashboard/PortfolioSignalDistribution";
-import { PortfolioWatchlist } from "@/components/dashboard/PortfolioWatchlist";
-import { PortfolioBuildHistory } from "@/components/dashboard/PortfolioBuildHistory";
+import { PortfolioSignalDistribution }   from "@/components/dashboard/PortfolioSignalDistribution";
+import { PortfolioWatchlist }              from "@/components/dashboard/PortfolioWatchlist";
+import { PortfolioBuildHistory }           from "@/components/dashboard/PortfolioBuildHistory";
+import { PortfolioPerformanceChart }       from "@/components/dashboard/PortfolioPerformanceChart";
 import {
   computeCapitalMetrics,
   type PortfolioCapitalMetrics,
@@ -567,6 +568,16 @@ export default function PortfolioPage() {
   const [tickerError,        setTickerError]        = useState("");
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(false);
   const [deleting,           setDeleting]           = useState(false);
+  // Transaction modal
+  const [txModal,    setTxModal]    = useState<{ holdingId: string; ticker: string; currentQty: number } | null>(null);
+  const [txType,     setTxType]     = useState<'buy' | 'sell'>('buy');
+  const [txQty,      setTxQty]      = useState('');
+  const [txPrice,    setTxPrice]    = useState('');
+  const [txDate,     setTxDate]     = useState(new Date().toISOString().split('T')[0]);
+  const [txFees,     setTxFees]     = useState('');
+  const [txNotes,    setTxNotes]    = useState('');
+  const [txSaving,   setTxSaving]   = useState(false);
+  const [txError,    setTxError]    = useState('');
 
   useEffect(() => {
     async function init() {
@@ -689,6 +700,40 @@ export default function PortfolioPage() {
     setDeleting(false);
   }
 
+  async function handleTransaction() {
+    if (!txModal || !selectedId) return;
+    const qty   = parseFloat(txQty);
+    const price = parseFloat(txPrice);
+    if (isNaN(qty) || qty <= 0)   { setTxError('Enter a valid quantity'); return; }
+    if (isNaN(price) || price < 0) { setTxError('Enter a valid price');    return; }
+    if (txType === 'sell' && qty > txModal.currentQty) {
+      setTxError(`Cannot sell ${qty} — only ${txModal.currentQty} held`); return;
+    }
+    setTxSaving(true); setTxError('');
+    const res = await fetch('/api/portfolio/transaction', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        portfolio_id: selectedId,
+        ticker:       txModal.ticker,
+        type:         txType,
+        quantity:     qty,
+        price,
+        fees:         parseFloat(txFees) || 0,
+        executed_at:  new Date(txDate).toISOString(),
+        notes:        txNotes || undefined,
+      }),
+    });
+    const d = await res.json();
+    if (!res.ok) { setTxError(d.error ?? 'Failed'); setTxSaving(false); return; }
+    // Reload holdings
+    await loadPortfolioData(selectedId);
+    setTxModal(null);
+    setTxQty(''); setTxPrice(''); setTxFees(''); setTxNotes('');
+    setTxDate(new Date().toISOString().split('T')[0]);
+    setTxSaving(false);
+  }
+
   async function generateMemo() {
     if (!selectedId) return;
     setGenerating(true); setFormError("");
@@ -729,6 +774,7 @@ export default function PortfolioPage() {
         return { ticker: h.ticker, quantity: qty, avg_cost: cost, price_usd: h.signal?.price_usd ?? null };
       }))
     : null;
+  const summary_return    = capitalMetrics && capitalMetrics.invested > 0 ? capitalMetrics.return_pct : null;
   const hasDirtyEdits = Object.values(editMap).some(v => v.dirty);
 
   if (initLoading) return <div style={{ color: "rgba(232,226,217,0.25)", fontSize: "0.85rem", padding: "3rem 0" }}>Loading…</div>;
@@ -798,6 +844,80 @@ export default function PortfolioPage() {
         </>
       )}
 
+      {/* ── Transaction modal ── */}
+      {txModal && (
+        <>
+          <div onClick={() => setTxModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)' }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.4rem', width: 360, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Record transaction</div>
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{txModal.ticker}</div>
+              </div>
+              <button onClick={() => setTxModal(null)} style={{ background: 'none', border: 'none', color: 'rgba(232,226,217,0.35)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Buy / Sell toggle */}
+            <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem' }}>
+              {(['buy', 'sell'] as const).map(t => (
+                <button key={t} onClick={() => { setTxType(t); setTxError(''); }}
+                  style={{ flex: 1, padding: '0.45rem', border: `1px solid ${txType === t ? (t === 'buy' ? 'rgba(78,255,145,0.4)' : 'rgba(232,112,112,0.4)') : 'var(--dash-border)'}`, background: txType === t ? (t === 'buy' ? 'rgba(78,255,145,0.08)' : 'rgba(232,112,112,0.08)') : 'none', color: txType === t ? (t === 'buy' ? 'var(--green)' : '#e87070') : 'rgba(232,226,217,0.40)', borderRadius: 5, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                <div>
+                  <div style={labelStyle}>Quantity {txType === 'sell' ? `(max ${txModal.currentQty})` : ''}</div>
+                  <input value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="0" type="number" style={inputStyle} />
+                </div>
+                <div>
+                  <div style={labelStyle}>Price ($)</div>
+                  <input value={txPrice} onChange={e => setTxPrice(e.target.value)} placeholder="0.00" type="number" style={inputStyle} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                <div>
+                  <div style={labelStyle}>Date</div>
+                  <input value={txDate} onChange={e => setTxDate(e.target.value)} type="date" style={inputStyle} />
+                </div>
+                <div>
+                  <div style={labelStyle}>Fees ($)</div>
+                  <input value={txFees} onChange={e => setTxFees(e.target.value)} placeholder="0.00" type="number" style={inputStyle} />
+                </div>
+              </div>
+              <div>
+                <div style={labelStyle}>Notes (optional)</div>
+                <input value={txNotes} onChange={e => setTxNotes(e.target.value)} placeholder="e.g. Earnings play" style={inputStyle} />
+              </div>
+            </div>
+
+            {txQty && txPrice && (
+              <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.50)', marginBottom: '0.8rem', padding: '0.5rem 0.7rem', background: 'rgba(255,255,255,0.03)', borderRadius: 5, border: '1px solid rgba(255,255,255,0.06)' }}>
+                Total: <strong style={{ color: 'var(--cream)' }}>${(parseFloat(txQty || '0') * parseFloat(txPrice || '0') + parseFloat(txFees || '0')).toFixed(2)}</strong>
+                {txType === 'sell' && txQty && txPrice && txModal.currentQty > 0 && (
+                  <span style={{ marginLeft: 10, color: 'rgba(232,226,217,0.35)' }}>
+                    Remaining: {Math.max(0, txModal.currentQty - parseFloat(txQty || '0')).toFixed(2)} shares
+                  </span>
+                )}
+              </div>
+            )}
+
+            {txError && <div style={{ fontSize: '0.72rem', color: '#e87070', marginBottom: '0.8rem' }}>{txError}</div>}
+
+            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
+              <button onClick={() => setTxModal(null)} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--dash-border)', color: 'rgba(232,226,217,0.40)', borderRadius: 6, cursor: 'pointer', fontSize: '0.82rem' }}>Cancel</button>
+              <button onClick={handleTransaction} disabled={txSaving}
+                style={{ padding: '0.5rem 1.1rem', background: txType === 'buy' ? 'rgba(78,255,145,0.15)' : 'rgba(232,112,112,0.15)', border: `1px solid ${txType === 'buy' ? 'rgba(78,255,145,0.35)' : 'rgba(232,112,112,0.35)'}`, color: txType === 'buy' ? 'var(--green)' : '#e87070', fontWeight: 700, borderRadius: 6, cursor: txSaving ? 'not-allowed' : 'pointer', fontSize: '0.82rem', opacity: txSaving ? 0.6 : 1 }}>
+                {txSaving ? '…' : txType === 'buy' ? 'Record Buy' : 'Record Sell'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {selectedPortfolio && (
         <>
           {/* ── Panel 1: Capital overview ── */}
@@ -817,6 +937,22 @@ export default function PortfolioPage() {
                 No capital set — update Total Capital in <strong style={{ color: "rgba(200,169,110,0.7)" }}>Portfolio Settings</strong> to track performance.
               </div>
             )}
+          </Panel>
+
+          {/* ── Panel 1b: Performance chart ── */}
+          <Panel title="Performance" defaultOpen={false}
+            badge={
+              summary_return != null
+                ? <span style={{ fontSize: "0.68rem", color: summary_return >= 0 ? "var(--signal-bull)" : "var(--signal-bear)", fontFamily: "var(--font-mono)", marginLeft: 4 }}>
+                    {summary_return >= 0 ? "+" : ""}{summary_return.toFixed(2)}%
+                  </span>
+                : undefined
+            }
+          >
+            <PortfolioPerformanceChart
+              portfolioId={selectedPortfolio.id}
+              totalCapital={selectedPortfolio.total_capital}
+            />
           </Panel>
 
           {/* ── Panel 2: Portfolio settings ── */}
@@ -872,7 +1008,7 @@ export default function PortfolioPage() {
             {/* Holdings table */}
             {holdings.length > 0 ? (
               <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 2rem", gap: "0.5rem", padding: "0.5rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 5rem", gap: "0.5rem", padding: "0.5rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
                   <span>Ticker</span><span style={{ textAlign: "right" }}>Qty</span><span style={{ textAlign: "right" }}>Avg cost</span>
                   <span style={{ textAlign: "right" }}>Live price</span><span style={{ textAlign: "right" }}>Mkt value</span>
                   <span style={{ textAlign: "right" }}>Gain/Loss</span><span style={{ textAlign: "right" }}>Day chg</span><span />
@@ -893,7 +1029,7 @@ export default function PortfolioPage() {
                   const isDirty   = edit.dirty;
 
                   return (
-                    <div key={h.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 2rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: idx < holdings.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: isDirty ? "rgba(200,169,110,0.03)" : isDraft ? "rgba(99,179,237,0.03)" : "transparent" }}>
+                    <div key={h.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 5rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: idx < holdings.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: isDirty ? "rgba(200,169,110,0.03)" : isDraft ? "rgba(99,179,237,0.03)" : "transparent" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
                           <span style={{ fontWeight: 700, color: "var(--cream)", fontSize: "0.85rem" }}>{h.ticker}</span>
@@ -919,8 +1055,18 @@ export default function PortfolioPage() {
                       <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: chg == null ? "rgba(232,226,217,0.25)" : chg >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
                         {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : "—"}
                       </div>
-                      <div style={{ textAlign: "right" }}>
-                        <button onClick={() => removeHolding(h.id)} style={{ background: "none", border: "none", color: "rgba(232,226,217,0.25)", cursor: "pointer", fontSize: "1rem", padding: 0, lineHeight: 1 }} title="Remove">×</button>
+                      <div style={{ textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                        <button
+                          onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: Number(h.quantity ?? 0) }); setTxType('buy'); }}
+                          style={{ fontSize: "0.58rem", padding: "0.15rem 0.4rem", background: "rgba(78,255,145,0.08)", border: "1px solid rgba(78,255,145,0.25)", color: "var(--green)", borderRadius: 3, cursor: "pointer" }}
+                          title="Buy more"
+                        >B</button>
+                        <button
+                          onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: Number(h.quantity ?? 0) }); setTxType('sell'); }}
+                          style={{ fontSize: "0.58rem", padding: "0.15rem 0.4rem", background: "rgba(232,112,112,0.08)", border: "1px solid rgba(232,112,112,0.25)", color: "#e87070", borderRadius: 3, cursor: "pointer" }}
+                          title="Sell"
+                        >S</button>
+                        <button onClick={() => removeHolding(h.id)} style={{ background: "none", border: "none", color: "rgba(232,226,217,0.20)", cursor: "pointer", fontSize: "0.9rem", padding: "0 2px", lineHeight: 1 }} title="Remove">×</button>
                       </div>
                     </div>
                   );
