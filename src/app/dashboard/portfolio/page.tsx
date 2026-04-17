@@ -597,8 +597,7 @@ export default function PortfolioPage() {
   const [ticker,      setTicker]      = useState("");
   const [quantity,    setQuantity]    = useState("");
   const [avgCost,     setAvgCost]     = useState("");
-  const [editMap,     setEditMap]     = useState<Record<string, { quantity: string; avg_cost: string; dirty: boolean }>>({});
-  const [committing,  setCommitting]  = useState(false);
+
   const [adding,      setAdding]      = useState(false);
   const [generating,  setGenerating]  = useState(false);
   const [formError,          setFormError]          = useState("");
@@ -667,11 +666,7 @@ export default function PortfolioPage() {
     setHoldings(loaded);
     setMemos(mRes.memos ?? []);
     setPortfolioTxns(tRes.transactions ?? []);
-    setEditMap(Object.fromEntries(loaded.map(h => [h.id, {
-      quantity: h.quantity != null ? String(h.quantity) : "",
-      avg_cost: h.avg_cost != null ? String(h.avg_cost) : "",
-      dirty:    false,
-    }])));
+
   }, []);
 
   useEffect(() => { if (selectedId) loadPortfolioData(selectedId); }, [selectedId, loadPortfolioData]);
@@ -787,45 +782,25 @@ export default function PortfolioPage() {
     setGenerating(false);
   }
 
-  function setEdit(id: string, field: "quantity" | "avg_cost", value: string) {
-    setEditMap(prev => ({ ...prev, [id]: { ...prev[id], [field]: value, dirty: true } }));
-  }
 
-  async function commitEdits() {
-    const dirty = Object.entries(editMap).filter(([, v]) => v.dirty);
-    if (!dirty.length) return;
-    setCommitting(true);
-    await Promise.all(dirty.map(([id, vals]) =>
-      fetch(`/api/portfolio?holding_id=${id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body:   JSON.stringify({ quantity: vals.quantity !== "" ? Number(vals.quantity) : null, avg_cost: vals.avg_cost !== "" ? Number(vals.avg_cost) : null }),
-      })
-    ));
-    if (selectedId) await loadPortfolioData(selectedId);
-    setCommitting(false);
-  }
+
+
 
   const selectedPortfolio = portfolios.find(p => p.id === selectedId) ?? null;
   const capitalMetrics: PortfolioCapitalMetrics | null = selectedPortfolio
     ? computeCapitalMetrics(
         selectedPortfolio.total_capital,
-        holdings.map(h => {
-          const edit = editMap[h.id];
-          const qty  = edit?.quantity !== "" ? Number(edit?.quantity ?? h.quantity ?? 0) : (h.quantity ?? 0);
-          const cost = edit?.avg_cost !== "" ? Number(edit?.avg_cost ?? h.avg_cost ?? 0) : (h.avg_cost ?? 0);
-          return {
-            ticker:        h.ticker,
-            quantity:      qty,
-            avg_cost:      cost,
-            price_usd:     h.signal?.price_usd ?? null,
-            realised_gain: (h as any).realised_gain ?? 0,
-          };
-        }),
+        holdings.map(h => ({
+          ticker:        h.ticker,
+          quantity:      h.quantity ?? 0,
+          avg_cost:      h.avg_cost ?? 0,
+          price_usd:     h.signal?.price_usd ?? null,
+          realised_gain: (h as any).realised_gain ?? 0,
+        })),
         portfolioTxns,
       )
     : null;
-  const summary_return    = capitalMetrics && capitalMetrics.total_capital > 0 ? capitalMetrics.return_pct : null;
-  const hasDirtyEdits = Object.values(editMap).some(v => v.dirty);
+  const summary_return = capitalMetrics && capitalMetrics.total_capital > 0 ? capitalMetrics.return_pct : null;
 
   if (initLoading) return <div style={{ color: "rgba(232,226,217,0.25)", fontSize: "0.85rem", padding: "3rem 0" }}>Loading…</div>;
 
@@ -1044,92 +1019,113 @@ export default function PortfolioPage() {
               {formError && <div style={{ color: "var(--signal-bear)", fontSize: "0.78rem", marginTop: "0.5rem" }}>{formError}</div>}
             </form>
 
-            {/* Unsaved changes bar */}
-            {hasDirtyEdits && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(200,169,110,0.06)", border: "1px solid rgba(200,169,110,0.25)", borderRadius: 7, padding: "0.6rem 1rem", marginBottom: "0.75rem" }}>
-                <span style={{ fontSize: "0.78rem", color: "rgba(200,169,110,0.75)" }}>Unsaved changes — capital allocation previewed live</span>
-                <button onClick={commitEdits} disabled={committing}
-                  style={{ padding: "0.4rem 1rem", background: "var(--gold)", color: "var(--navy)", fontWeight: 700, borderRadius: 6, border: "none", fontSize: "0.8rem", cursor: committing ? "not-allowed" : "pointer", opacity: committing ? 0.6 : 1 }}>
-                  {committing ? "Saving…" : "Commit changes"}
-                </button>
-              </div>
-            )}
+
 
             {/* Holdings table */}
             {holdings.length > 0 ? (
               <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 5rem", gap: "0.5rem", padding: "0.5rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                  <span>Ticker</span><span style={{ textAlign: "right" }}>Qty</span><span style={{ textAlign: "right" }}>Avg cost</span>
-                  <span style={{ textAlign: "right" }}>Live price</span><span style={{ textAlign: "right" }}>Mkt value</span>
-                  <span style={{ textAlign: "right" }}>Gain/Loss</span><span style={{ textAlign: "right" }}>Day chg</span><span />
+
+                {/* Table header */}
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 0.8fr 0.8fr 0.8fr 0.9fr 0.9fr 0.9fr 1fr 5rem", gap: "0.5rem", padding: "0.5rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                  <span>Ticker</span>
+                  <span style={{ textAlign: "right" }}>Qty</span>
+                  <span style={{ textAlign: "right" }}>Avg cost</span>
+                  <span style={{ textAlign: "right" }}>Live price</span>
+                  <span style={{ textAlign: "right" }}>Mkt value</span>
+                  <span style={{ textAlign: "right" }}>Unrealised</span>
+                  <span style={{ textAlign: "right" }}>Realised</span>
+                  <span style={{ textAlign: "right" }}>Day chg</span>
+                  <span />
                 </div>
-                {holdings.map((h, idx) => {
-                  const edit      = editMap[h.id] ?? { quantity: "", avg_cost: "", dirty: false };
-                  const sig       = h.signal;
-                  const sc        = sig?.signal ?? "hold";
-                  const scCol     = SIG_COLOR[sc] ?? "rgba(232,226,217,0.3)";
-                  const livePrice = sig?.price_usd ?? null;
-                  const chg       = sig?.change_pct ?? null;
-                  const qty       = edit.quantity !== "" ? Number(edit.quantity) : (h.quantity ?? null);
-                  const cost      = edit.avg_cost !== "" ? Number(edit.avg_cost) : (h.avg_cost ?? null);
-                  const mktVal    = livePrice != null && qty != null ? livePrice * qty : null;
-                  const costBase  = cost != null && qty != null ? cost * qty : null;
-                  const gain      = mktVal != null && costBase != null ? mktVal - costBase : null;
-                  const isDraft   = h.quantity == null && h.avg_cost == null;
-                  const isDirty   = edit.dirty;
+
+                {/* Rows */}
+                {holdings.map(h => {
+                  const sig          = h.signal;
+                  const sc           = sig?.signal ?? "hold";
+                  const scCol        = SIG_COLOR[sc] ?? "rgba(232,226,217,0.3)";
+                  const livePrice    = sig?.price_usd   ?? null;
+                  const chg          = sig?.change_pct  ?? null;
+                  const qty          = h.quantity ?? null;
+                  const cost         = h.avg_cost  ?? null;
+                  const mktVal       = livePrice != null && qty != null ? livePrice * qty : null;
+                  const costBase     = cost != null && qty != null ? cost * qty : null;
+                  const unrealised   = mktVal != null && costBase != null ? mktVal - costBase : null;
+                  const realisedGain = Number((h as any).realised_gain ?? 0);
+                  const unrealisedCol = unrealised == null ? "rgba(232,226,217,0.25)" : unrealised >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
+                  const realisedCol   = realisedGain === 0 ? "rgba(232,226,217,0.25)" : realisedGain > 0 ? "var(--signal-bull)" : "var(--signal-bear)";
 
                   return (
                     <React.Fragment key={h.id}>
-                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 5rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: "none", background: isDirty ? "rgba(200,169,110,0.03)" : isDraft ? "rgba(99,179,237,0.03)" : "transparent" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                          <span style={{ fontWeight: 700, color: "var(--cream)", fontSize: "0.85rem" }}>{h.ticker}</span>
-                          <span style={{ fontSize: "0.58rem", color: scCol, background: `${scCol}15`, padding: "0.05rem 0.3rem", borderRadius: 8, textTransform: "uppercase" }}>{sc}</span>
-                          {isDraft && <span style={{ fontSize: "0.58rem", color: "#63b3ed", background: "rgba(99,179,237,0.12)", padding: "0.05rem 0.3rem", borderRadius: 8 }}>draft</span>}
-                          {isDirty && <span style={{ fontSize: "0.58rem", color: "rgba(200,169,110,0.7)" }}>●</span>}
+                      {/* Holding row — all values read-only, derived from transactions */}
+                      <div style={{ display: "grid", gridTemplateColumns: "2fr 0.8fr 0.8fr 0.8fr 0.9fr 0.9fr 0.9fr 1fr 5rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: "none", background: "transparent" }}>
+
+                        {/* Ticker + signal badge */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                            <span style={{ fontWeight: 700, color: "var(--cream)", fontSize: "0.85rem" }}>{h.ticker}</span>
+                            <span style={{ fontSize: "0.58rem", color: scCol, background: `${scCol}15`, padding: "0.05rem 0.3rem", borderRadius: 8, textTransform: "uppercase" }}>{sc}</span>
+                          </div>
+                          {h.name && <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{h.name}</span>}
                         </div>
-                        {h.name && <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{h.name}</span>}
-                      </div>
 
-                      {(["quantity", "avg_cost"] as const).map(field => (
-                        <div key={field} style={{ textAlign: "right" }}>
-                          <input type="number" value={edit[field]} onChange={e => setEdit(h.id, field, e.target.value)} placeholder="—"
-                            style={{ width: "100%", textAlign: "right", background: "rgba(255,255,255,0.05)", border: `1px solid ${isDirty ? "rgba(200,169,110,0.35)" : "rgba(255,255,255,0.07)"}`, borderRadius: 4, color: "var(--cream)", fontSize: "0.8rem", outline: "none", padding: "0.25rem 0.4rem" }} />
+                        {/* Qty — FIFO computed, read-only */}
+                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--cream)", fontFamily: "var(--font-mono)" }}>
+                          {qty != null ? Number(qty).toLocaleString(undefined, { maximumFractionDigits: 4 }) : "—"}
                         </div>
-                      ))}
 
-                      <div style={{ textAlign: "right", fontSize: "0.8rem", color: "rgba(232,226,217,0.60)" }}>{livePrice != null ? `$${livePrice.toFixed(2)}` : "—"}</div>
-                      <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--cream)" }}>{mktVal != null ? formatCurrency(mktVal) : "—"}</div>
-                      <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: gain == null ? "rgba(232,226,217,0.25)" : gain >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
-                        {gain != null ? `${gain >= 0 ? "+" : ""}${formatCurrency(gain)}` : "—"}
-                      </div>
-                      <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: chg == null ? "rgba(232,226,217,0.25)" : chg >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
-                        {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : "—"}
-                      </div>
-                      <div style={{ textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: Number(h.quantity ?? 0) }); setTxType('buy'); }}
-                          style={{ fontSize: "0.58rem", padding: "0.15rem 0.4rem", background: "rgba(78,255,145,0.08)", border: "1px solid rgba(78,255,145,0.25)", color: "var(--green)", borderRadius: 3, cursor: "pointer" }}
-                          title="Buy more"
-                        >B</button>
-                        <button
-                          onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: Number(h.quantity ?? 0) }); setTxType('sell'); }}
-                          style={{ fontSize: "0.58rem", padding: "0.15rem 0.4rem", background: "rgba(232,112,112,0.08)", border: "1px solid rgba(232,112,112,0.25)", color: "#e87070", borderRadius: 3, cursor: "pointer" }}
-                          title="Sell"
-                        >S</button>
-                        <button onClick={() => removeHolding(h.id)} style={{ background: "none", border: "none", color: "rgba(232,226,217,0.20)", cursor: "pointer", fontSize: "0.9rem", padding: "0 2px", lineHeight: 1 }} title="Remove">×</button>
-                      </div>
-                    </div>
+                        {/* Avg cost — FIFO weighted, read-only */}
+                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "rgba(232,226,217,0.65)", fontFamily: "var(--font-mono)" }}>
+                          {cost != null ? `$${Number(cost).toFixed(2)}` : "—"}
+                        </div>
 
-                    {/* Transaction history — expandable below each row */}
-                    <TransactionHistory
-                      portfolioId={selectedPortfolio.id}
-                      ticker={h.ticker}
-                      avgCost={h.avg_cost}
-                      onDelete={() => loadPortfolioData(selectedPortfolio.id)}
-                    />
-                  </React.Fragment>
-                );
+                        {/* Live price */}
+                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "rgba(232,226,217,0.60)", fontFamily: "var(--font-mono)" }}>
+                          {livePrice != null ? `$${livePrice.toFixed(2)}` : "—"}
+                        </div>
+
+                        {/* Market value */}
+                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--cream)", fontFamily: "var(--font-mono)" }}>
+                          {mktVal != null ? formatCurrency(mktVal) : "—"}
+                        </div>
+
+                        {/* Unrealised gain/loss */}
+                        <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: unrealisedCol }}>
+                          {unrealised != null ? `${unrealised >= 0 ? "+" : ""}${formatCurrency(unrealised)}` : "—"}
+                        </div>
+
+                        {/* Realised gain/loss */}
+                        <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: realisedCol }}>
+                          {realisedGain !== 0 ? `${realisedGain > 0 ? "+" : ""}${formatCurrency(realisedGain)}` : "—"}
+                        </div>
+
+                        {/* Day change */}
+                        <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: chg == null ? "rgba(232,226,217,0.25)" : chg >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
+                          {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : "—"}
+                        </div>
+
+                        {/* B / S / × buttons */}
+                        <div style={{ textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                          <button onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: Number(h.quantity ?? 0) }); setTxType("buy"); }}
+                            style={{ fontSize: "0.58rem", padding: "0.15rem 0.4rem", background: "rgba(78,255,145,0.08)", border: "1px solid rgba(78,255,145,0.25)", color: "var(--green)", borderRadius: 3, cursor: "pointer" }}
+                            title="Buy more">B</button>
+                          <button onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: Number(h.quantity ?? 0) }); setTxType("sell"); }}
+                            style={{ fontSize: "0.58rem", padding: "0.15rem 0.4rem", background: "rgba(232,112,112,0.08)", border: "1px solid rgba(232,112,112,0.25)", color: "#e87070", borderRadius: 3, cursor: "pointer" }}
+                            title="Sell">S</button>
+                          <button onClick={() => removeHolding(h.id)}
+                            style={{ background: "none", border: "none", color: "rgba(232,226,217,0.20)", cursor: "pointer", fontSize: "0.9rem", padding: "0 2px", lineHeight: 1 }}
+                            title="Remove">×</button>
+                        </div>
+                      </div>
+
+                      {/* Transaction history — expandable per holding */}
+                      <TransactionHistory
+                        portfolioId={selectedPortfolio.id}
+                        ticker={h.ticker}
+                        avgCost={h.avg_cost}
+                        onDelete={() => loadPortfolioData(selectedPortfolio.id)}
+                      />
+                    </React.Fragment>
+                  );
                 })}
               </div>
             ) : (
