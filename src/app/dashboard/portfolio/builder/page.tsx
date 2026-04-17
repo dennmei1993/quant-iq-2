@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { RiskAppetite, InvestmentHorizon } from "@/types/portfolio-preferences";
 import { RecommendationScreen } from "@/components/dashboard/RecommendationScreen";
+import { PromptPreviewModal }   from "@/components/dashboard/PromptPreviewModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -589,6 +590,8 @@ function PortfolioBuilderInner() {
   const [llmModelId,  setLlmModelId]  = useState<string>("claude-sonnet-4-20250514");
 
   const [loadingStrategy,        setLoadingStrategy]        = useState(false);
+  const [promptPreview,          setPromptPreview]          = useState<string | null>(null);
+  const [pendingStrategyArgs,    setPendingStrategyArgs]    = useState<any | null>(null);
   const [loadingDataThemes,      setLoadingDataThemes]      = useState(false);
   const [loadingLlmThemes,       setLoadingLlmThemes]       = useState(false);
   const [loadingDataAllocation,  setLoadingDataAllocation]  = useState(false);
@@ -635,18 +638,42 @@ function PortfolioBuilderInner() {
       });
   }, [portfolioId]);
 
+  // Step 1: load prompt and show preview modal
   const generateStrategy = useCallback(async () => {
+    setError(null);
+    const args = { portfolio_id: portfolioId, mode: initialMode, run_id: runId, provider: initialMode === "llm" ? llmProvider : "claude", model_id: initialMode === "llm" ? llmModelId : undefined };
+    setPendingStrategyArgs(args);
+    try {
+      // Fetch the assembled prompt for preview
+      const res  = await fetch(`/api/portfolio/builder/strategy?portfolio_id=${portfolioId}&mode=${initialMode}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPromptPreview(data.prompt);
+    } catch (e: any) {
+      // If preview fails, fall back to running without preview
+      setError(null);
+      await runStrategy(args, undefined);
+    }
+  }, [portfolioId, runId, initialMode, llmProvider, llmModelId]);
+
+  // Step 2: send prompt to LLM (called after user confirms in modal)
+  const runStrategy = useCallback(async (args: any, promptOverride: string | undefined) => {
+    setPromptPreview(null);
+    setPendingStrategyArgs(null);
     setLoadingStrategy(true); setError(null);
     try {
-      const res  = await fetch("/api/portfolio/builder/strategy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolio_id: portfolioId, mode: initialMode, run_id: runId, provider: initialMode === "llm" ? llmProvider : "claude", model_id: initialMode === "llm" ? llmModelId : undefined }) });
+      const res  = await fetch("/api/portfolio/builder/strategy", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...args, prompt_override: promptOverride }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setStrategy(data.strategy);
       if (data.macro) setMacroScores(data.macro);
-      if (runId) fetch("/api/portfolio/builder/run", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: runId, strategy: data.strategy }) });
+      if (args.run_id) fetch("/api/portfolio/builder/run", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: args.run_id, strategy: data.strategy }) });
     } catch (e: any) { setError(e.message ?? "Failed to generate strategy"); }
     finally { setLoadingStrategy(false); }
-  }, [portfolioId, runId]);
+  }, []);
 
   useEffect(() => { if (portfolio && !strategy && !loadingStrategy) generateStrategy(); }, [portfolio]);
 
@@ -729,6 +756,17 @@ function PortfolioBuilderInner() {
       <StepIndicator current={step} total={4} />
 
       {error && <div style={{ background: "rgba(252,92,101,0.08)", border: "1px solid rgba(252,92,101,0.25)", borderRadius: 8, padding: "0.65rem 1rem", marginBottom: "1.2rem", fontSize: "0.8rem", color: "#fc5c65" }}>{error}</div>}
+
+      {/* ── Dev tool: prompt preview modal ── */}
+      {promptPreview && pendingStrategyArgs && (
+        <PromptPreviewModal
+          prompt={promptPreview}
+          title="Strategy Prompt Preview"
+          description={`mode: ${pendingStrategyArgs.mode} · portfolio: ${pendingStrategyArgs.portfolio_id?.slice(0,8)}…`}
+          onConfirm={edited => runStrategy(pendingStrategyArgs, edited !== promptPreview ? edited : undefined)}
+          onCancel={() => { setPromptPreview(null); setPendingStrategyArgs(null); }}
+        />
+      )}
 
       {step === 1 && (
         <>
