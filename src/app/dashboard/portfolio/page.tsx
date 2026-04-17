@@ -14,6 +14,7 @@ import { PortfolioSignalDistribution }   from "@/components/dashboard/PortfolioS
 import { PortfolioWatchlist }              from "@/components/dashboard/PortfolioWatchlist";
 import { PortfolioBuildHistory }           from "@/components/dashboard/PortfolioBuildHistory";
 import { PortfolioPerformanceChart }       from "@/components/dashboard/PortfolioPerformanceChart";
+import { RecommendationScreen }             from "@/components/dashboard/RecommendationScreen";
 import { TransactionHistory }              from "@/components/dashboard/TransactionHistory";
 import {
   computeCapitalMetrics,
@@ -1066,6 +1067,23 @@ export default function PortfolioPage() {
             <PortfolioPerformanceChart
               portfolioId={selectedPortfolio.id}
               totalCapital={selectedPortfolio.total_capital}
+            />
+          </Panel>
+
+          {/* ── Panel 1c: Active recommendations ── */}
+          <Panel title="Recommendations" defaultOpen={false}
+            badge={
+              <span style={{ fontSize: "0.58rem", background: "rgba(200,169,110,0.1)", color: "rgba(200,169,110,0.65)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: 3, padding: "0px 6px", marginLeft: 6 }}>
+                advisory
+              </span>
+            }
+          >
+            <RecommendationScreen
+              portfolioId={selectedPortfolio.id}
+              totalCapital={selectedPortfolio.total_capital}
+              cashReservePct={selectedPortfolio.cash_pct}
+              standalone={true}
+              onDone={() => {}}
             />
           </Panel>
 
