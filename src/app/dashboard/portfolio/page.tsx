@@ -193,23 +193,56 @@ function Panel({
 function CapitalSummaryBar({ metrics, cashFloorPct = 0 }: {
   metrics: PortfolioCapitalMetrics; cashFloorPct?: number;
 }) {
-  const investedPct  = metrics.total_capital > 0 ? (metrics.invested / metrics.total_capital) * 100 : 0;
-  const gainColor    = metrics.capital_gain >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
-  const cashFloorAmt = metrics.total_capital * (cashFloorPct / 100);
-  const belowFloor   = cashFloorPct > 0 && metrics.cash_available < cashFloorAmt;
+  const investedPct   = metrics.total_capital > 0 ? (metrics.invested / metrics.total_capital) * 100 : 0;
+  const unrealisedCol = metrics.unrealised_gain >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
+  const realisedCol   = metrics.realised_gain   >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
+  const totalCol      = metrics.total_gain      >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
+  const cashFloorAmt  = metrics.total_capital * (cashFloorPct / 100);
+  const belowFloor    = cashFloorPct > 0 && metrics.cash_available < cashFloorAmt;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+
+      {/* Row 1 — capital flow */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+        <Metric label="Total Capital"
+          value={formatCurrency(metrics.total_capital)}
+          sub="Allocated to this portfolio"
+        />
+        <Metric label="Invested"
+          value={formatCurrency(metrics.invested)}
+          sub={`${investedPct.toFixed(0)}% of capital in open positions`}
+        />
+        <Metric label="Cash Available"
+          value={formatCurrency(metrics.cash_available)}
+          valueColor="#63b3ed"
+          sub={metrics.realised_gain !== 0 ? "Includes proceeds from sells" : "Ready to invest"}
+        />
+      </div>
+
+      <div style={{ height: 1, background: "rgba(255,255,255,0.05)" }} />
+
+      {/* Row 2 — performance */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
-        <Metric label="Total Capital"   value={formatCurrency(metrics.total_capital)} sub="Allocated to this portfolio" />
-        <Metric label="Invested"        value={formatCurrency(metrics.invested)} sub={`${investedPct.toFixed(0)}% deployed`} />
-        <Metric label="Cash Available"  value={formatCurrency(metrics.cash_available)} valueColor="#63b3ed" sub="Ready to invest" />
-        <Metric label="Current Value"   value={formatCurrency(metrics.current_value)} sub={
-          <span>
-            <span style={{ color: gainColor, fontWeight: 600 }}>{metrics.capital_gain >= 0 ? "+" : ""}{formatCurrency(Math.abs(metrics.capital_gain))}</span>
-            {" "}<span style={{ color: gainColor, fontWeight: 700 }}>{formatPct(metrics.return_pct)}</span> return
-          </span>
-        } />
+        <Metric label="Current Value"
+          value={formatCurrency(metrics.current_value)}
+          sub="Open positions at live prices"
+        />
+        <Metric label="Unrealised P&L"
+          value={`${metrics.unrealised_gain >= 0 ? "+" : ""}${formatCurrency(metrics.unrealised_gain)}`}
+          valueColor={unrealisedCol}
+          sub={`${formatPct(metrics.unrealised_pct)} on cost basis`}
+        />
+        <Metric label="Realised P&L"
+          value={`${metrics.realised_gain >= 0 ? "+" : ""}${formatCurrency(metrics.realised_gain)}`}
+          valueColor={realisedCol}
+          sub="Locked in from closed positions"
+        />
+        <Metric label="Total Return"
+          value={`${metrics.total_gain >= 0 ? "+" : ""}${formatCurrency(metrics.total_gain)}`}
+          valueColor={totalCol}
+          sub={<span style={{ color: totalCol, fontWeight: 700 }}>{formatPct(metrics.return_pct)} on capital</span>}
+        />
       </div>
 
       {belowFloor && (
@@ -226,13 +259,15 @@ function CapitalSummaryBar({ metrics, cashFloorPct = 0 }: {
           <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${Math.min(100, investedPct)}%`, background: "linear-gradient(90deg, rgba(200,169,110,0.6), rgba(200,169,110,0.9))", borderRadius: 3, transition: "width 0.5s" }} />
           </div>
-
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.3rem" }}>
+            <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{formatCurrency(metrics.invested)} in open positions</span>
+            <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{formatCurrency(metrics.cash_available)} available</span>
+          </div>
         </div>
       )}
     </div>
   );
 }
-
 function Metric({ label, value, sub, valueColor }: { label: string; value: string; sub?: React.ReactNode; valueColor?: string }) {
   return (
     <div>
@@ -580,6 +615,7 @@ export default function PortfolioPage() {
   const [txNotes,    setTxNotes]    = useState('');
   const [txSaving,   setTxSaving]   = useState(false);
   const [txError,    setTxError]    = useState('');
+  const [portfolioTxns, setPortfolioTxns] = useState<Array<{ type: string; total_amount: number; fees: number }>>([]);
 
   useEffect(() => {
     async function init() {
@@ -622,13 +658,15 @@ export default function PortfolioPage() {
   }, []);
 
   const loadPortfolioData = useCallback(async (portfolioId: string) => {
-    const [pRes, mRes] = await Promise.all([
+    const [pRes, mRes, tRes] = await Promise.all([
       fetch(`/api/portfolio?portfolio_id=${portfolioId}`).then(r => r.json()),
       fetch(`/api/advisory?portfolio_id=${portfolioId}`).then(r => r.json()),
+      fetch(`/api/portfolio/transaction?portfolio_id=${portfolioId}&limit=500`).then(r => r.json()),
     ]);
     const loaded: Holding[] = pRes.holdings ?? [];
     setHoldings(loaded);
     setMemos(mRes.memos ?? []);
+    setPortfolioTxns(tRes.transactions ?? []);
     setEditMap(Object.fromEntries(loaded.map(h => [h.id, {
       quantity: h.quantity != null ? String(h.quantity) : "",
       avg_cost: h.avg_cost != null ? String(h.avg_cost) : "",
@@ -769,14 +807,24 @@ export default function PortfolioPage() {
 
   const selectedPortfolio = portfolios.find(p => p.id === selectedId) ?? null;
   const capitalMetrics: PortfolioCapitalMetrics | null = selectedPortfolio
-    ? computeCapitalMetrics(selectedPortfolio.total_capital, holdings.map(h => {
-        const edit = editMap[h.id];
-        const qty  = edit?.quantity !== "" ? Number(edit?.quantity ?? h.quantity ?? 0) : (h.quantity ?? 0);
-        const cost = edit?.avg_cost !== "" ? Number(edit?.avg_cost ?? h.avg_cost ?? 0) : (h.avg_cost ?? 0);
-        return { ticker: h.ticker, quantity: qty, avg_cost: cost, price_usd: h.signal?.price_usd ?? null };
-      }))
+    ? computeCapitalMetrics(
+        selectedPortfolio.total_capital,
+        holdings.map(h => {
+          const edit = editMap[h.id];
+          const qty  = edit?.quantity !== "" ? Number(edit?.quantity ?? h.quantity ?? 0) : (h.quantity ?? 0);
+          const cost = edit?.avg_cost !== "" ? Number(edit?.avg_cost ?? h.avg_cost ?? 0) : (h.avg_cost ?? 0);
+          return {
+            ticker:        h.ticker,
+            quantity:      qty,
+            avg_cost:      cost,
+            price_usd:     h.signal?.price_usd ?? null,
+            realised_gain: (h as any).realised_gain ?? 0,
+          };
+        }),
+        portfolioTxns,
+      )
     : null;
-  const summary_return    = capitalMetrics && capitalMetrics.invested > 0 ? capitalMetrics.return_pct : null;
+  const summary_return    = capitalMetrics && capitalMetrics.total_capital > 0 ? capitalMetrics.return_pct : null;
   const hasDirtyEdits = Object.values(editMap).some(v => v.dirty);
 
   if (initLoading) return <div style={{ color: "rgba(232,226,217,0.25)", fontSize: "0.85rem", padding: "3rem 0" }}>Loading…</div>;
