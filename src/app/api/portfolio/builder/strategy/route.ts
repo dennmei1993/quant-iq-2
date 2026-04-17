@@ -13,6 +13,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
 import { callLlm } from "@/lib/llm-caller";
 import { logLlmStep } from "@/lib/builder-llm-logger";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+
+// Service client — bypasses RLS for global system tables
+// (market_intelligence, macro_scores, market_regime have no user_id)
+function createServiceClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,7 +77,7 @@ export async function GET(req: NextRequest) {
       .eq("id", portfolioId).eq("user_id", user.id).single();
     if (!raw) return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
 
-    const { prompt } = await assemblePrompt(supabase, raw, mode);
+    const { prompt } = await assemblePrompt(supabase, createServiceClient(), raw, mode);
     return NextResponse.json({ prompt, mode });
   } catch (e) {
     const { body, status } = errorResponse(e);
@@ -95,7 +106,7 @@ export async function POST(req: NextRequest) {
 
     // Assemble prompt (or use override if provided)
     const { prompt: assembledPrompt, macro, refreshedAt, intelligenceAspects } =
-      await assemblePrompt(supabase, raw, mode);
+      await assemblePrompt(supabase, createServiceClient(), raw, mode);
 
     const prompt = prompt_override ?? assembledPrompt;
 
@@ -120,12 +131,13 @@ export async function POST(req: NextRequest) {
 
 // ─── Shared prompt assembly ────────────────────────────────────────────────────
 
-async function assemblePrompt(supabase: any, p: any, mode: "data" | "llm") {
+async function assemblePrompt(userClient: any, serviceClient: any, p: any, mode: "data" | "llm") {
   // Load market intelligence snapshot
-  const { data: intelligenceRows } = await supabase
+  const { data: intelligenceRows, error: intelErr } = await serviceClient
     .from("market_intelligence")
     .select("aspect, summary, data, score, sentiment, refreshed_at")
     .order("refreshed_at", { ascending: false });
+  if (intelErr) console.error("[strategy] market_intelligence read error:", intelErr.message);
 
   const intelligence = new Map<string, MarketIntelligence>(
     (intelligenceRows ?? []).map((r: any) => [r.aspect, r])
@@ -152,7 +164,7 @@ async function assemblePrompt(supabase: any, p: any, mode: "data" | "llm") {
   // intel section shows the aggregated version)
   let macro: any[] = [];
   if (mode === "data") {
-    const { data } = await supabase
+    const { data } = await serviceClient
       .from("macro_scores")
       .select("aspect, score, direction, commentary")
       .order("scored_at", { ascending: false }).limit(6);
@@ -202,27 +214,30 @@ function buildIntelSection(ctx: IntelCtx): string {
     lines.push("");
   }
 
-  // Macro indicators
+  // Macro indicators — field mapping matches actual market_intelligence.data structure
   if (ctx.macro_intel) {
     const d = ctx.macro_intel.data ?? {};
+
+    // Extract CPI from econ_indicators array (not at top level)
+    const econArr = d.econ_indicators ?? [];
+    const cpiRow  = econArr.find((e: any) => e.indicator === "cpi_yoy");
+    const cpiYoy  = cpiRow?.value ?? null;
+
     lines.push("── MACRO INDICATORS ──");
-    const econLines: string[] = [];
-    if (d.fed_funds_rate     != null) econLines.push(`Fed funds rate:     ${d.fed_funds_rate}%`);
-    if (d.treasury_10y       != null) econLines.push(`10Y Treasury yield: ${d.treasury_10y}%`);
-    if (d.treasury_2y        != null) econLines.push(`2Y Treasury yield:  ${d.treasury_2y}%`);
-    if (d.yield_spread       != null) econLines.push(`Yield curve (10Y-2Y): ${d.yield_spread}%${d.yield_spread < 0 ? " ⚠ INVERTED" : ""}`);
-    if (d.gdp_growth         != null) econLines.push(`Real GDP growth:    ${d.gdp_growth}% annualised`);
-    if (d.pce_yoy            != null) econLines.push(`PCE inflation:      ${d.pce_yoy}% YoY`);
-    if (d.unemployment       != null) econLines.push(`Unemployment rate:  ${d.unemployment}%`);
-    if (d.nonfarm_payrolls   != null) econLines.push(`Nonfarm payrolls:   ${d.nonfarm_payrolls > 0 ? "+" : ""}${d.nonfarm_payrolls}k MoM`);
-    if (d.consumer_sentiment != null) econLines.push(`Consumer sentiment: ${d.consumer_sentiment}`);
-    if (econLines.length) {
-      lines.push("Authoritative economic data (FRED/BLS):");
-      econLines.forEach(l => lines.push(`  ${l}`));
-    }
-    lines.push(`Fed stance: ${d.fed_stance ?? "unknown"} | Inflation regime: ${d.inflation_regime ?? "unknown"} | Cycle: ${d.cycle_phase ?? "unknown"}`);
-    lines.push(`Key risk: ${d.key_risk ?? "not assessed"}`);
-    lines.push(`Macro score: ${d.avg_score ?? ctx.macro_intel.score}/10`);
+    lines.push("Authoritative economic data (FRED/BLS):");
+    if (d.fed_funds_rate     != null) lines.push(`  Fed funds rate:       ${d.fed_funds_rate}%`);
+    if (d.treasury_10y       != null) lines.push(`  10Y Treasury yield:   ${d.treasury_10y}%`);
+    if (d.treasury_2y        != null) lines.push(`  2Y Treasury yield:    ${d.treasury_2y}%`);
+    if (d.yield_spread       != null) lines.push(`  Yield curve (10Y-2Y): ${d.yield_spread}%${d.yield_spread < 0 ? " ⚠ INVERTED" : ""}`);
+    if (d.gdp_growth         != null) lines.push(`  Real GDP growth:      ${d.gdp_growth}% annualised`);
+    if (cpiYoy               != null) lines.push(`  CPI inflation:        ${cpiYoy}% YoY`);
+    if (d.pce_yoy            != null) lines.push(`  PCE inflation:        ${d.pce_yoy}% YoY`);
+    if (d.unemployment       != null) lines.push(`  Unemployment rate:    ${d.unemployment}%`);
+    if (d.nonfarm_payrolls   != null) lines.push(`  Nonfarm payrolls:     +${d.nonfarm_payrolls}k MoM`);
+    if (d.consumer_sentiment != null) lines.push(`  Consumer sentiment:   ${d.consumer_sentiment} (historical avg ~86 — ${d.consumer_sentiment < 70 ? "very weak" : d.consumer_sentiment < 80 ? "weak" : "moderate"})`);
+    lines.push(`  Fed stance: ${d.fed_stance ?? "unknown"} | Inflation regime: ${d.inflation_regime ?? "unknown"} | Cycle: ${d.cycle_phase ?? "unknown"}`);
+    lines.push(`  Key risk: ${d.key_risk ?? "not assessed"}`);
+    lines.push(`  Macro sentiment avg: ${d.avg_score ?? ctx.macro_intel.score}/10`);
     if (d.scores?.length) {
       lines.push("News-derived sentiment scores:");
       for (const s of d.scores) {
