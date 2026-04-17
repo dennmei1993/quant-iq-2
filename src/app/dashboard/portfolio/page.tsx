@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 // src/app/dashboard/portfolio/page.tsx
 // Portfolio page:
 // - Each section in expandable panel
@@ -13,6 +14,7 @@ import { PortfolioSignalDistribution }   from "@/components/dashboard/PortfolioS
 import { PortfolioWatchlist }              from "@/components/dashboard/PortfolioWatchlist";
 import { PortfolioBuildHistory }           from "@/components/dashboard/PortfolioBuildHistory";
 import { PortfolioPerformanceChart }       from "@/components/dashboard/PortfolioPerformanceChart";
+import { TransactionHistory }              from "@/components/dashboard/TransactionHistory";
 import {
   computeCapitalMetrics,
   type PortfolioCapitalMetrics,
@@ -1029,7 +1031,8 @@ export default function PortfolioPage() {
                   const isDirty   = edit.dirty;
 
                   return (
-                    <div key={h.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 5rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: idx < holdings.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: isDirty ? "rgba(200,169,110,0.03)" : isDraft ? "rgba(99,179,237,0.03)" : "transparent" }}>
+                    <React.Fragment key={h.id}>
+                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 5rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: "none", background: isDirty ? "rgba(200,169,110,0.03)" : isDraft ? "rgba(99,179,237,0.03)" : "transparent" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
                           <span style={{ fontWeight: 700, color: "var(--cream)", fontSize: "0.85rem" }}>{h.ticker}</span>
@@ -1069,7 +1072,16 @@ export default function PortfolioPage() {
                         <button onClick={() => removeHolding(h.id)} style={{ background: "none", border: "none", color: "rgba(232,226,217,0.20)", cursor: "pointer", fontSize: "0.9rem", padding: "0 2px", lineHeight: 1 }} title="Remove">×</button>
                       </div>
                     </div>
-                  );
+
+                    {/* Transaction history — expandable below each row */}
+                    <TransactionHistory
+                      portfolioId={selectedPortfolio.id}
+                      ticker={h.ticker}
+                      avgCost={h.avg_cost}
+                      onDelete={() => loadPortfolioData(selectedPortfolio.id)}
+                    />
+                  </React.Fragment>
+                );
                 })}
               </div>
             ) : (
