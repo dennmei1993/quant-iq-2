@@ -594,9 +594,7 @@ export default function PortfolioPage() {
   const [isFirstRun,  setIsFirstRun]  = useState(false);
   const [activeTab,   setActiveTab]   = useState<"holdings" | "watchlist" | "distribution" | "history">("holdings");
 
-  const [ticker,      setTicker]      = useState("");
-  const [quantity,    setQuantity]    = useState("");
-  const [avgCost,     setAvgCost]     = useState("");
+
 
   const [adding,      setAdding]      = useState(false);
   const [generating,  setGenerating]  = useState(false);
@@ -615,6 +613,16 @@ export default function PortfolioPage() {
   const [txSaving,   setTxSaving]   = useState(false);
   const [txError,    setTxError]    = useState('');
   const [portfolioTxns, setPortfolioTxns] = useState<Array<{ type: string; total_amount: number; fees: number }>>([]);
+  // Add Holding modal
+  const [showAddHolding, setShowAddHolding] = useState(false);
+  const [ahTicker,   setAhTicker]   = useState('');
+  const [ahAsset,    setAhAsset]    = useState<AssetMatch | null>(null);
+  const [ahQty,      setAhQty]      = useState('');
+  const [ahPrice,    setAhPrice]    = useState('');
+  const [ahDate,     setAhDate]     = useState(new Date().toISOString().split('T')[0]);
+  const [ahFees,     setAhFees]     = useState('');
+  const [ahSaving,   setAhSaving]   = useState(false);
+  const [ahError,    setAhError]    = useState('');
 
   useEffect(() => {
     async function init() {
@@ -693,31 +701,9 @@ export default function PortfolioPage() {
     setPortfolios(prev => prev.map(p => p.id === selectedId ? { ...p, [key]: value } : p));
   }
 
-  async function addHolding(e: React.FormEvent) {
-    e.preventDefault();
-    const t = ticker.trim();
-    if (!t) { setTickerError("Please select a ticker"); return; }
-    if (!selectedId) return;
-    setAdding(true); setFormError(""); setTickerError("");
-    const res = await fetch("/api/portfolio", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body:   JSON.stringify({ action: "add_holding", portfolio_id: selectedId, ticker: t.toUpperCase(), quantity: quantity || undefined, avg_cost: avgCost || undefined }),
-    });
-    if (res.ok) {
-      setTicker(""); setQuantity(""); setAvgCost("");
-      await loadPortfolioData(selectedId);
-    } else {
-      const d   = await res.json();
-      const msg = d.error ?? "Failed to add";
-      if (msg.toLowerCase().includes("ticker")) setTickerError(msg); else setFormError(msg);
-    }
-    setAdding(false);
-  }
 
-  async function removeHolding(id: string) {
-    await fetch(`/api/portfolio?holding_id=${id}`, { method: "DELETE" });
-    setHoldings(h => h.filter(x => x.id !== id));
-  }
+
+
 
   async function handleDeletePortfolio() {
     if (!selectedId) return;
@@ -733,6 +719,35 @@ export default function PortfolioPage() {
       if (remaining.length === 0) { setShowNew(true); setIsFirstRun(true); }
     }
     setDeleting(false);
+  }
+
+  async function handleAddHolding() {
+    if (!selectedId || !ahAsset) { setAhError('Select a ticker first'); return; }
+    const qty   = parseFloat(ahQty);
+    const price = parseFloat(ahPrice);
+    if (isNaN(qty)   || qty   <= 0) { setAhError('Enter a valid quantity'); return; }
+    if (isNaN(price) || price <= 0) { setAhError('Enter a valid price');    return; }
+    setAhSaving(true); setAhError('');
+    const res = await fetch('/api/portfolio/transaction', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        portfolio_id: selectedId,
+        ticker:       ahAsset.ticker,
+        type:         'buy',
+        quantity:     qty,
+        price,
+        fees:         parseFloat(ahFees) || 0,
+        executed_at:  new Date(ahDate).toISOString(),
+      }),
+    });
+    const d = await res.json();
+    if (!res.ok) { setAhError(d.error ?? 'Failed'); setAhSaving(false); return; }
+    await loadPortfolioData(selectedId);
+    setShowAddHolding(false);
+    setAhTicker(''); setAhAsset(null); setAhQty(''); setAhPrice('');
+    setAhFees(''); setAhDate(new Date().toISOString().split('T')[0]);
+    setAhSaving(false);
   }
 
   async function handleTransaction() {
@@ -869,6 +884,80 @@ export default function PortfolioPage() {
         </>
       )}
 
+      {/* ── Add Holding modal ── */}
+      {showAddHolding && (
+        <>
+          <div onClick={() => setShowAddHolding(false)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)' }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.4rem', width: 400, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
+              <div>
+                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Add Holding</div>
+                <div style={{ fontSize: '0.9rem', color: 'rgba(232,226,217,0.85)', fontWeight: 500 }}>
+                  {ahAsset ? ahAsset.ticker : 'Select a ticker'}
+                </div>
+                {ahAsset && <div style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.40)', marginTop: 2 }}>{ahAsset.name}</div>}
+              </div>
+              <button onClick={() => setShowAddHolding(false)} style={{ background: 'none', border: 'none', color: 'rgba(232,226,217,0.35)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Ticker search */}
+            <div style={{ marginBottom: '1rem' }}>
+              <TickerAutocomplete
+                value={ahTicker}
+                onChange={v => { setAhTicker(v); setAhAsset(null); setAhError(''); }}
+                onSelect={a => { setAhTicker(a.ticker); setAhAsset(a); setAhError(''); }}
+                error={undefined}
+              />
+            </div>
+
+            {/* Purchase details */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '0.8rem' }}>
+              <div>
+                <div style={labelStyle}>Quantity</div>
+                <input value={ahQty} onChange={e => setAhQty(e.target.value)} placeholder="100" type="number"
+                  style={inputStyle} />
+              </div>
+              <div>
+                <div style={labelStyle}>Buy price ($)</div>
+                <input value={ahPrice} onChange={e => setAhPrice(e.target.value)} placeholder="0.00" type="number"
+                  style={inputStyle} />
+              </div>
+              <div>
+                <div style={labelStyle}>Date</div>
+                <input value={ahDate} onChange={e => setAhDate(e.target.value)} type="date" style={inputStyle} />
+              </div>
+              <div>
+                <div style={labelStyle}>Fees ($)</div>
+                <input value={ahFees} onChange={e => setAhFees(e.target.value)} placeholder="0.00" type="number"
+                  style={inputStyle} />
+              </div>
+            </div>
+
+            {/* Total preview */}
+            {ahQty && ahPrice && (
+              <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.50)', marginBottom: '0.8rem', padding: '0.5rem 0.7rem', background: 'rgba(255,255,255,0.03)', borderRadius: 5, border: '1px solid rgba(255,255,255,0.06)' }}>
+                Total cost: <strong style={{ color: 'var(--cream)' }}>
+                  ${(parseFloat(ahQty||'0') * parseFloat(ahPrice||'0') + parseFloat(ahFees||'0')).toFixed(2)}
+                </strong>
+              </div>
+            )}
+
+            {ahError && <div style={{ fontSize: '0.72rem', color: '#e87070', marginBottom: '0.8rem' }}>{ahError}</div>}
+
+            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowAddHolding(false)}
+                style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--dash-border)', color: 'rgba(232,226,217,0.40)', borderRadius: 6, cursor: 'pointer', fontSize: '0.82rem' }}>
+                Cancel
+              </button>
+              <button onClick={handleAddHolding} disabled={ahSaving || !ahAsset}
+                style={{ padding: '0.5rem 1.1rem', background: 'rgba(78,255,145,0.12)', border: '1px solid rgba(78,255,145,0.3)', color: 'var(--green)', fontWeight: 700, borderRadius: 6, cursor: ahSaving || !ahAsset ? 'not-allowed' : 'pointer', fontSize: '0.82rem', opacity: ahSaving || !ahAsset ? 0.5 : 1 }}>
+                {ahSaving ? 'Adding…' : 'Add Holding'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── Transaction modal ── */}
       {txModal && (
         <>
@@ -995,29 +1084,22 @@ export default function PortfolioPage() {
                 : undefined
             }
             action={
-              <button
-                onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}`)}
-                disabled={!selectedPortfolio?.total_capital}
-                style={{ padding: "0.35rem 0.9rem", background: "rgba(200,169,110,0.12)", border: "1px solid rgba(200,169,110,0.3)", color: "var(--gold)", borderRadius: 5, fontSize: "0.72rem", fontWeight: 600, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer", opacity: !selectedPortfolio?.total_capital ? 0.4 : 1, display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                ✦ Build portfolio
-              </button>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={() => setShowAddHolding(true)}
+                  style={{ padding: "0.35rem 0.9rem", background: "rgba(78,255,145,0.08)", border: "1px solid rgba(78,255,145,0.25)", color: "var(--green)", borderRadius: 5, fontSize: "0.72rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  + Add Holding
+                </button>
+                <button
+                  onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}`)}
+                  disabled={!selectedPortfolio?.total_capital}
+                  style={{ padding: "0.35rem 0.9rem", background: "rgba(200,169,110,0.12)", border: "1px solid rgba(200,169,110,0.3)", color: "var(--gold)", borderRadius: 5, fontSize: "0.72rem", fontWeight: 600, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer", opacity: !selectedPortfolio?.total_capital ? 0.4 : 1, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  ✦ Build portfolio
+                </button>
+              </div>
             }
           >
-            {/* Add holding form */}
-            <form onSubmit={addHolding} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--dash-border)", borderRadius: 7, padding: "0.85rem 1rem", marginBottom: "1rem" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 0.9fr auto", gap: "0.6rem", alignItems: "flex-start" }}>
-                <TickerAutocomplete value={ticker} onChange={v => { setTicker(v); setTickerError(""); }} onSelect={a => { setTicker(a.ticker); setTickerError(""); }} error={tickerError} />
-                <Field label="Quantity" value={quantity} onChange={setQuantity} placeholder="100" />
-                <Field label="Avg cost ($)" value={avgCost} onChange={setAvgCost} placeholder="182.50" />
-                <div style={{ paddingTop: "1.35rem" }}>
-                  <button type="submit" disabled={adding}
-                    style={{ padding: "0.55rem 1rem", background: "var(--gold)", color: "var(--navy)", fontWeight: 700, borderRadius: 6, border: "none", fontSize: "0.82rem", cursor: "pointer", opacity: adding ? 0.6 : 1 }}>
-                    {adding ? "…" : "Add"}
-                  </button>
-                </div>
-              </div>
-              {formError && <div style={{ color: "var(--signal-bear)", fontSize: "0.78rem", marginTop: "0.5rem" }}>{formError}</div>}
-            </form>
+
 
 
 
@@ -1103,17 +1185,13 @@ export default function PortfolioPage() {
                           {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : "—"}
                         </div>
 
-                        {/* B / S / × buttons */}
-                        <div style={{ textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                          <button onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: Number(h.quantity ?? 0) }); setTxType("buy"); }}
-                            style={{ fontSize: "0.58rem", padding: "0.15rem 0.4rem", background: "rgba(78,255,145,0.08)", border: "1px solid rgba(78,255,145,0.25)", color: "var(--green)", borderRadius: 3, cursor: "pointer" }}
-                            title="Buy more">B</button>
+                        {/* Sell button — only action on holding layer */}
+                        <div style={{ textAlign: "right" }}>
                           <button onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: Number(h.quantity ?? 0) }); setTxType("sell"); }}
-                            style={{ fontSize: "0.58rem", padding: "0.15rem 0.4rem", background: "rgba(232,112,112,0.08)", border: "1px solid rgba(232,112,112,0.25)", color: "#e87070", borderRadius: 3, cursor: "pointer" }}
-                            title="Sell">S</button>
-                          <button onClick={() => removeHolding(h.id)}
-                            style={{ background: "none", border: "none", color: "rgba(232,226,217,0.20)", cursor: "pointer", fontSize: "0.9rem", padding: "0 2px", lineHeight: 1 }}
-                            title="Remove">×</button>
+                            style={{ fontSize: "0.68rem", padding: "0.25rem 0.7rem", background: "rgba(232,112,112,0.08)", border: "1px solid rgba(232,112,112,0.25)", color: "#e87070", borderRadius: 4, cursor: "pointer", fontWeight: 500 }}
+                            title="Sell holding">
+                            Sell
+                          </button>
                         </div>
                       </div>
 
