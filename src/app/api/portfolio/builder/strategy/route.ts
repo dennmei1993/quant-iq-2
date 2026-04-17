@@ -160,20 +160,17 @@ async function assemblePrompt(userClient: any, serviceClient: any, p: any, mode:
 
   const ctx: IntelCtx = { macro_intel, geo_intel, sector_intel, sentiment_intel, events_intel, regime_intel, refreshedAt };
 
-  // Data mode: load raw macro scores (not duplicated — these are the raw scores,
-  // intel section shows the aggregated version)
-  let macro: any[] = [];
-  if (mode === "data") {
-    const { data } = await serviceClient
-      .from("macro_scores")
-      .select("aspect, score, direction, commentary")
-      .order("scored_at", { ascending: false }).limit(6);
-    macro = data ?? [];
-  }
+  // Load raw macro scores — not injected into prompt (intel section has them already)
+  // but returned in API response so the UI strategy step can display them
+  const { data: macroRows } = await serviceClient
+    .from("macro_scores")
+    .select("aspect, score, direction, commentary")
+    .order("scored_at", { ascending: false }).limit(6);
+  const macro = macroRows ?? [];
 
   const prompt = mode === "llm"
     ? buildLlmPrompt(p, ctx)
-    : buildDataPrompt(p, macro, ctx);
+    : buildDataPrompt(p, ctx);
 
   return {
     prompt,
@@ -382,7 +379,7 @@ function buildLlmPrompt(p: any, ctx: IntelCtx): string {
 
 // ─── Data prompt ──────────────────────────────────────────────────────────────
 
-function buildDataPrompt(p: any, macro: any[], ctx: IntelCtx): string {
+function buildDataPrompt(p: any, ctx: IntelCtx): string {
   const riskAppetite    = p.risk_appetite      ?? "moderate";
   const horizon         = p.investment_horizon ?? "long";
   const minCashPct      = p.cash_pct            ?? 0;
@@ -423,11 +420,7 @@ function buildDataPrompt(p: any, macro: any[], ctx: IntelCtx): string {
       ? `Regime recommends "${regimeStyle}". Client allows: ${allowedStyles.join(", ")}. RESOLVED: "${resolvedStyle}".`
       : `Client allows: ${allowedStyles.join(", ")}.`,
     "",
-    ...(macro.length > 0 ? [
-      "=== RAW MACRO SCORES (our internal scoring, -10 to +10) ===",
-      ...macro.map(m => `${m.aspect}: ${m.score > 0 ? "+" : ""}${m.score}/10 (${m.direction}) — ${m.commentary}`),
-      "",
-    ] : []),
+
     buildIntelSection(ctx),
     "=== YOUR TASK ===",
     "Based on the data above, recommend a strategy. Use the RESOLVED style.",
