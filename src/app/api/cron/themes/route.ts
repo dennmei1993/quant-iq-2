@@ -217,6 +217,7 @@ export async function GET(req: NextRequest) {
           anchored_since:    now,
           is_anchored:       newScore > 0.15,
           anchor_reason,
+          source:            "cron", 
         })
 
         const newThemeResult = await (db

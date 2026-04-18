@@ -374,12 +374,26 @@ export async function GET(req: NextRequest) {
     };
 
     const serviceClient = createServiceClient();
-    const { data: themes } = await serviceClient
-      .from("themes")
-      .select("id, name, brief, conviction, momentum, theme_type, timeframe")
-      .eq("is_active", true)
-      .order("conviction", { ascending: false })
-      .limit(25);
+    // Two-pass fetch: curated themes (source='curated') always included first.
+    // Cron themes (source='cron') fill remaining slots up to 25 total.
+    const [{ data: curatedThemes }, { data: cronThemes }] = await Promise.all([
+      serviceClient
+        .from("themes")
+        .select("id, name, brief, conviction, momentum, theme_type, timeframe")
+        .eq("is_active", true)
+        .eq("source", "curated")
+        .order("conviction", { ascending: false }),
+      serviceClient
+        .from("themes")
+        .select("id, name, brief, conviction, momentum, theme_type, timeframe")
+        .eq("is_active", true)
+        .eq("source", "cron")
+        .order("conviction", { ascending: false })
+        .limit(10),
+    ]);
+
+    const maxCron = Math.max(0, 25 - (curatedThemes?.length ?? 0));
+    const themes  = [...(curatedThemes ?? []), ...(cronThemes ?? []).slice(0, maxCron)];
 
     const prompt = await assemblePrompt(supabase, serviceClient, raw, strategy, themes ?? []);
     return NextResponse.json({ prompt });
@@ -411,12 +425,26 @@ export async function POST(req: NextRequest) {
 
     const serviceClient = createServiceClient();
 
-    const { data: themes } = await serviceClient
-      .from("themes")
-      .select("id, name, brief, conviction, momentum, theme_type, timeframe")
-      .eq("is_active", true)
-      .order("conviction", { ascending: false })
-      .limit(25);
+    // Two-pass fetch: curated themes (source='curated') always included first.
+    // Cron themes (source='cron') fill remaining slots up to 25 total.
+    const [{ data: curatedThemes }, { data: cronThemes }] = await Promise.all([
+      serviceClient
+        .from("themes")
+        .select("id, name, brief, conviction, momentum, theme_type, timeframe")
+        .eq("is_active", true)
+        .eq("source", "curated")
+        .order("conviction", { ascending: false }),
+      serviceClient
+        .from("themes")
+        .select("id, name, brief, conviction, momentum, theme_type, timeframe")
+        .eq("is_active", true)
+        .eq("source", "cron")
+        .order("conviction", { ascending: false })
+        .limit(10),
+    ]);
+
+    const maxCron = Math.max(0, 25 - (curatedThemes?.length ?? 0));
+    const themes  = [...(curatedThemes ?? []), ...(cronThemes ?? []).slice(0, maxCron)];
 
     if (!themes?.length) return NextResponse.json({ themes: [] });
 
