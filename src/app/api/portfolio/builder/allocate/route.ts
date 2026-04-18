@@ -137,6 +137,13 @@ async function assemblePrompt(
   const universeConstraint = getUniverseTickerConstraint(universe, sectorExclude);
   if (universeConstraint) {
     lines.push(universeConstraint);
+    // Add resolution note when regime and universe conflict
+    if (universe.includes("mag7") && regimeIntel?.data?.avoid_sectors?.includes("Technology")) {
+      lines.push("NOTE: Regime avoids Technology but Mag 7 universe forces it.");
+      lines.push("Within Mag 7, prefer stable cash-flow names (MSFT, GOOGL, AMZN) over high-beta names (TSLA, META).");
+      lines.push("Assign MSFT/GOOGL/AMZN higher BUY weights; consider TSLA/META as WATCH unless technically confirmed.");
+      lines.push("");
+    }
     lines.push("");
   }
 
@@ -164,8 +171,11 @@ async function assemblePrompt(
   if (sectorIntel?.data) {
     const d = sectorIntel.data;
     lines.push("=== SECTOR MOMENTUM ===");
-    if (d.leading?.length) lines.push(`Leading (BUY signal): ${d.leading.join(", ")}`);
-    if (d.lagging?.length) lines.push(`Lagging (AVOID signal): ${d.lagging.join(", ")}`);
+    // Only list as "leading" if BUY% > 0 to avoid misleading LLM
+    const trulyLeading = (d.sectors ?? []).filter((s: any) => s.buy_pct > 0).map((s: any) => s.sector);
+    const trulyLagging = (d.sectors ?? []).filter((s: any) => s.avoid_pct > 0).map((s: any) => s.sector);
+    if (trulyLeading.length) lines.push(`Leading (BUY% > 0): ${trulyLeading.join(", ")}`);
+    if (trulyLagging.length) lines.push(`Lagging (AVOID% > 0): ${trulyLagging.join(", ")}`);
     if (d.sectors?.length) {
       for (const s of d.sectors.slice(0, 6)) {
         lines.push(`  ${s.sector}: BUY ${s.buy_pct}% | AVOID ${s.avoid_pct}% | F:${s.f_avg} T:${s.t_avg}`);

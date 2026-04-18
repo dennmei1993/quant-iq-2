@@ -209,8 +209,10 @@ async function assemblePrompt(
   if (sectorIntel?.data) {
     const d = sectorIntel.data;
     lines.push("=== SECTOR MOMENTUM (from signal database) ===");
-    if (d.leading?.length) lines.push(`Leading (high BUY signal): ${d.leading.join(", ")}`);
-    if (d.lagging?.length) lines.push(`Lagging (high AVOID signal): ${d.lagging.join(", ")}`);
+    const trulyLeading = (d.sectors ?? []).filter((s: any) => s.buy_pct > 0).map((s: any) => s.sector);
+    const trulyLagging = (d.sectors ?? []).filter((s: any) => s.avoid_pct > 0).map((s: any) => s.sector);
+    if (trulyLeading.length) lines.push(`Leading (BUY% > 0): ${trulyLeading.join(", ")}`);
+    if (trulyLagging.length) lines.push(`Lagging (AVOID% > 0): ${trulyLagging.join(", ")}`);
     if (d.sectors?.length) {
       lines.push("Breakdown:");
       for (const s of d.sectors.slice(0, 8)) {
