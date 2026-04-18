@@ -365,32 +365,67 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
         </div>
       </div>
 
-      {/* Investment universe */}
+      {/* Investment universe — named stock cohorts */}
       <div>
-        <div style={labelStyle}>Investment Universe</div>
+        <div style={labelStyle}>Stock Universe</div>
+        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginBottom: "0.4rem" }}>
+          Named cohorts of individual stocks
+        </div>
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
           {([
-            { id: "mag7",         label: "Mag 7"         },
-            { id: "us_large_cap", label: "US Large Cap"  },
-            { id: "broad_etf",    label: "Broad ETFs"    },
-            { id: "sector_etf",   label: "Sector ETFs"   },
-            { id: "dividend",     label: "Dividend"       },
-            { id: "small_mid",    label: "Small/Mid Cap" },
-            { id: "global_etf",   label: "Global ETFs"   },
-            { id: "thematic",     label: "Thematic"       },
-          ]).map(({ id, label }) => {
-            const pUniverse = (portfolio as any).universe ?? [];
-            const active    = pUniverse.includes(id);
-            const next      = active ? pUniverse.filter((x: string) => x !== id) : [...pUniverse, id];
+            { id: "mag7",               label: "Mag 7",              desc: "AAPL MSFT GOOGL AMZN NVDA META TSLA" },
+            { id: "sp500",              label: "S&P 500",            desc: "500 largest US companies"            },
+            { id: "nasdaq100",          label: "Nasdaq 100",         desc: "QQQ constituents — tech-heavy"       },
+            { id: "dow30",              label: "Dow 30",             desc: "Blue chip DJIA components"           },
+            { id: "russell2000",        label: "Russell 2000",       desc: "US small cap"                        },
+            { id: "asx200",             label: "ASX 200",            desc: "Top 200 Australian stocks"           },
+            { id: "dividend_aristocrats",label: "Div. Aristocrats",  desc: "25+ yrs consecutive dividend growth" },
+            { id: "berkshire",          label: "Berkshire Holdings", desc: "BRK.B portfolio constituents"        },
+          ]).map(({ id, label, desc }) => {
+            const active = portfolio.universe.includes(id);
+            const next   = active ? portfolio.universe.filter(x => x !== id) : [...portfolio.universe, id];
             return (
-              <button key={id} disabled={saving === "universe"} onClick={() => save("universe" as any, next)} style={pillStyle(active, saving === "universe")}>
-                {label}
+              <button key={id} disabled={saving === "universe"} onClick={() => save("universe", next)}
+                style={{ ...pillStyle(active, saving === "universe"), display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0.3rem 0.7rem" }}
+                title={desc}>
+                <span>{label}</span>
+                <span style={{ fontSize: "0.55rem", opacity: 0.6, fontWeight: 400 }}>{desc}</span>
               </button>
             );
           })}
         </div>
-        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginTop: "0.3rem" }}>
-          Constrains which tickers the portfolio advisor can recommend
+      </div>
+
+      {/* ETF categories */}
+      <div>
+        <div style={labelStyle}>ETF Categories</div>
+        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginBottom: "0.4rem" }}>
+          When asset type includes ETF — which kind
+        </div>
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          {([
+            { id: "broad_etf",     label: "Broad Market",  desc: "SPY QQQ VTI IWM"           },
+            { id: "sector_etf",    label: "Sector ETFs",   desc: "XLE XLK XLF XLV and peers" },
+            { id: "dividend_etf",  label: "Dividend ETFs", desc: "VYM SCHD HDV and peers"    },
+            { id: "global_etf",    label: "International", desc: "VEA VWO EFA IEFA"           },
+            { id: "thematic_etf",  label: "Thematic",      desc: "ARK AI clean energy cyber"  },
+            { id: "commodity_etf", label: "Commodities",   desc: "GLD SLV GDX oil ETFs"       },
+            { id: "crypto_etf",    label: "Crypto-adjacent",desc: "COIN MSTR BTC ETFs"        },
+          ]).map(({ id, label, desc }) => {
+            const active = portfolio.universe.includes(id);
+            const next   = active ? portfolio.universe.filter(x => x !== id) : [...portfolio.universe, id];
+            return (
+              <button key={id} disabled={saving === "universe"} onClick={() => save("universe", next)}
+                style={{ ...pillStyle(active, saving === "universe"), display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0.3rem 0.7rem" }}
+                title={desc}>
+                <span>{label}</span>
+                <span style={{ fontSize: "0.55rem", opacity: 0.6, fontWeight: 400 }}>{desc}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginTop: "0.4rem" }}>
+          Leave all unchecked for no restriction. Multiple selections combine as OR (any of these).
         </div>
       </div>
 
@@ -399,11 +434,10 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
         <div style={labelStyle}>Excluded Sectors</div>
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
           {["Technology","Healthcare","Financials","Energy","Industrials","Consumer","Materials","Utilities","Real Estate","Communications","Defence"].map(s => {
-            const pExclude = (portfolio as any).sector_exclude ?? [];
-            const active   = pExclude.includes(s);
-            const next     = active ? pExclude.filter((x: string) => x !== s) : [...pExclude, s];
+            const active = portfolio.sector_exclude.includes(s);
+            const next   = active ? portfolio.sector_exclude.filter(x => x !== s) : [...portfolio.sector_exclude, s];
             return (
-              <button key={s} disabled={saving === "sector_exclude"} onClick={() => save("sector_exclude" as any, next)} style={pillStyle(active, saving === "sector_exclude")}>
+              <button key={s} disabled={saving === "sector_exclude"} onClick={() => save("sector_exclude", next)} style={pillStyle(active, saving === "sector_exclude")}>
                 {s}
               </button>
             );

@@ -132,53 +132,89 @@ export async function POST(req: NextRequest) {
 
 // ─── Universe descriptions ────────────────────────────────────────────────────
 
-const UNIVERSE_LABELS: Record<string, { label: string; tickers?: string }> = {
-  mag7:         { label: "Mag 7 only",                tickers: "AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA" },
-  us_large_cap: { label: "US Large Cap (S&P 500)",    tickers: "S&P 500 constituents" },
-  broad_etf:    { label: "Broad market ETFs",         tickers: "SPY, QQQ, VTI, IWM, DIA and similar" },
-  sector_etf:   { label: "Sector ETFs",               tickers: "XLE, XLK, XLF, XLV, XLI and similar sector ETFs" },
-  dividend:     { label: "Dividend / income stocks",  tickers: "High-yield dividend payers, REITs, dividend ETFs" },
-  small_mid:    { label: "Small/Mid Cap",             tickers: "Russell 2000, S&P 400 constituents" },
-  global_etf:   { label: "Global / international ETFs", tickers: "VEA, VWO, EFA, IEFA and similar" },
-  thematic:     { label: "Thematic ETFs",             tickers: "ARK funds, clean energy, AI, cybersecurity ETFs" },
+const UNIVERSE_LABELS: Record<string, { label: string; tickers: string; sectors?: string }> = {
+  // ── Named stock cohorts ────────────────────────────────────────────────────
+  mag7:                { label: "Mag 7",               tickers: "AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA",                   sectors: "Technology, Consumer Discretionary" },
+  sp500:               { label: "S&P 500",             tickers: "500 largest US-listed companies (index constituents)",          sectors: "all sectors" },
+  nasdaq100:           { label: "Nasdaq 100",          tickers: "QQQ constituents — tech-heavy large cap",                      sectors: "Technology, Consumer Discretionary, Healthcare, Communications" },
+  dow30:               { label: "Dow 30",              tickers: "DJIA 30 blue-chip components",                                  sectors: "broad blue-chip mix" },
+  russell2000:         { label: "Russell 2000",        tickers: "US small cap index constituents",                               sectors: "broad small cap" },
+  asx200:              { label: "ASX 200",             tickers: "Top 200 Australian-listed stocks",                              sectors: "Australian market — Financials, Materials, Energy heavy" },
+  dividend_aristocrats:{ label: "Dividend Aristocrats",tickers: "S&P 500 companies with 25+ years consecutive dividend growth",  sectors: "Consumer Staples, Industrials, Healthcare, Financials" },
+  berkshire:           { label: "Berkshire Holdings",  tickers: "BRK.B portfolio: AAPL, BAC, AXP, KO, CVX, OXY and peers",     sectors: "Financials, Technology, Consumer Staples, Energy" },
+  // ── ETF categories ─────────────────────────────────────────────────────────
+  broad_etf:           { label: "Broad Market ETFs",   tickers: "SPY, QQQ, VTI, IWM, DIA and similar broad index ETFs",        sectors: "all sectors via ETF" },
+  sector_etf:          { label: "Sector ETFs",         tickers: "XLE, XLK, XLF, XLV, XLI, XLY, XLP and sector peers",         sectors: "individual sectors via ETF" },
+  dividend_etf:        { label: "Dividend ETFs",       tickers: "VYM, SCHD, HDV, DVY and dividend-focused ETFs",               sectors: "Financials, Consumer Staples, Utilities, REITs" },
+  global_etf:          { label: "International ETFs",  tickers: "VEA, VWO, EFA, IEFA, EEM and international ETFs",             sectors: "global diversified" },
+  thematic_etf:        { label: "Thematic ETFs",       tickers: "ARKK, BOTZ, ICLN, HACK, ROBO and thematic ETFs",              sectors: "Technology, Clean Energy, AI, Cybersecurity" },
+  commodity_etf:       { label: "Commodity ETFs",      tickers: "GLD, SLV, GDX, USO, DJP and commodity ETFs",                  sectors: "Energy, Materials, Gold" },
+  crypto_etf:          { label: "Crypto-adjacent",     tickers: "COIN, MSTR, MARA, CLSK, spot BTC/ETH ETFs",                   sectors: "Technology, Financial Services (crypto)" },
 };
 
 function buildUniverseConstraint(universe: string[], sector_exclude: string[]): string {
+  if (universe.length === 0 && sector_exclude.length === 0) return "";
+
   const lines: string[] = [];
 
   if (universe.length > 0) {
     lines.push("══ UNIVERSE CONSTRAINT — HARD LIMIT ══");
-    lines.push("The user ONLY invests in the following universe(s). ALL recommendations MUST be within this set.");
-    lines.push("Do NOT recommend any ticker or sector outside this universe regardless of signals.");
-    lines.push("");
-    for (const u of universe) {
-      const meta = UNIVERSE_LABELS[u];
-      if (meta) {
-        lines.push(`  • ${meta.label}`);
-        if (meta.tickers) lines.push(`    Eligible: ${meta.tickers}`);
-      } else {
-        lines.push(`  • ${u}`);
-      }
-    }
+    lines.push("The user ONLY invests within the following universe(s).");
+    lines.push("ALL ticker recommendations MUST be drawn from these pools.");
+    lines.push("Do NOT recommend anything outside this universe regardless of regime signals.");
     lines.push("");
 
-    // Derive sector implications from universe
-    if (universe.includes("mag7")) {
-      lines.push("  Universe implication: Mag 7 spans Technology + Consumer Discretionary only.");
-      lines.push("  sector_tilts and avoid_sectors MUST reflect this — do not recommend Energy, Healthcare, etc.");
+    const stockCohorts = universe.filter(u => !u.endsWith("_etf") && u !== "berkshire");
+    const etfCategories = universe.filter(u => u.endsWith("_etf"));
+    const berkshire = universe.includes("berkshire");
+
+    if (stockCohorts.length > 0) {
+      lines.push("Stock cohorts:");
+      for (const u of stockCohorts) {
+        const meta = UNIVERSE_LABELS[u];
+        if (meta) {
+          lines.push(`  • ${meta.label}: ${meta.tickers}`);
+          if (meta.sectors) lines.push(`    Relevant sectors: ${meta.sectors}`);
+        }
+      }
+      lines.push("");
     }
-    if (universe.includes("broad_etf") || universe.includes("sector_etf")) {
-      lines.push("  Universe implication: ETF-only portfolio — recommend allocation shifts between ETF categories");
-      lines.push("  rather than individual stock picks.");
+
+    if (berkshire) {
+      const meta = UNIVERSE_LABELS["berkshire"];
+      lines.push(`Berkshire Holdings: ${meta.tickers}`);
+      lines.push(`  Relevant sectors: ${meta.sectors}`);
+      lines.push("");
     }
+
+    if (etfCategories.length > 0) {
+      lines.push("ETF categories (recommend ETFs from these pools, not individual stocks):");
+      for (const u of etfCategories) {
+        const meta = UNIVERSE_LABELS[u];
+        if (meta) lines.push(`  • ${meta.label}: ${meta.tickers}`);
+      }
+      lines.push("");
+    }
+
+    // Sector implication summary
+    const allSectors = [...new Set(
+      universe.flatMap(u => UNIVERSE_LABELS[u]?.sectors?.split(", ") ?? [])
+    )].filter(s => s !== "all sectors" && s !== "broad blue-chip mix" && !s.includes("via ETF"));
+
+    if (allSectors.length > 0 && !universe.some(u => ["sp500","dow30","broad_etf"].includes(u))) {
+      lines.push(`Sector implication: Given the universe, focus sector_tilts on: ${allSectors.join(", ")}.`);
+      lines.push("Do not recommend sectors outside this list in sector_tilts.");
+    }
+
     lines.push("══════════════════════════════════════");
     lines.push("");
   }
 
   if (sector_exclude.length > 0) {
     lines.push("══ EXCLUDED SECTORS — HARD LIMIT ══");
-    lines.push(`The user permanently excludes these sectors: ${sector_exclude.join(", ")}`);
-    lines.push("Do NOT include these in sector_tilts. If the regime favours them, acknowledge but do not recommend.");
+    lines.push(`Permanently excluded by user: ${sector_exclude.join(", ")}`);
+    lines.push("Do NOT include these in sector_tilts under any circumstances.");
+    lines.push("If the regime favours them, note the conflict but do not recommend them.");
     lines.push("══════════════════════════════════════");
     lines.push("");
   }
