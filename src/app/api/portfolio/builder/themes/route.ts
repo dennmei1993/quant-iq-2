@@ -247,7 +247,11 @@ async function assemblePrompt(
     if (d.gdp_growth         != null) lines.push(`  GDP growth: ${d.gdp_growth}% ann.`);
     if (d.consumer_sentiment != null) lines.push(`  Consumer sentiment: ${d.consumer_sentiment} (avg ~86)`);
     lines.push(`  Key risk: ${d.key_risk ?? "—"}`);
-    lines.push(`  Summary: ${macroIntel.summary.slice(0, 250)}`);
+    const macroSummaryFull = macroIntel.summary as string;
+    const macroSummaryTrunc = macroSummaryFull.length > 280
+      ? macroSummaryFull.slice(0, 280).replace(/\s\S*$/, "") + "…"
+      : macroSummaryFull;
+    lines.push(`  Summary: ${macroSummaryTrunc}`);
     lines.push("");
   }
 
