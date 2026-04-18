@@ -172,10 +172,12 @@ async function assemblePrompt(
     const d = sectorIntel.data;
     lines.push("=== SECTOR MOMENTUM ===");
     // Only list as "leading" if BUY% > 0 to avoid misleading LLM
-    const trulyLeading = (d.sectors ?? []).filter((s: any) => s.buy_pct > 0).map((s: any) => s.sector);
-    const trulyLagging = (d.sectors ?? []).filter((s: any) => s.avoid_pct > 0).map((s: any) => s.sector);
-    if (trulyLeading.length) lines.push(`Leading (BUY% > 0): ${trulyLeading.join(", ")}`);
-    if (trulyLagging.length) lines.push(`Lagging (AVOID% > 0): ${trulyLagging.join(", ")}`);
+    const pureLeading = (d.sectors ?? []).filter((s: any) => s.buy_pct > 0 && s.avoid_pct === 0).map((s: any) => s.sector);
+    const pureLagging = (d.sectors ?? []).filter((s: any) => s.avoid_pct > 0 && s.buy_pct === 0).map((s: any) => s.sector);
+    const mixedSignal = (d.sectors ?? []).filter((s: any) => s.buy_pct > 0 && s.avoid_pct > 0).map((s: any) => s.sector);
+    if (pureLeading.length) lines.push(`Leading (BUY only): ${pureLeading.join(", ")}`);
+    if (pureLagging.length) lines.push(`Lagging (AVOID only): ${pureLagging.join(", ")}`);
+    if (mixedSignal.length) lines.push(`Mixed signals (both BUY and AVOID): ${mixedSignal.join(", ")}`);
     if (d.sectors?.length) {
       for (const s of d.sectors.slice(0, 6)) {
         lines.push(`  ${s.sector}: BUY ${s.buy_pct}% | AVOID ${s.avoid_pct}% | F:${s.f_avg} T:${s.t_avg}`);

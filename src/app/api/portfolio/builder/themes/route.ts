@@ -209,10 +209,12 @@ async function assemblePrompt(
   if (sectorIntel?.data) {
     const d = sectorIntel.data;
     lines.push("=== SECTOR MOMENTUM (from signal database) ===");
-    const trulyLeading = (d.sectors ?? []).filter((s: any) => s.buy_pct > 0).map((s: any) => s.sector);
-    const trulyLagging = (d.sectors ?? []).filter((s: any) => s.avoid_pct > 0).map((s: any) => s.sector);
-    if (trulyLeading.length) lines.push(`Leading (BUY% > 0): ${trulyLeading.join(", ")}`);
-    if (trulyLagging.length) lines.push(`Lagging (AVOID% > 0): ${trulyLagging.join(", ")}`);
+    const pureLeading = (d.sectors ?? []).filter((s: any) => s.buy_pct > 0 && s.avoid_pct === 0).map((s: any) => s.sector);
+    const pureLagging = (d.sectors ?? []).filter((s: any) => s.avoid_pct > 0 && s.buy_pct === 0).map((s: any) => s.sector);
+    const mixedSignal = (d.sectors ?? []).filter((s: any) => s.buy_pct > 0 && s.avoid_pct > 0).map((s: any) => s.sector);
+    if (pureLeading.length) lines.push(`Leading (BUY only): ${pureLeading.join(", ")}`);
+    if (pureLagging.length) lines.push(`Lagging (AVOID only): ${pureLagging.join(", ")}`);
+    if (mixedSignal.length) lines.push(`Mixed signals (both BUY and AVOID): ${mixedSignal.join(", ")}`);
     if (d.sectors?.length) {
       lines.push("Breakdown:");
       for (const s of d.sectors.slice(0, 8)) {
@@ -297,9 +299,25 @@ async function assemblePrompt(
   lines.push("");
 
   // ── Task ─────────────────────────────────────────────────────────────────
+  // Count how many ★ themes are available
+  const starredCount = sortedThemes.filter(t => scoreThemeForUniverse(t, universe) > 0).length;
+  const hardUniverse = universe.some((u: string) => ["mag7", "dow30", "nasdaq100", "dividend_aristocrats"].includes(u));
+
   lines.push("=== YOUR TASK ===");
   lines.push("Select 3-6 themes from the database above that best fit the strategy and market context.");
   lines.push("");
+
+  if (hardUniverse && starredCount > 0) {
+    lines.push(`UNIVERSE PRIORITY: ${starredCount} theme(s) marked ★ contain tickers from the user's universe.`);
+    lines.push("STRONGLY PREFER ★ themes — the user can only invest in their universe tickers.");
+    lines.push("Themes marked (outside universe scope) should only be selected if NO ★ themes fit the strategy.");
+    lines.push("");
+  } else if (hardUniverse && starredCount === 0) {
+    lines.push("UNIVERSE MISMATCH: No ★ themes available for this universe.");
+    lines.push("Select the least speculative themes and note the mismatch in fit_reason.");
+    lines.push("");
+  }
+
   lines.push("Rules:");
   lines.push("1. Only use IDs from the database list — any unknown ID will be discarded.");
   lines.push("2. fit_reason MUST cite a specific data point from this prompt:");
