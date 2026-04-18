@@ -96,7 +96,17 @@ function scoreThemeForUniverse(theme: any, universe: string[]): number {
   for (const u of universe) {
     const keywords = UNIVERSE_THEME_KEYWORDS[u] ?? [];
     for (const kw of keywords) {
-      if (text.includes(kw)) score++;
+      // Use word-boundary matching to avoid substring false positives
+      // e.g. "meta" should not match inside "materials"
+      // Multi-word phrases use simple includes; single words use \b boundary
+      const isPhrase = kw.includes(" ") || kw.includes("&");
+      if (isPhrase) {
+        if (text.includes(kw)) score++;
+      } else {
+        // Word boundary: preceded and followed by non-alphanumeric or string edge
+        const re = new RegExp(`(?<![a-z0-9])${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9])`);
+        if (re.test(text)) score++;
+      }
     }
   }
   return score;
