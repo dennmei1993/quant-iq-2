@@ -58,19 +58,27 @@ const UNIVERSE_SECTORS: Record<string, string[]> = {
   asx200:               ["Financials", "Materials", "Energy", "Healthcare"],
 };
 
-// Keywords in theme names/briefs that suggest universe compatibility
+// Ticker/brand keywords that confirm a theme is within a universe
+// Must be specific enough to avoid false positives
 const UNIVERSE_THEME_KEYWORDS: Record<string, string[]> = {
-  mag7:                 ["ai", "cloud", "software", "saas", "tech", "digital", "semiconductor", "nvidia", "microsoft", "apple", "google", "amazon", "meta", "tesla", "consumer internet", "advertising", "autonomous"],
-  nasdaq100:            ["ai", "cloud", "tech", "software", "biotech", "semiconductor", "digital", "internet", "innovation"],
-  dividend_aristocrats: ["dividend", "income", "staples", "utilities", "infrastructure", "compounder", "yield"],
-  berkshire:            ["insurance", "financials", "bank", "energy", "consumer staples", "railroad", "value"],
-  asx200:               ["mining", "materials", "financials", "healthcare", "iron ore", "resources"],
-  broad_etf:            [], // all themes eligible
-  sector_etf:           [], // all themes eligible
-  dividend_etf:         ["dividend", "income", "yield", "reit", "infrastructure"],
-  commodity_etf:        ["energy", "gold", "commodities", "materials", "oil", "inflation"],
-  global_etf:           ["emerging", "international", "global", "japan", "asia"],
-  thematic_etf:         ["ai", "clean energy", "cyber", "innovation", "autonomous"],
+  // Mag 7: only match themes explicitly naming these companies or their core businesses
+  mag7:                 ["nvda", "nvidia", "msft", "microsoft", "googl", "google", "amzn", "amazon", "meta", "aapl", "apple", "tsla", "tesla", "saas", "cloud & enterprise", "consumer internet", "digital advertising", "autonomous & electric", "ai infrastructure"],
+  // Nasdaq 100: broader tech but still named companies or clearly tech-focused themes
+  nasdaq100:            ["nvda", "nvidia", "msft", "microsoft", "googl", "google", "amzn", "amazon", "meta", "aapl", "apple", "tsla", "tesla", "crwd", "panw", "semiconductor", "biotech", "saas", "cloud", "cybersecurity", "software"],
+  // Dividend aristocrats: named dividend-focused themes only
+  dividend_aristocrats: ["dividend compounders", "consumer staples", "dividend", "compounder", "jnj", "ko", "pep", "pg"],
+  // Berkshire: explicitly Berkshire-adjacent companies
+  berkshire:            ["berkshire", "brk", "bac", "axp", "ko", "cvx", "oxy", "aapl", "apple", "insurance & capital"],
+  // ASX 200: Australian market names
+  asx200:               ["asx", "australian", "bhp", "rio", "cba", "anz", "nab", "westpac", "macquarie"],
+  // ETF categories — match by theme description
+  broad_etf:            [],
+  sector_etf:           [],
+  dividend_etf:         ["dividend compounders", "dividend etf", "covered calls", "high yield", "income"],
+  commodity_etf:        ["gold & inflation", "commodities & materials", "traditional energy", "oil"],
+  global_etf:           ["emerging markets", "japanese equities", "international"],
+  thematic_etf:         ["ai infrastructure", "cybersecurity", "autonomous & electric", "clean energy", "data centre"],
+  crypto_etf:           ["crypto", "bitcoin", "coin", "mstr", "mara"],
 };
 
 function getUniverseSectorHint(universe: string[]): string {
