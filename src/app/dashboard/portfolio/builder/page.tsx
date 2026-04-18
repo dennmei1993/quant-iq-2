@@ -592,6 +592,8 @@ function PortfolioBuilderInner() {
   const [loadingStrategy,        setLoadingStrategy]        = useState(false);
   const [promptPreview,          setPromptPreview]          = useState<string | null>(null);
   const [pendingStrategyArgs,    setPendingStrategyArgs]    = useState<any | null>(null);
+  const [promptPreviewThemes,    setPromptPreviewThemes]    = useState<string | null>(null);
+  const [pendingThemesArgs,      setPendingThemesArgs]      = useState<any | null>(null);
   const [loadingDataThemes,      setLoadingDataThemes]      = useState(false);
   const [loadingLlmThemes,       setLoadingLlmThemes]       = useState(false);
   const [loadingDataAllocation,  setLoadingDataAllocation]  = useState(false);
@@ -679,21 +681,46 @@ function PortfolioBuilderInner() {
 
   const generateThemes = useCallback(async (targetMode: BuildMode) => {
     if (!strategy) return;
-    const setLoading = targetMode === "data" ? setLoadingDataThemes : setLoadingLlmThemes;
-    const setResult  = targetMode === "data" ? setDataThemes        : setLlmThemes;
-    const setRun     = targetMode === "data" ? setDataRunId         : setLlmRunId;
-    const endpoint   = targetMode === "data" ? "/api/portfolio/builder/themes" : "/api/portfolio/builder/themes-llm";
+    setError(null);
+    const args = { portfolio_id: portfolioId, strategy, provider: "claude", model_id: undefined };
+    setPendingThemesArgs({ ...args, targetMode });
+
+    // Fetch prompt preview — pass strategy as query param for GET
+    try {
+      const strategyParam = encodeURIComponent(JSON.stringify(strategy));
+      const res  = await fetch(`/api/portfolio/builder/themes?portfolio_id=${portfolioId}&strategy=${strategyParam}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPromptPreviewThemes(data.prompt);
+    } catch (e: any) {
+      // Preview failed — run directly without preview
+      setError(null);
+      await runThemes({ ...args, targetMode }, undefined);
+    }
+  }, [portfolioId, strategy]);
+
+  const runThemes = useCallback(async (args: any, promptOverride: string | undefined) => {
+    setPromptPreviewThemes(null);
+    setPendingThemesArgs(null);
+    const targetMode = args.targetMode ?? "data";
+    const setLoading = setLoadingDataThemes;
+    const setResult  = setDataThemes;
+    const setRun     = setDataRunId;
+
     setLoading(true); setError(null);
     try {
-      const runId = await createRun(targetMode, strategy);
+      const runId = await createRun(targetMode, strategy!);
       if (runId) setRun(runId);
-      const res  = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolio_id: portfolioId, strategy }) });
+      const res  = await fetch("/api/portfolio/builder/themes", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ portfolio_id: args.portfolio_id, strategy: args.strategy, prompt_override: promptOverride }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const themesResult = (data.themes as RecommendedTheme[]).map(t => ({ ...t, selected: true }));
       setResult(themesResult);
       if (runId) await saveThemesToRun(runId, themesResult);
-      setMode(targetMode); setStep(2);
+      setMode("data"); setStep(2);
     } catch (e: any) { setError(e.message ?? "Failed to load themes"); }
     finally { setLoading(false); }
   }, [portfolioId, strategy]);
@@ -757,7 +784,7 @@ function PortfolioBuilderInner() {
 
       {error && <div style={{ background: "rgba(252,92,101,0.08)", border: "1px solid rgba(252,92,101,0.25)", borderRadius: 8, padding: "0.65rem 1rem", marginBottom: "1.2rem", fontSize: "0.8rem", color: "#fc5c65" }}>{error}</div>}
 
-      {/* ── Dev tool: prompt preview modal ── */}
+      {/* ── Dev tool: strategy prompt preview modal ── */}
       {promptPreview && pendingStrategyArgs && (
         <PromptPreviewModal
           prompt={promptPreview}
@@ -765,6 +792,17 @@ function PortfolioBuilderInner() {
           description={`mode: ${pendingStrategyArgs.mode} · portfolio: ${pendingStrategyArgs.portfolio_id?.slice(0,8)}…`}
           onConfirm={edited => runStrategy(pendingStrategyArgs, edited !== promptPreview ? edited : undefined)}
           onCancel={() => { setPromptPreview(null); setPendingStrategyArgs(null); }}
+        />
+      )}
+
+      {/* ── Dev tool: themes prompt preview modal ── */}
+      {promptPreviewThemes && pendingThemesArgs && (
+        <PromptPreviewModal
+          prompt={promptPreviewThemes}
+          title="Themes Prompt Preview"
+          description={`data-driven · portfolio: ${pendingThemesArgs.portfolio_id?.slice(0,8)}…`}
+          onConfirm={edited => runThemes(pendingThemesArgs, edited !== promptPreviewThemes ? edited : undefined)}
+          onCancel={() => { setPromptPreviewThemes(null); setPendingThemesArgs(null); }}
         />
       )}
 
@@ -782,29 +820,20 @@ function PortfolioBuilderInner() {
       )}
 
       {step === 2 && (
-        <>
-          {mode === "llm" && <LlmProviderToggle provider={llmProvider} modelId={llmModelId} onChange={(p, m) => { setLlmProvider(p); setLlmModelId(m); setLlmThemes([]); }} />}
-          <ModeToggle mode={mode} onChange={m => { setMode(m); if (m === "data" && dataThemes.length === 0 && !loadingDataThemes) generateThemes("data"); if (m === "llm" && llmThemes.length === 0 && !loadingLlmThemes) generateThemes("llm"); }} dataReady={dataThemes.length > 0} llmReady={llmThemes.length > 0} />
-          <Step2Themes themes={themes} loading={loadingThemes} mode={mode} provider={mode === "llm" ? llmProvider : undefined} modelId={mode === "llm" ? llmModelId : undefined}
-            onToggle={id => setThemes(prev => prev.map(t => t.id === id ? { ...t, selected: !t.selected } : t))}
-            onBack={() => setStep(1)}
-            onNext={() => generateAllocation(mode)}
-          />
-          {(dataThemes.length > 0 || llmThemes.length > 0) && (
-            <div style={{ marginTop: "0.75rem", display: "flex", justifyContent: "center" }}>
-              <button onClick={() => { if (dataThemes.length === 0 && !loadingDataThemes) generateThemes("data"); if (llmThemes.length === 0 && !loadingLlmThemes) generateThemes("llm"); }} disabled={loadingDataThemes || loadingLlmThemes}
-                style={{ fontSize: "0.75rem", color: "rgba(232,226,217,0.35)", background: "none", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 6, padding: "0.35rem 0.85rem", cursor: "pointer" }}>
-                {loadingDataThemes || loadingLlmThemes ? "Loading other mode…" : "Load both modes for comparison"}
-              </button>
-            </div>
-          )}
-        </>
+        <Step2Themes
+          themes={dataThemes}
+          loading={loadingDataThemes}
+          mode="data"
+          onToggle={id => setDataThemes(prev => prev.map(t => t.id === id ? { ...t, selected: !t.selected } : t))}
+          onBack={() => setStep(1)}
+          onNext={() => generateAllocation("data")}
+        />
       )}
 
       {step === 3 && (
         <>
           {mode === "llm" && <LlmProviderToggle provider={llmProvider} modelId={llmModelId} onChange={(p, m) => { setLlmProvider(p); setLlmModelId(m); setLlmTickers([]); }} />}
-          <ModeToggle mode={mode} onChange={m => { setMode(m); const src = m === "data" ? dataThemes : llmThemes; const trg = m === "data" ? dataTickers : llmTickers; const ldr = m === "data" ? loadingDataAllocation : loadingLlmAllocation; if (src.length > 0 && trg.length === 0 && !ldr) generateAllocation(m); }} dataReady={dataTickers.length > 0} llmReady={llmTickers.length > 0} />
+          <ModeToggle mode={mode} onChange={m => { setMode(m); const src = m === "data" ? dataThemes : []; const trg = m === "data" ? dataTickers : llmTickers; const ldr = m === "data" ? loadingDataAllocation : loadingLlmAllocation; if (src.length > 0 && trg.length === 0 && !ldr) generateAllocation(m); }} dataReady={dataTickers.length > 0} llmReady={llmTickers.length > 0} />
           {dataTickers.length > 0 && llmTickers.length > 0 && (
             <div style={{ background: "rgba(99,179,237,0.05)", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 8, padding: "0.6rem 1rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "1rem" }}>
               <span style={{ fontSize: "0.72rem", color: "rgba(99,179,237,0.8)" }}>◈ Both modes ready — switch tabs above to compare, then confirm the one you prefer.</span>
