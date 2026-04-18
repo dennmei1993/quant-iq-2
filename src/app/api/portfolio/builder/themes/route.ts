@@ -58,12 +58,40 @@ const UNIVERSE_SECTORS: Record<string, string[]> = {
   asx200:               ["Financials", "Materials", "Energy", "Healthcare"],
 };
 
+// Keywords in theme names/briefs that suggest universe compatibility
+const UNIVERSE_THEME_KEYWORDS: Record<string, string[]> = {
+  mag7:                 ["ai", "cloud", "software", "saas", "tech", "digital", "semiconductor", "nvidia", "microsoft", "apple", "google", "amazon", "meta", "tesla", "consumer internet", "advertising", "autonomous"],
+  nasdaq100:            ["ai", "cloud", "tech", "software", "biotech", "semiconductor", "digital", "internet", "innovation"],
+  dividend_aristocrats: ["dividend", "income", "staples", "utilities", "infrastructure", "compounder", "yield"],
+  berkshire:            ["insurance", "financials", "bank", "energy", "consumer staples", "railroad", "value"],
+  asx200:               ["mining", "materials", "financials", "healthcare", "iron ore", "resources"],
+  broad_etf:            [], // all themes eligible
+  sector_etf:           [], // all themes eligible
+  dividend_etf:         ["dividend", "income", "yield", "reit", "infrastructure"],
+  commodity_etf:        ["energy", "gold", "commodities", "materials", "oil", "inflation"],
+  global_etf:           ["emerging", "international", "global", "japan", "asia"],
+  thematic_etf:         ["ai", "clean energy", "cyber", "innovation", "autonomous"],
+};
+
 function getUniverseSectorHint(universe: string[]): string {
   if (universe.length === 0) return "";
   const restricted = universe.filter(u => UNIVERSE_SECTORS[u]?.length > 0);
   if (restricted.length === 0) return "";
   const sectors = [...new Set(restricted.flatMap(u => UNIVERSE_SECTORS[u]))];
   return `Universe scope implies these sectors: ${sectors.join(", ")}. Prefer themes within this scope.`;
+}
+
+function scoreThemeForUniverse(theme: any, universe: string[]): number {
+  if (universe.length === 0) return 0;
+  const text = `${theme.name} ${theme.brief ?? ""}`.toLowerCase();
+  let score = 0;
+  for (const u of universe) {
+    const keywords = UNIVERSE_THEME_KEYWORDS[u] ?? [];
+    for (const kw of keywords) {
+      if (text.includes(kw)) score++;
+    }
+  }
+  return score;
 }
 
 // ─── Shared prompt assembly ────────────────────────────────────────────────────
@@ -213,12 +241,34 @@ async function assemblePrompt(
   }
 
   // ── Available themes ──────────────────────────────────────────────────────
+  // Sort themes by universe relevance when universe is set
+  const sortedThemes = universe.length > 0
+    ? [...themes].sort((a, b) => scoreThemeForUniverse(b, universe) - scoreThemeForUniverse(a, universe))
+    : themes;
+
+  // Detect universe mismatch
+  const hasUniverseRelevantThemes = universe.length === 0 ||
+    sortedThemes.some(t => scoreThemeForUniverse(t, universe) > 0);
+
   lines.push("=== AVAILABLE THEMES FROM DATABASE ===");
   lines.push("These are the ONLY themes you may recommend. Do NOT invent new themes.");
   lines.push("Use theme IDs exactly as shown — do not modify or truncate them.");
+
+  if (universe.length > 0) {
+    if (hasUniverseRelevantThemes) {
+      lines.push(`Themes most relevant to universe (${universe.join(", ")}) are listed first.`);
+    } else {
+      lines.push(`⚠ UNIVERSE MISMATCH: No themes directly match the user's universe (${universe.join(", ")}).`);
+      lines.push("Select the most defensive/low-risk themes available and note in fit_reason");
+      lines.push("that these are the closest available options given the constrained universe.");
+      lines.push("Do NOT recommend themes whose primary tickers are outside the user's investable universe.");
+    }
+  }
   lines.push("");
-  for (const t of themes) {
-    lines.push(`  ID:${t.id} | ${t.name} [${t.theme_type}] conviction:${t.conviction}% momentum:${t.momentum ?? "stable"} | ${t.brief ?? ""}`);
+  for (const t of sortedThemes) {
+    const relevanceScore = universe.length > 0 ? scoreThemeForUniverse(t, universe) : -1;
+    const tag = relevanceScore > 0 ? " ★" : relevanceScore === 0 && universe.length > 0 ? " (outside universe scope)" : "";
+    lines.push(`  ID:${t.id} | ${t.name} [${t.theme_type}] conviction:${t.conviction}% momentum:${t.momentum ?? "stable"}${tag} | ${t.brief ?? ""}`);
   }
   lines.push("");
 
