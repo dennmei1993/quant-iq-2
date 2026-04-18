@@ -1174,7 +1174,7 @@ export default function PortfolioPage() {
               totalCapital={selectedPortfolio.total_capital}
               cashReservePct={selectedPortfolio.cash_pct}
               standalone={true}
-              onDone={() => {}}
+              onDone={() => loadPortfolioData(selectedPortfolio.id)}
             />
           </Panel>
 

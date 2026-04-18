@@ -95,11 +95,13 @@ function ScoreBar({ label, value, color }: { label: string; value: number | null
 function AddHoldingModal({
   portfolioId,
   rec,
+  runId,
   onClose,
   onAdded,
 }: {
   portfolioId: string
   rec:         RecommendationTicker
+  runId:       string | null
   onClose:     () => void
   onAdded:     () => void
 }) {
@@ -140,15 +142,7 @@ function AddHoldingModal({
       const d = await res.json()
       if (!res.ok) throw new Error(d.error ?? 'Failed')
 
-      // 2. Mark ticker as added in recommendation DB
-      await fetch('/api/portfolio/builder/recommendation', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ run_id: rec.id.split(':')[0], ticker_id: rec.id }),
-        // Note: rec.id is portfolio_build_tickers.id — but we need run_id separately
-        // This is handled in the parent component
-      })
-
+      // 2. Mark ticker as confirmed — delegated to parent via onAdded
       onAdded()
     } catch (e: any) {
       setError(e.message ?? 'Failed to add')
@@ -455,6 +449,7 @@ export function RecommendationScreen({
         <AddHoldingModal
           portfolioId={portfolioId}
           rec={addingRec}
+          runId={runId}
           onClose={() => setAddingRec(null)}
           onAdded={() => handleAdded(addingRec)}
         />
