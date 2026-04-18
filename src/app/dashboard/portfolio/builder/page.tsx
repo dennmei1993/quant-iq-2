@@ -594,6 +594,8 @@ function PortfolioBuilderInner() {
   const [pendingStrategyArgs,    setPendingStrategyArgs]    = useState<any | null>(null);
   const [promptPreviewThemes,    setPromptPreviewThemes]    = useState<string | null>(null);
   const [pendingThemesArgs,      setPendingThemesArgs]      = useState<any | null>(null);
+  const [promptPreviewAlloc,     setPromptPreviewAlloc]     = useState<string | null>(null);
+  const [pendingAllocArgs,       setPendingAllocArgs]       = useState<any | null>(null);
   const [loadingDataThemes,      setLoadingDataThemes]      = useState(false);
   const [loadingLlmThemes,       setLoadingLlmThemes]       = useState(false);
   const [loadingDataAllocation,  setLoadingDataAllocation]  = useState(false);
@@ -726,20 +728,54 @@ function PortfolioBuilderInner() {
   }, [portfolioId, strategy]);
 
   const generateAllocation = useCallback(async (targetMode: BuildMode) => {
-    const sourceThemes   = targetMode === "data" ? dataThemes : llmThemes;
+    const sourceThemes   = targetMode === "data" ? dataThemes : [];
     const selectedThemes = sourceThemes.filter(t => t.selected);
     if (!selectedThemes.length || !strategy) return;
-    const setLoading = targetMode === "data" ? setLoadingDataAllocation : setLoadingLlmAllocation;
-    const setResult  = targetMode === "data" ? setDataTickers           : setLlmTickers;
-    const runId      = targetMode === "data" ? dataRunId                : llmRunId;
-    const endpoint   = targetMode === "data" ? "/api/portfolio/builder/allocate" : "/api/portfolio/builder/allocate-llm";
-    if (runId) await saveThemesToRun(runId, sourceThemes);
-    setLoading(true); setError(null);
+    setError(null);
+
+    const args = { portfolio_id: portfolioId, strategy, themes: selectedThemes, targetMode, provider: "claude" };
+    setPendingAllocArgs(args);
+
+    // Fetch prompt preview
     try {
-      const res  = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolio_id: portfolioId, strategy, themes: selectedThemes, run_id: runId, provider: targetMode === "llm" ? llmProvider : "claude", model_id: targetMode === "llm" ? llmModelId : undefined }) });
+      const themesParam   = encodeURIComponent(JSON.stringify(selectedThemes));
+      const strategyParam = encodeURIComponent(JSON.stringify(strategy));
+      const res  = await fetch(`/api/portfolio/builder/allocate?portfolio_id=${portfolioId}&themes=${themesParam}&strategy=${strategyParam}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const themeAllocMap = new Map(selectedThemes.map((th: any) => [th.name, th.suggested_allocation ?? 0]));
+      setPromptPreviewAlloc(data.prompt);
+    } catch {
+      // Preview failed — run directly
+      await runAllocation(args, undefined);
+    }
+  }, [portfolioId, strategy, dataThemes]);
+
+  const runAllocation = useCallback(async (args: any, promptOverride: string | undefined) => {
+    setPromptPreviewAlloc(null);
+    setPendingAllocArgs(null);
+    const targetMode     = args.targetMode ?? "data";
+    const setLoading     = setLoadingDataAllocation;
+    const setResult      = setDataTickers;
+    const runId          = dataRunId;
+    const selectedThemes = args.themes;
+
+    if (runId) await saveThemesToRun(runId, selectedThemes);
+    setLoading(true); setError(null);
+    try {
+      const res  = await fetch("/api/portfolio/builder/allocate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          portfolio_id:    args.portfolio_id,
+          strategy:        args.strategy,
+          themes:          selectedThemes,
+          run_id:          runId,
+          provider:        "claude",
+          prompt_override: promptOverride,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const themeAllocMap = new Map<string, number>(selectedThemes.map((th: any) => [th.name, Number(th.suggested_allocation ?? 0)]));
       const tickerResult = (data.tickers as TickerAllocation[]).map(t => {
         const themeAlloc      = themeAllocMap.get(t.theme_name) ?? 0;
         const portfolioWeight = t.signal === "BUY" ? parseFloat(((t.weight / 100) * themeAlloc).toFixed(1)) : 0;
@@ -747,10 +783,10 @@ function PortfolioBuilderInner() {
       });
       setResult(tickerResult);
       if (runId) await saveTickersToRun(runId, tickerResult);
-      setMode(targetMode); setStep(3);
+      setMode("data"); setStep(3);
     } catch (e: any) { setError(e.message ?? "Failed to allocate tickers"); }
     finally { setLoading(false); }
-  }, [portfolioId, strategy, dataThemes, llmThemes, dataRunId, llmRunId]);
+  }, [portfolioId, strategy, dataRunId]);
 
   // PATCH 5: confirm transitions to step 4 (no direct holdings insertion)
   const confirm = useCallback(async () => {
@@ -803,6 +839,17 @@ function PortfolioBuilderInner() {
           description={`data-driven · portfolio: ${pendingThemesArgs.portfolio_id?.slice(0,8)}…`}
           onConfirm={edited => runThemes(pendingThemesArgs, edited !== promptPreviewThemes ? edited : undefined)}
           onCancel={() => { setPromptPreviewThemes(null); setPendingThemesArgs(null); }}
+        />
+      )}
+
+      {/* ── Dev tool: allocation prompt preview modal ── */}
+      {promptPreviewAlloc && pendingAllocArgs && (
+        <PromptPreviewModal
+          prompt={promptPreviewAlloc}
+          title="Allocation Prompt Preview"
+          description={`${pendingAllocArgs.themes?.filter((t: any) => t.selected).length ?? 0} themes · portfolio: ${pendingAllocArgs.portfolio_id?.slice(0,8)}…`}
+          onConfirm={edited => runAllocation(pendingAllocArgs, edited !== promptPreviewAlloc ? edited : undefined)}
+          onCancel={() => { setPromptPreviewAlloc(null); setPendingAllocArgs(null); }}
         />
       )}
 
