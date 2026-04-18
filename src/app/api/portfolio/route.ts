@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === "create_portfolio") {
-      const { name, risk_appetite, benchmark, target_holdings, preferred_assets, cash_pct, investment_horizon, total_capital } = body;
+      const { name, risk_appetite, benchmark, target_holdings, preferred_assets, cash_pct, investment_horizon, total_capital, universe, sector_exclude } = body;
       if (!name?.trim()) return NextResponse.json({ error: "name is required" }, { status: 400 });
 
       const { data: portfolio, error } = await supabase
@@ -83,6 +83,8 @@ export async function POST(req: NextRequest) {
           cash_pct:           cash_pct           ?? 0,
           investment_horizon: investment_horizon ?? "long",
           total_capital:      total_capital      ?? 0,
+          universe:           body.universe       ?? [],
+          sector_exclude:     body.sector_exclude ?? [],
         })
         .select().single();
 
@@ -143,7 +145,7 @@ export async function PATCH(req: NextRequest) {
     const { portfolio_id, ...prefs } = await req.json();
     if (!portfolio_id) return NextResponse.json({ error: "portfolio_id is required" }, { status: 400 });
 
-    const ALLOWED = new Set(["name", "risk_appetite", "benchmark", "target_holdings", "preferred_assets", "cash_pct", "investment_horizon", "total_capital"]);
+    const ALLOWED = new Set(["name", "risk_appetite", "benchmark", "target_holdings", "preferred_assets", "cash_pct", "investment_horizon", "total_capital", "universe", "sector_exclude"]);
     const update = Object.fromEntries(Object.entries(prefs).filter(([k]) => ALLOWED.has(k)));
     if (!Object.keys(update).length) return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
 

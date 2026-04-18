@@ -129,6 +129,63 @@ export async function POST(req: NextRequest) {
   }
 }
 
+
+// ─── Universe descriptions ────────────────────────────────────────────────────
+
+const UNIVERSE_LABELS: Record<string, { label: string; tickers?: string }> = {
+  mag7:         { label: "Mag 7 only",                tickers: "AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA" },
+  us_large_cap: { label: "US Large Cap (S&P 500)",    tickers: "S&P 500 constituents" },
+  broad_etf:    { label: "Broad market ETFs",         tickers: "SPY, QQQ, VTI, IWM, DIA and similar" },
+  sector_etf:   { label: "Sector ETFs",               tickers: "XLE, XLK, XLF, XLV, XLI and similar sector ETFs" },
+  dividend:     { label: "Dividend / income stocks",  tickers: "High-yield dividend payers, REITs, dividend ETFs" },
+  small_mid:    { label: "Small/Mid Cap",             tickers: "Russell 2000, S&P 400 constituents" },
+  global_etf:   { label: "Global / international ETFs", tickers: "VEA, VWO, EFA, IEFA and similar" },
+  thematic:     { label: "Thematic ETFs",             tickers: "ARK funds, clean energy, AI, cybersecurity ETFs" },
+};
+
+function buildUniverseConstraint(universe: string[], sector_exclude: string[]): string {
+  const lines: string[] = [];
+
+  if (universe.length > 0) {
+    lines.push("══ UNIVERSE CONSTRAINT — HARD LIMIT ══");
+    lines.push("The user ONLY invests in the following universe(s). ALL recommendations MUST be within this set.");
+    lines.push("Do NOT recommend any ticker or sector outside this universe regardless of signals.");
+    lines.push("");
+    for (const u of universe) {
+      const meta = UNIVERSE_LABELS[u];
+      if (meta) {
+        lines.push(`  • ${meta.label}`);
+        if (meta.tickers) lines.push(`    Eligible: ${meta.tickers}`);
+      } else {
+        lines.push(`  • ${u}`);
+      }
+    }
+    lines.push("");
+
+    // Derive sector implications from universe
+    if (universe.includes("mag7")) {
+      lines.push("  Universe implication: Mag 7 spans Technology + Consumer Discretionary only.");
+      lines.push("  sector_tilts and avoid_sectors MUST reflect this — do not recommend Energy, Healthcare, etc.");
+    }
+    if (universe.includes("broad_etf") || universe.includes("sector_etf")) {
+      lines.push("  Universe implication: ETF-only portfolio — recommend allocation shifts between ETF categories");
+      lines.push("  rather than individual stock picks.");
+    }
+    lines.push("══════════════════════════════════════");
+    lines.push("");
+  }
+
+  if (sector_exclude.length > 0) {
+    lines.push("══ EXCLUDED SECTORS — HARD LIMIT ══");
+    lines.push(`The user permanently excludes these sectors: ${sector_exclude.join(", ")}`);
+    lines.push("Do NOT include these in sector_tilts. If the regime favours them, acknowledge but do not recommend.");
+    lines.push("══════════════════════════════════════");
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
 // ─── Shared prompt assembly ────────────────────────────────────────────────────
 
 async function assemblePrompt(userClient: any, serviceClient: any, p: any, mode: "data" | "llm") {
@@ -341,6 +398,8 @@ function buildLlmPrompt(p: any, ctx: IntelCtx): string {
     "=== CLIENT CONSTRAINTS — NON-NEGOTIABLE ===",
     "",
     `STYLE:        ${styleGuidance}`,
+    "",
+    buildUniverseConstraint(p.universe ?? [], p.sector_exclude ?? []),
     `HORIZON:      ${horizonRules[horizon] ?? ""}`,
     `CASH:         cash_reserve_pct MUST be at least ${minCashPct}%.`,
     `ASSETS:       ${(p.preferred_assets ?? []).length > 0 ? `Client ONLY invests in: ${preferredAssets}.` : "All asset classes permitted."}`,
@@ -420,6 +479,7 @@ function buildDataPrompt(p: any, ctx: IntelCtx): string {
       ? `Regime recommends "${regimeStyle}". Client allows: ${allowedStyles.join(", ")}. RESOLVED: "${resolvedStyle}".`
       : `Client allows: ${allowedStyles.join(", ")}.`,
     "",
+    buildUniverseConstraint(p.universe ?? [], p.sector_exclude ?? []),
 
     buildIntelSection(ctx),
     "=== YOUR TASK ===",

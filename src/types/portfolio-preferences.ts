@@ -7,10 +7,12 @@ export interface PortfolioPreferences {
   risk_appetite:      RiskAppetite;
   benchmark:          string;
   target_holdings:    number;
-  preferred_assets:   string[];
+  preferred_assets:   string[];     // asset types: stock, etf, crypto, etc.
   cash_pct:           number;       // 0-100, target cash reserve %
   investment_horizon: InvestmentHorizon;
   total_capital:      number;       // total USD allocated to this portfolio
+  universe:           string[];     // e.g. ["mag7", "us_large_cap", "broad_etf"]
+  sector_exclude:     string[];     // sectors to always avoid e.g. ["Energy", "Financials"]
 }
 
 export interface Portfolio extends PortfolioPreferences {
@@ -174,6 +176,8 @@ export const DEFAULT_PORTFOLIO_PREFERENCES: PortfolioPreferences = {
   cash_pct:           0,
   investment_horizon: "long",
   total_capital:      0,
+  universe:           [],
+  sector_exclude:     [],
 };
 
 export const PREFERENCE_LABELS = {

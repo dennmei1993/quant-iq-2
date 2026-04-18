@@ -49,6 +49,8 @@ type Portfolio = {
   cash_pct:           number;
   investment_horizon: InvestmentHorizon;
   total_capital:      number;
+  universe:           string[];
+  sector_exclude:     string[];
 };
 
 type Memo   = { id: string; content: string; created_at: string };
@@ -362,6 +364,55 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
           })}
         </div>
       </div>
+
+      {/* Investment universe */}
+      <div>
+        <div style={labelStyle}>Investment Universe</div>
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          {([
+            { id: "mag7",         label: "Mag 7"         },
+            { id: "us_large_cap", label: "US Large Cap"  },
+            { id: "broad_etf",    label: "Broad ETFs"    },
+            { id: "sector_etf",   label: "Sector ETFs"   },
+            { id: "dividend",     label: "Dividend"       },
+            { id: "small_mid",    label: "Small/Mid Cap" },
+            { id: "global_etf",   label: "Global ETFs"   },
+            { id: "thematic",     label: "Thematic"       },
+          ]).map(({ id, label }) => {
+            const pUniverse = (portfolio as any).universe ?? [];
+            const active    = pUniverse.includes(id);
+            const next      = active ? pUniverse.filter((x: string) => x !== id) : [...pUniverse, id];
+            return (
+              <button key={id} disabled={saving === "universe"} onClick={() => save("universe" as any, next)} style={pillStyle(active, saving === "universe")}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginTop: "0.3rem" }}>
+          Constrains which tickers the portfolio advisor can recommend
+        </div>
+      </div>
+
+      {/* Excluded sectors */}
+      <div>
+        <div style={labelStyle}>Excluded Sectors</div>
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          {["Technology","Healthcare","Financials","Energy","Industrials","Consumer","Materials","Utilities","Real Estate","Communications","Defence"].map(s => {
+            const pExclude = (portfolio as any).sector_exclude ?? [];
+            const active   = pExclude.includes(s);
+            const next     = active ? pExclude.filter((x: string) => x !== s) : [...pExclude, s];
+            return (
+              <button key={s} disabled={saving === "sector_exclude"} onClick={() => save("sector_exclude" as any, next)} style={pillStyle(active, saving === "sector_exclude")}>
+                {s}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginTop: "0.3rem" }}>
+          Always excluded from recommendations regardless of market signals
+        </div>
+      </div>
     </div>
   );
 }
@@ -650,13 +701,19 @@ export default function PortfolioPage() {
         risk_appetite:      riskToAppetite(qp?.risk_score ?? null),
         benchmark:          "SPY",
         target_holdings:    qp?.min_conviction ? (qp.min_conviction >= 70 ? 10 : 20) : 20,
-        preferred_assets:   qp?.asset_types ?? ["equities", "etf"],
+        preferred_assets:   qp?.asset_types     ?? [],
         cash_pct:           0,
         investment_horizon: horizonMap[qp?.horizon ?? ""] ?? "medium",
         total_capital:      0,
+        universe:           Array.isArray(qp?.universe)       ? qp.universe       : [],
+        sector_exclude:     Array.isArray(qp?.sector_exclude) ? qp.sector_exclude : [],
       });
 
-      const all = portRes.portfolios ?? (portRes.portfolio ? [portRes.portfolio] : []);
+      const all = (portRes.portfolios ?? (portRes.portfolio ? [portRes.portfolio] : [])).map((p: any) => ({
+        ...p,
+        universe:       p.universe       ?? [],
+        sector_exclude: p.sector_exclude ?? [],
+      }));
       setPortfolios(all);
       if (all.length) { setSelectedId(all[0].id); }
       else            { setShowNew(true); setIsFirstRun(true); }
