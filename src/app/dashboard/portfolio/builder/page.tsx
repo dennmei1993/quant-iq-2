@@ -1010,7 +1010,7 @@ function PortfolioBuilderInner() {
         />
       )}
 
-      {step === 1 && (
+      {step === 1 && debugMode && (
         <>
           {initialMode === "llm" && <LlmProviderToggle provider={llmProvider} modelId={llmModelId} onChange={(p, m) => { setLlmProvider(p); setLlmModelId(m); setStrategy(null); }} />}
           <Step1Strategy portfolio={portfolio} strategy={strategy} loading={loadingStrategy} mode={initialMode} macro={macroScores} provider={initialMode === "llm" ? llmProvider : undefined} modelId={initialMode === "llm" ? llmModelId : undefined} onGenerate={generateStrategy} onUpdate={setStrategy}
