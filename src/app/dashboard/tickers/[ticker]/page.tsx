@@ -12,6 +12,7 @@ import {
 } from '@/lib/polygon-ticker'
 import ThesisButton      from '@/components/dashboard/ThesisButton'
 import AddToWatchlistButton from '@/components/dashboard/AddToWatchlistButton'
+import AddHoldingButton     from '@/components/dashboard/AddHoldingButton'
 import OHLCChart                  from '@/components/dashboard/OHLCChart'
 import RelativePerformanceChart   from '@/components/dashboard/RelativePerformanceChart'
 
@@ -530,6 +531,13 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         {/* ── Action buttons ── */}
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <ThesisButton ticker={ticker} />
+          {userId && (
+            <AddHoldingButton
+              ticker={ticker}
+              name={name}
+              price={signalData?.price_usd ?? price?.close ?? null}
+            />
+          )}
           {userId && (
             <AddToWatchlistButton
               ticker={ticker}
