@@ -391,7 +391,7 @@ export function RecommendationScreen({
                     </div>
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '0.35rem' }}>
-                      <a href={`https://finance.yahoo.com/quote/${rec.ticker}`} target="_blank" rel="noopener noreferrer"
+                      <a href={`/dashboard/assets/${rec.ticker}`}
                         style={{ padding: '0.3rem 0.6rem', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: T.dim, borderRadius: 5, cursor: 'pointer', fontSize: '0.68rem', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                         ↗ Check
                       </a>
@@ -429,7 +429,7 @@ export function RecommendationScreen({
                   <span style={{ fontSize: '0.68rem', color: T.dim, flex: 1 }}>{rec.name}</span>
                   {rec.theme_name && <span style={{ fontSize: '0.65rem', color: T.dimmer, flexShrink: 0 }}>{rec.theme_name}</span>}
                   {rec.price && <span style={{ fontSize: '0.68rem', color: T.dim, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>${rec.price.toFixed(2)}</span>}
-                  <a href={`https://finance.yahoo.com/quote/${rec.ticker}`} target="_blank" rel="noopener noreferrer"
+                  <a href={`/dashboard/assets/${rec.ticker}`}
                     style={{ padding: '0.2rem 0.5rem', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: T.dim, borderRadius: 4, cursor: 'pointer', fontSize: '0.65rem', textDecoration: 'none', flexShrink: 0 }}>
                     ↗
                   </a>

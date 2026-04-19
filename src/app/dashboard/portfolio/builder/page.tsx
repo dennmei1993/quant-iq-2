@@ -699,10 +699,7 @@ function PortfolioBuilderInner() {
       setStrategy(data.strategy);
       if (data.macro) setMacroScores(data.macro);
       if (args.run_id) fetch("/api/portfolio/builder/run", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: args.run_id, strategy: data.strategy }) });
-      // Non-debug: auto-advance to themes
-      if (!debugMode) {
-        setStep(2);
-      }
+      // Non-debug: useEffect watching strategy will auto-trigger themes
     } catch (e: any) { setError(e.message ?? "Failed to generate strategy"); }
     finally { setLoadingStrategy(false); }
   }, [debugMode]);
@@ -752,10 +749,7 @@ function PortfolioBuilderInner() {
       setResult(themesResult);
       if (runId) await saveThemesToRun(runId, themesResult);
       setMode("data"); setStep(2);
-      // Non-debug: auto-advance to allocation
-      if (!debugMode) {
-        setStep(3); // skip manual step — handled by useEffect watching dataThemes
-      }
+      // Non-debug: useEffect watching dataThemes will auto-trigger allocation
     } catch (e: any) { setError(e.message ?? "Failed to load themes"); }
     finally { setLoading(false); }
   }, [portfolioId, strategy, debugMode]);
@@ -809,10 +803,23 @@ function PortfolioBuilderInner() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const themeAllocMap = new Map<string, number>(selectedThemes.map((th: any) => [th.name, Number(th.suggested_allocation ?? 0)]));
+      // Build theme alloc map — index by both name and theme_name variants to handle LLM mismatches
+      const themeAllocMap = new Map<string, number>();
+      for (const th of selectedThemes as any[]) {
+        const alloc = Number(th.suggested_allocation ?? 0);
+        if (th.name)       themeAllocMap.set(th.name,       alloc);
+        if (th.theme_name) themeAllocMap.set(th.theme_name, alloc);
+        // Normalised lowercase fallback
+        if (th.name)       themeAllocMap.set(th.name.toLowerCase().trim(),       alloc);
+      }
+      console.log("[runAllocation] themeAllocMap:", Object.fromEntries(themeAllocMap));
+
       const tickerResult = (data.tickers as TickerAllocation[]).map(t => {
-        const themeAlloc      = themeAllocMap.get(t.theme_name) ?? 0;
+        const themeAlloc = themeAllocMap.get(t.theme_name)
+          ?? themeAllocMap.get((t.theme_name ?? "").toLowerCase().trim())
+          ?? (selectedThemes.length === 1 ? Number((selectedThemes[0] as any).suggested_allocation ?? 0) : 0);
         const portfolioWeight = t.signal === "BUY" ? parseFloat(((t.weight / 100) * themeAlloc).toFixed(1)) : 0;
+        console.log("[runAllocation] ticker:", t.ticker, "theme:", t.theme_name, "themeAlloc:", themeAlloc, "weight:", t.weight, "→ portfolioWeight:", portfolioWeight);
         return { ...t, weight: portfolioWeight, editWeight: t.signal === "BUY" ? String(portfolioWeight) : "0", editSignal: t.signal, included: true };
       });
       setResult(tickerResult);
@@ -847,19 +854,93 @@ function PortfolioBuilderInner() {
     finally { setCommitting(false); }
   }, [portfolioId, tickers, strategy, activeRunId, mode, dataRunId, llmRunId]);
 
-  // Non-debug auto-chain: when themes load, auto-run allocation
+  // Non-debug: run the entire pipeline in one go when portfolio loads
   useEffect(() => {
-    if (debugMode || dataThemes.length === 0 || dataTickers.length > 0 || loadingDataAllocation) return;
-    if (step === 3 && !loadingDataAllocation) generateAllocation("data");
-  }, [dataThemes, step, debugMode]);
+    if (debugMode || !portfolio || autoComplete) return;
+    async function runPipeline() {
+      setAutoRunning(true);
+      try {
+        // Step 1: Strategy
+        const stratArgs = {
+          portfolio_id: portfolioId,
+          mode: initialMode,
+          run_id: runId,
+          provider: "claude",
+        };
+        setLoadingStrategy(true);
+        const stratRes  = await fetch("/api/portfolio/builder/strategy", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(stratArgs),
+        });
+        const stratData = await stratRes.json();
+        if (!stratRes.ok) throw new Error(stratData.error ?? "Strategy failed");
+        const strat = stratData.strategy;
+        setStrategy(strat);
+        setLoadingStrategy(false);
 
-  // Non-debug auto-chain: when tickers load, auto-confirm
-  useEffect(() => {
-    if (debugMode || dataTickers.length === 0 || autoComplete) return;
-    if (step === 3 && !loadingDataAllocation) {
-      confirm().then(() => setAutoComplete(true));
+        // Step 2: Themes
+        setLoadingDataThemes(true);
+        const themeRunId = await createRun("data", strat);
+        if (themeRunId) setDataRunId(themeRunId);
+        const themeRes  = await fetch("/api/portfolio/builder/themes", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portfolio_id: portfolioId, strategy: strat }),
+        });
+        const themeData = await themeRes.json();
+        if (!themeRes.ok) throw new Error(themeData.error ?? "Themes failed");
+        const themesResult = (themeData.themes as RecommendedTheme[]).map(t => ({ ...t, selected: true }));
+        setDataThemes(themesResult);
+        if (themeRunId) await saveThemesToRun(themeRunId, themesResult);
+        setLoadingDataThemes(false);
+
+        // Step 3: Allocation
+        setLoadingDataAllocation(true);
+        const selectedThemes = themesResult.filter(t => t.selected);
+        const allocRes  = await fetch("/api/portfolio/builder/allocate", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portfolio_id: portfolioId, strategy: strat, themes: selectedThemes }),
+        });
+        const allocData = await allocRes.json();
+        if (!allocRes.ok) throw new Error(allocData.error ?? "Allocation failed");
+
+        const themeAllocMap = new Map<string, number>();
+        for (const th of selectedThemes as any[]) {
+          const alloc = Number(th.suggested_allocation ?? 0);
+          if (th.name) themeAllocMap.set(th.name, alloc);
+          if (th.name) themeAllocMap.set(th.name.toLowerCase().trim(), alloc);
+        }
+        const tickerResult = (allocData.tickers as TickerAllocation[]).map(t => {
+          const themeAlloc = themeAllocMap.get(t.theme_name)
+            ?? themeAllocMap.get((t.theme_name ?? "").toLowerCase().trim())
+            ?? (selectedThemes.length === 1 ? Number((selectedThemes[0] as any).suggested_allocation ?? 0) : 0);
+          const portfolioWeight = t.signal === "BUY" ? parseFloat(((t.weight / 100) * themeAlloc).toFixed(1)) : 0;
+          return { ...t, weight: portfolioWeight, editWeight: t.signal === "BUY" ? String(portfolioWeight) : "0", editSignal: t.signal, included: true };
+        });
+        setDataTickers(tickerResult);
+        if (themeRunId) await saveTickersToRun(themeRunId, tickerResult);
+        setLoadingDataAllocation(false);
+
+        // Step 4: Confirm → recommendations
+        setCommitting(true);
+        await saveTickersToRun(themeRunId ?? "", tickerResult);
+        await fetch("/api/portfolio/builder/recommendation", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ run_id: themeRunId, portfolio_id: portfolioId }),
+        });
+        setCommitting(false);
+        setAutoComplete(true);
+      } catch (e: any) {
+        setError(e.message ?? "Build failed");
+        setLoadingStrategy(false);
+        setLoadingDataThemes(false);
+        setLoadingDataAllocation(false);
+        setCommitting(false);
+      } finally {
+        setAutoRunning(false);
+      }
     }
-  }, [dataTickers, step, debugMode]);
+    runPipeline();
+  }, [portfolio, debugMode]);
 
   function updateTicker(ticker: string, field: keyof TickerAllocation, value: any) {
     const setter = mode === "data" ? setDataTickers : setLlmTickers;
@@ -953,7 +1034,7 @@ function PortfolioBuilderInner() {
         </>
       )}
 
-      {step === 2 && (
+      {step === 2 && debugMode && (
         <Step2Themes
           themes={dataThemes}
           loading={loadingDataThemes}
@@ -964,7 +1045,7 @@ function PortfolioBuilderInner() {
         />
       )}
 
-      {step === 3 && (
+      {step === 3 && debugMode && (
         <>
           {mode === "llm" && <LlmProviderToggle provider={llmProvider} modelId={llmModelId} onChange={(p, m) => { setLlmProvider(p); setLlmModelId(m); setLlmTickers([]); }} />}
           <ModeToggle mode={mode} onChange={m => { setMode(m); const src = m === "data" ? dataThemes : []; const trg = m === "data" ? dataTickers : llmTickers; const ldr = m === "data" ? loadingDataAllocation : loadingLlmAllocation; if (src.length > 0 && trg.length === 0 && !ldr) generateAllocation(m); }} dataReady={dataTickers.length > 0} llmReady={llmTickers.length > 0} />
