@@ -328,3 +328,50 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json(body, { status });
   }
 }
+
+// ─── PATCH — edit a transaction ───────────────────────────────────────────────
+export async function PATCH(req: NextRequest) {
+  try {
+    const { supabase, user } = await requireUser();
+    const { transaction_id, quantity, price, fees, executed_at, notes } = await req.json();
+    if (!transaction_id) return NextResponse.json({ error: "transaction_id required" }, { status: 400 });
+
+    // Verify ownership via portfolio join
+    const { data: txn } = await supabase
+      .from("transactions")
+      .select("id, portfolio_id, ticker, type, portfolios!inner(user_id)")
+      .eq("id", transaction_id)
+      .single();
+
+    const owner = (txn?.portfolios as any)?.user_id;
+    if (!txn || owner !== user.id) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // Update the transaction
+    const update: Record<string, any> = {};
+    if (quantity    != null) update.quantity     = quantity;
+    if (price       != null) update.price        = price;
+    if (fees        != null) update.fees         = fees;
+    if (executed_at != null) update.executed_at  = executed_at;
+    if (notes       !== undefined) update.notes  = notes;
+    if (quantity != null && price != null) {
+      update.total_amount = quantity * price + (fees ?? 0);
+    }
+
+    await supabase.from("transactions").update(update).eq("id", transaction_id);
+
+    // Recalculate position (holdings) after edit
+    if (txn.ticker && ["buy", "sell", "split"].includes(txn.type)) {
+      const { data: signal } = await supabase
+        .from("asset_signals").select("price_usd").eq("ticker", txn.ticker).maybeSingle();
+      await recalculatePosition(
+        supabase, txn.portfolio_id, txn.ticker,
+        signal?.price_usd ? Number(signal.price_usd) : null,
+      );
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const { body, status } = errorResponse(e);
+    return NextResponse.json(body, { status });
+  }
+}

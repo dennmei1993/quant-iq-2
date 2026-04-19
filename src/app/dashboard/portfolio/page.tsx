@@ -707,18 +707,20 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
 
 // ─── Portfolio Watchlist Panel ────────────────────────────────────────────────
 
-function PortfolioWatchlistPanel({ portfolioId }: { portfolioId: string }) {
+function PortfolioWatchlistPanel({ portfolioId, onHoldingAdded }: { portfolioId: string; onHoldingAdded: () => void }) {
   const [entries,  setEntries]  = useState<{ id: string; ticker: string; name: string | null; notes: string | null; added_at: string }[]>([])
   const [loading,  setLoading]  = useState(true)
   const [removing, setRemoving] = useState<string | null>(null)
 
-  useEffect(() => {
+  function load() {
     setLoading(true)
     fetch(`/api/portfolio/watchlist?portfolio_id=${portfolioId}`)
       .then(r => r.json())
       .then(d => { setEntries(d.watchlist ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [portfolioId])
+  }
+
+  useEffect(() => { load() }, [portfolioId])
 
   async function remove(ticker: string) {
     setRemoving(ticker)
@@ -738,24 +740,34 @@ function PortfolioWatchlistPanel({ portfolioId }: { portfolioId: string }) {
   return (
     <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr 2rem", gap: "0.5rem", padding: "0.4rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-        <span>Ticker</span><span>Notes</span><span>Added</span><span />
+      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 2fr 0.8fr 7rem 2rem", gap: "0.5rem", padding: "0.4rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+        <span>Ticker</span><span>Notes</span><span>Added</span><span /><span />
       </div>
       {entries.map((e, idx) => (
-        <div key={e.id} style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr 2rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: idx < entries.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+        <div key={e.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 2fr 0.8fr 7rem 2rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: idx < entries.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
           <div>
-            <a href={`/dashboard/tickers/${e.ticker}`} style={{ fontWeight: 700, color: "var(--gold)", fontFamily: "var(--font-mono)", fontSize: "0.88rem", textDecoration: "none" }}>
-              {e.ticker}
-            </a>
+            <span style={{ fontWeight: 700, color: "var(--gold)", fontFamily: "var(--font-mono)", fontSize: "0.88rem" }}>{e.ticker}</span>
             {e.name && <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.40)" }}>{e.name}</div>}
           </div>
           <div style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.50)" }}>{e.notes ?? "—"}</div>
           <div style={{ fontSize: "0.68rem", color: "rgba(232,226,217,0.35)", fontFamily: "var(--font-mono)" }}>
             {new Date(e.added_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
           </div>
-          <button
-            onClick={() => remove(e.ticker)}
-            disabled={removing === e.ticker}
+          {/* Actions: Add Holding + Check + Remove */}
+          <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
+            <AddHoldingButton
+              portfolioId={portfolioId}
+              ticker={e.ticker}
+              name={e.name ?? undefined}
+              label="+ Buy"
+              onDone={() => { onHoldingAdded(); remove(e.ticker); }}
+            />
+            <a href={`/dashboard/tickers/${e.ticker}`}
+              style={{ fontSize: "0.65rem", padding: "0.25rem 0.5rem", background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(232,226,217,0.5)", borderRadius: 4, textDecoration: "none", whiteSpace: "nowrap" }}>
+              ↗ Check
+            </a>
+          </div>
+          <button onClick={() => remove(e.ticker)} disabled={removing === e.ticker}
             style={{ background: "none", border: "none", color: "rgba(232,226,217,0.25)", cursor: "pointer", fontSize: "1rem", padding: 0, lineHeight: 1, opacity: removing === e.ticker ? 0.4 : 1 }}
             title="Remove">×</button>
         </div>
@@ -1426,7 +1438,7 @@ export default function PortfolioPage() {
 
             {/* Watchlist */}
             {activeTab === "watchlist" && (
-              <PortfolioWatchlistPanel portfolioId={selectedPortfolio.id} />
+              <PortfolioWatchlistPanel portfolioId={selectedPortfolio.id} onHoldingAdded={() => loadPortfolioData(selectedPortfolio.id)} />
             )}
 
             {/* Signal Distribution */}
