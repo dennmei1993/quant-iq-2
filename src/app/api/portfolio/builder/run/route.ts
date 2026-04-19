@@ -1,56 +1,117 @@
 // src/app/api/portfolio/builder/run/route.ts
 //
-// POST /api/portfolio/builder/run   — create a new build run, return run_id
-// GET  /api/portfolio/builder/run?portfolio_id=  — fetch run history for portfolio
-// PATCH /api/portfolio/builder/run  — update run status (draft → confirmed/abandoned)
+// POST  — multi-action handler:
+//   action=create_run    — create a new build run, return run_id
+//   action=save_themes   — upsert themes snapshot for a run
+//   action=save_tickers  — upsert tickers snapshot for a run
+// GET   ?portfolio_id=   — fetch run history for portfolio
+// PATCH                  — update run status / strategy
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/supabase";
 
-// ----------------------------------------------------------------------------
-// POST — create run
-// ----------------------------------------------------------------------------
+// ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
-    const { portfolio_id, mode } = await req.json();
+    const body = await req.json();
+    const { action = "create_run" } = body;
 
-    if (!portfolio_id || !mode) {
-      return NextResponse.json({ error: "portfolio_id and mode are required" }, { status: 400 });
+    // ── create_run ────────────────────────────────────────────────────────────
+    if (action === "create_run") {
+      const { portfolio_id, mode, strategy } = body;
+      if (!portfolio_id || !mode) {
+        return NextResponse.json({ error: "portfolio_id and mode required" }, { status: 400 });
+      }
+      const { data, error } = await supabase
+        .from("portfolio_build_runs")
+        .insert({ portfolio_id, user_id: user.id, mode, status: "draft", strategy: strategy ?? null })
+        .select("id").single();
+      if (error) throw error;
+      return NextResponse.json({ run_id: data.id }, { status: 201 });
     }
 
-    const { data, error } = await supabase
-      .from("portfolio_build_runs")
-      .insert({
-        portfolio_id,
-        user_id: user.id,
-        mode,
-        status: "draft",
-      })
-      .select("id")
-      .single();
+    // ── save_themes ───────────────────────────────────────────────────────────
+    if (action === "save_themes") {
+      const { run_id, themes } = body;
+      if (!run_id) return NextResponse.json({ error: "run_id required" }, { status: 400 });
 
-    if (error) throw error;
-    return NextResponse.json({ run_id: data.id }, { status: 201 });
+      // Verify ownership
+      const { data: run } = await supabase
+        .from("portfolio_build_runs").select("id")
+        .eq("id", run_id).eq("user_id", user.id).single();
+      if (!run) return NextResponse.json({ error: "Run not found" }, { status: 404 });
+
+      if (themes?.length) {
+        await supabase.from("portfolio_build_themes").delete().eq("run_id", run_id);
+        const { error } = await supabase.from("portfolio_build_themes").insert(
+          themes.map((t: any) => ({
+            run_id,
+            theme_id:             t.id ?? null,
+            theme_name:           t.name,
+            brief:                t.brief ?? null,
+            conviction:           t.conviction ?? null,
+            momentum:             t.momentum ?? null,
+            fit_reason:           t.fit_reason ?? null,
+            suggested_allocation: t.suggested_allocation ?? 0,
+            selected:             t.selected ?? true,
+            is_llm_generated:     false,
+          }))
+        );
+        if (error) throw error;
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── save_tickers ──────────────────────────────────────────────────────────
+    if (action === "save_tickers") {
+      const { run_id, tickers } = body;
+      if (!run_id) return NextResponse.json({ error: "run_id required" }, { status: 400 });
+
+      // Verify ownership
+      const { data: run } = await supabase
+        .from("portfolio_build_runs").select("id")
+        .eq("id", run_id).eq("user_id", user.id).single();
+      if (!run) return NextResponse.json({ error: "Run not found" }, { status: 404 });
+
+      if (tickers?.length) {
+        await supabase.from("portfolio_build_tickers").delete().eq("run_id", run_id);
+        const { error } = await supabase.from("portfolio_build_tickers").insert(
+          tickers.map((t: any) => ({
+            run_id,
+            ticker:            t.ticker,
+            name:              t.name              ?? null,
+            theme_name:        t.theme_name        ?? null,
+            signal:            t.signal,
+            weight:            t.weight            ?? 0,
+            price:             t.price             ?? null,
+            rationale:         t.rationale         ?? null,
+            included:          t.included          ?? true,
+            was_confirmed:     false,
+            fundamental_score: t.fundamental_score ?? null,
+            technical_score:   t.technical_score   ?? null,
+          }))
+        );
+        if (error) throw error;
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (e) {
     const { body, status } = errorResponse(e);
     return NextResponse.json(body, { status });
   }
 }
 
-// ----------------------------------------------------------------------------
-// GET — fetch run history for a portfolio
-// ----------------------------------------------------------------------------
+// ─── GET — fetch run history ──────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
     const portfolioId = req.nextUrl.searchParams.get("portfolio_id");
-
-    if (!portfolioId) {
-      return NextResponse.json({ error: "portfolio_id is required" }, { status: 400 });
-    }
+    if (!portfolioId) return NextResponse.json({ error: "portfolio_id required" }, { status: 400 });
 
     const { data: runs, error } = await supabase
       .from("portfolio_build_runs")
@@ -72,75 +133,28 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ----------------------------------------------------------------------------
-// PATCH — update run status + save themes/tickers snapshot
-// ----------------------------------------------------------------------------
+// ─── PATCH — update run status / strategy ─────────────────────────────────────
 
 export async function PATCH(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser();
-    const { run_id, status, strategy, themes, tickers } = await req.json();
+    const { run_id, status, strategy } = await req.json();
+    if (!run_id) return NextResponse.json({ error: "run_id required" }, { status: 400 });
 
-    if (!run_id) {
-      return NextResponse.json({ error: "run_id is required" }, { status: 400 });
-    }
-
-    // Verify ownership
     const { data: run } = await supabase
-      .from("portfolio_build_runs")
-      .select("id")
-      .eq("id", run_id)
-      .eq("user_id", user.id)
-      .single();
-
+      .from("portfolio_build_runs").select("id")
+      .eq("id", run_id).eq("user_id", user.id).single();
     if (!run) return NextResponse.json({ error: "Run not found" }, { status: 404 });
 
-    // Update run row
     const update: Record<string, any> = {};
     if (status)   update.status   = status;
     if (strategy) update.strategy = strategy;
     if (status === "confirmed") update.confirmed_at = new Date().toISOString();
 
     if (Object.keys(update).length) {
-      await supabase.from("portfolio_build_runs").update(update).eq("id", run_id);
-    }
-
-    // Upsert themes snapshot
-    if (themes?.length) {
-      await supabase.from("portfolio_build_themes").delete().eq("run_id", run_id);
-      await supabase.from("portfolio_build_themes").insert(
-        themes.map((t: any) => ({
-          run_id,
-          theme_id:             t.id ?? null,
-          theme_name:           t.name,
-          brief:                t.brief ?? null,
-          conviction:           t.conviction ?? null,
-          momentum:             t.momentum ?? null,
-          fit_reason:           t.fit_reason ?? null,
-          suggested_allocation: t.suggested_allocation ?? 0,
-          selected:             t.selected ?? true,
-          is_llm_generated:     t.is_llm_generated ?? false,
-        }))
-      );
-    }
-
-    // Upsert tickers snapshot
-    if (tickers?.length) {
-      await supabase.from("portfolio_build_tickers").delete().eq("run_id", run_id);
-      await supabase.from("portfolio_build_tickers").insert(
-        tickers.map((t: any) => ({
-          run_id,
-          ticker:        t.ticker,
-          name:          t.name ?? null,
-          theme_name:    t.theme_name ?? null,
-          signal:        t.signal,
-          weight:        t.weight ?? 0,
-          price:         t.price ?? null,
-          rationale:     t.rationale ?? null,
-          included:      t.included ?? true,
-          was_confirmed: t.was_confirmed ?? false,
-        }))
-      );
+      const { error } = await supabase
+        .from("portfolio_build_runs").update(update).eq("id", run_id);
+      if (error) throw error;
     }
 
     return NextResponse.json({ ok: true });

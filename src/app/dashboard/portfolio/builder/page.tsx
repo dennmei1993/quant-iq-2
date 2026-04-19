@@ -788,13 +788,26 @@ function PortfolioBuilderInner() {
     finally { setLoading(false); }
   }, [portfolioId, strategy, dataRunId]);
 
-  // PATCH 5: confirm transitions to step 4 (no direct holdings insertion)
+  // PATCH 5: confirm — save tickers, transition status, go to step 4
   const confirm = useCallback(async () => {
     setCommitting(true); setError(null);
     try {
+      // 1. Save tickers to DB with their current edits
       if (activeRunId) await saveTickersToRun(activeRunId, tickers);
+
+      // 2. Transition run status → 'recommendations' (makes it visible on portfolio page)
+      await fetch("/api/portfolio/builder/recommendation", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ run_id: activeRunId, portfolio_id: portfolioId }),
+      });
+
+      // 3. Abandon the other mode's run if both were generated
       const otherRunId = mode === "data" ? llmRunId : dataRunId;
-      if (otherRunId) await fetch("/api/portfolio/builder/run", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: otherRunId, status: "abandoned" }) });
+      if (otherRunId) await fetch("/api/portfolio/builder/run", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ run_id: otherRunId, status: "abandoned" }),
+      });
+
       setStep(4);
     } catch (e: any) { setError(e.message ?? "Failed to prepare recommendations"); }
     finally { setCommitting(false); }
@@ -902,20 +915,7 @@ function PortfolioBuilderInner() {
           totalCapital={portfolio?.total_capital ?? 0}
           cashReservePct={strategy?.cash_reserve_pct ?? portfolio?.cash_pct ?? 0}
           runId={activeRunId ?? undefined}
-          recommendations={tickers.filter(t => t.included).map(t => ({
-            id:                t.ticker,
-            ticker:            t.ticker,
-            name:              t.name,
-            signal:            t.editSignal as "BUY" | "WATCH",
-            weight:            Number(t.editWeight || 0),
-            price:             t.price,
-            rationale:         t.rationale,
-            theme_name:        t.theme_name,
-            fundamental_score: t.fundamental_score,
-            technical_score:   t.technical_score,
-            was_confirmed:     false,
-            added_at:          null,
-          }))}
+          standalone={false}
           onBack={() => setStep(3)}
           onDone={() => router.push(`/dashboard/portfolio?portfolio_id=${portfolioId}`)}
         />

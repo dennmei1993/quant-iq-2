@@ -41,7 +41,6 @@ interface Props {
   cashReservePct:  number
   // Provided when coming from builder (step 4)
   runId?:          string
-  recommendations?: RecommendationTicker[]
   onBack?:         () => void
   onDone:          () => void
   // Standalone mode — loads from DB
@@ -218,15 +217,14 @@ export function RecommendationScreen({
   totalCapital,
   cashReservePct,
   runId: propRunId,
-  recommendations: propRecs,
   onBack,
   onDone,
   standalone = false,
 }: Props) {
   const [runId,      setRunId]      = useState<string | null>(propRunId ?? null)
-  const [recs,       setRecs]       = useState<RecommendationTicker[]>(propRecs ?? [])
+  const [recs,       setRecs]       = useState<RecommendationTicker[]>([])
   const [addingRec,  setAddingRec]  = useState<RecommendationTicker | null>(null)
-  const [loading,    setLoading]    = useState(standalone)
+  const [loading,    setLoading]    = useState(true)
   const [createdAt,  setCreatedAt]  = useState<string | null>(null)
   const [mode,       setMode]       = useState<string | null>(null)
 
@@ -235,13 +233,17 @@ export function RecommendationScreen({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // Standalone: load from DB
+  // Load recommendations from DB:
+  // - standalone mode: find active recommendation by portfolio_id
+  // - builder mode: load by run_id (status already set to 'recommendations' by confirm())
   useEffect(() => {
-    if (!standalone) return
     async function load() {
       setLoading(true)
       try {
-        const res  = await fetch(`/api/portfolio/builder/recommendation?portfolio_id=${portfolioId}`)
+        const url = standalone
+          ? `/api/portfolio/builder/recommendation?portfolio_id=${portfolioId}`
+          : `/api/portfolio/builder/recommendation?portfolio_id=${portfolioId}`
+        const res  = await fetch(url)
         const data = await res.json()
         if (data.recommendation) {
           const run = data.recommendation as RecommendationRun
@@ -254,18 +256,7 @@ export function RecommendationScreen({
       finally { setLoading(false) }
     }
     load()
-  }, [standalone, portfolioId])
-
-  // Transition run status to 'recommendations' when we arrive at this screen
-  useEffect(() => {
-    if (!propRunId || standalone) return
-    fetch('/api/portfolio/builder/recommendation', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ run_id: propRunId }),
-    })
-    setRunId(propRunId)
-  }, [propRunId, standalone])
+  }, [standalone, portfolioId, propRunId])
 
   async function handleAdded(rec: RecommendationTicker) {
     // Mark in DB

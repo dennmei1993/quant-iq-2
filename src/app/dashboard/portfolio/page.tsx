@@ -284,11 +284,36 @@ function Metric({ label, value, sub, valueColor }: { label: string; value: strin
 // ─── Preference panel ─────────────────────────────────────────────────────────
 
 function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpdate: (key: keyof Portfolio, value: any) => Promise<void> }) {
-  const [saving, setSaving] = useState<string | null>(null);
+  const [local,   setLocal]   = useState<Partial<Portfolio>>({});
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSavedOk] = useState(false);
 
-  async function save(key: keyof Portfolio, value: any) {
-    setSaving(key); await onUpdate(key, value); setSaving(null);
+  // Merge local overrides with portfolio values
+  const current = { ...portfolio, ...local } as Portfolio;
+  const isDirty = Object.keys(local).length > 0;
+
+  function setPref<K extends keyof Portfolio>(key: K, value: Portfolio[K]) {
+    setLocal(prev => ({ ...prev, [key]: value }));
+    setSavedOk(false);
   }
+
+  async function saveAll() {
+    if (!isDirty) return;
+    setSaving(true);
+    for (const [key, value] of Object.entries(local)) {
+      await onUpdate(key as keyof Portfolio, value);
+    }
+    setLocal({});
+    setSaving(false);
+    setSavedOk(true);
+    setTimeout(() => setSavedOk(false), 2500);
+  }
+
+  // Keep save as alias for backward compat with CapitalInput
+  async function save(key: keyof Portfolio, value: any) {
+    await onUpdate(key, value);
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -304,7 +329,7 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
           <div style={labelStyle}>Risk</div>
           <div style={{ display: "flex", gap: "0.4rem" }}>
             {(["aggressive", "moderate", "conservative"] as RiskAppetite[]).map(a => (
-              <button key={a} disabled={saving === "risk_appetite"} onClick={() => save("risk_appetite", a)} style={pillStyle(portfolio.risk_appetite === a, saving === "risk_appetite")}>
+              <button key={a} onClick={() => setPref("risk_appetite", a)} style={pillStyle(current.risk_appetite === a, false)}>
                 {PREF_LABELS.risk_appetite[a]}
               </button>
             ))}
@@ -315,7 +340,7 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
           <div style={labelStyle}>Horizon</div>
           <div style={{ display: "flex", gap: "0.4rem" }}>
             {(["short", "medium", "long"] as InvestmentHorizon[]).map(h => (
-              <button key={h} disabled={saving === "investment_horizon"} onClick={() => save("investment_horizon", h)} style={pillStyle(portfolio.investment_horizon === h, saving === "investment_horizon")}>
+              <button key={h} onClick={() => setPref("investment_horizon", h)} style={pillStyle(current.investment_horizon === h, false)}>
                 {h.charAt(0).toUpperCase() + h.slice(1)}
               </button>
             ))}
@@ -326,7 +351,7 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
           <div style={labelStyle}>Benchmark</div>
           <div style={{ display: "flex", gap: "0.4rem" }}>
             {["SPY", "QQQ", "AXJO"].map(b => (
-              <button key={b} disabled={saving === "benchmark"} onClick={() => save("benchmark", b)} style={pillStyle(portfolio.benchmark === b, saving === "benchmark")}>{b}</button>
+              <button key={b} onClick={() => setPref("benchmark", b)} style={pillStyle(current.benchmark === b, false)}>{b}</button>
             ))}
           </div>
         </div>
@@ -335,7 +360,7 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
           <div style={labelStyle}>Target holdings</div>
           <div style={{ display: "flex", gap: "0.4rem" }}>
             {[10, 15, 20, 30].map(n => (
-              <button key={n} disabled={saving === "target_holdings"} onClick={() => save("target_holdings", n)} style={pillStyle(portfolio.target_holdings === n, saving === "target_holdings")}>{n}</button>
+              <button key={n} onClick={() => setPref("target_holdings", n)} style={pillStyle(current.target_holdings === n, false)}>{n}</button>
             ))}
           </div>
         </div>
@@ -344,7 +369,7 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
           <div style={labelStyle}>Min cash reserve</div>
           <div style={{ display: "flex", gap: "0.4rem" }}>
             {[0, 5, 10, 15, 20].map(n => (
-              <button key={n} disabled={saving === "cash_pct"} onClick={() => save("cash_pct", n)} style={pillStyle(portfolio.cash_pct === n, saving === "cash_pct")}>{n}%</button>
+              <button key={n} onClick={() => setPref("cash_pct", n)} style={pillStyle(current.cash_pct === n, false)}>{n}%</button>
             ))}
           </div>
         </div>
@@ -354,10 +379,10 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
         <div style={labelStyle}>Preferred asset types</div>
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
           {ASSET_TYPE_OPTIONS.map(a => {
-            const active = portfolio.preferred_assets.includes(a);
-            const next   = active ? portfolio.preferred_assets.filter(x => x !== a) : [...portfolio.preferred_assets, a];
+            const active = current.preferred_assets.includes(a);
+            const next   = active ? current.preferred_assets.filter(x => x !== a) : [...current.preferred_assets, a];
             return (
-              <button key={a} disabled={saving === "preferred_assets"} onClick={() => save("preferred_assets", next)} style={pillStyle(active, saving === "preferred_assets")}>
+              <button key={a} onClick={() => setPref("preferred_assets", next)} style={pillStyle(active, false)}>
                 {a.charAt(0).toUpperCase() + a.slice(1)}
               </button>
             );
@@ -382,11 +407,12 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
             { id: "dividend_aristocrats",label: "Div. Aristocrats",  desc: "25+ yrs consecutive dividend growth" },
             { id: "berkshire",          label: "Berkshire Holdings", desc: "BRK.B portfolio constituents"        },
           ]).map(({ id, label, desc }) => {
-            const active = portfolio.universe.includes(id);
-            const next   = active ? portfolio.universe.filter(x => x !== id) : [...portfolio.universe, id];
+            const pUniverse = (current as any).universe ?? [];
+            const active    = pUniverse.includes(id);
+            const next      = active ? pUniverse.filter((x: string) => x !== id) : [...pUniverse, id];
             return (
-              <button key={id} disabled={saving === "universe"} onClick={() => save("universe", next)}
-                style={{ ...pillStyle(active, saving === "universe"), display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0.3rem 0.7rem" }}
+              <button key={id} onClick={() => setPref("universe" as any, next)}
+                style={{ ...pillStyle(active, false), display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0.3rem 0.7rem" }}
                 title={desc}>
                 <span>{label}</span>
                 <span style={{ fontSize: "0.55rem", opacity: 0.6, fontWeight: 400 }}>{desc}</span>
@@ -412,11 +438,12 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
             { id: "commodity_etf", label: "Commodities",   desc: "GLD SLV GDX oil ETFs"       },
             { id: "crypto_etf",    label: "Crypto-adjacent",desc: "COIN MSTR BTC ETFs"        },
           ]).map(({ id, label, desc }) => {
-            const active = portfolio.universe.includes(id);
-            const next   = active ? portfolio.universe.filter(x => x !== id) : [...portfolio.universe, id];
+            const pUniverse = (current as any).universe ?? [];
+            const active    = pUniverse.includes(id);
+            const next      = active ? pUniverse.filter((x: string) => x !== id) : [...pUniverse, id];
             return (
-              <button key={id} disabled={saving === "universe"} onClick={() => save("universe", next)}
-                style={{ ...pillStyle(active, saving === "universe"), display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0.3rem 0.7rem" }}
+              <button key={id} onClick={() => setPref("universe" as any, next)}
+                style={{ ...pillStyle(active, false), display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0.3rem 0.7rem" }}
                 title={desc}>
                 <span>{label}</span>
                 <span style={{ fontSize: "0.55rem", opacity: 0.6, fontWeight: 400 }}>{desc}</span>
@@ -434,10 +461,11 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
         <div style={labelStyle}>Excluded Sectors</div>
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
           {["Technology","Healthcare","Financials","Energy","Industrials","Consumer","Materials","Utilities","Real Estate","Communications","Defence"].map(s => {
-            const active = portfolio.sector_exclude.includes(s);
-            const next   = active ? portfolio.sector_exclude.filter(x => x !== s) : [...portfolio.sector_exclude, s];
+            const pExclude = (current as any).sector_exclude ?? [];
+            const active   = pExclude.includes(s);
+            const next     = active ? pExclude.filter((x: string) => x !== s) : [...pExclude, s];
             return (
-              <button key={s} disabled={saving === "sector_exclude"} onClick={() => save("sector_exclude", next)} style={pillStyle(active, saving === "sector_exclude")}>
+              <button key={s} onClick={() => setPref("sector_exclude" as any, next)} style={pillStyle(active, false)}>
                 {s}
               </button>
             );
@@ -446,6 +474,16 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
         <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginTop: "0.3rem" }}>
           Always excluded from recommendations regardless of market signals
         </div>
+      </div>
+
+      {/* Save button */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", paddingTop: "0.5rem", borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: "0.25rem" }}>
+        <button onClick={saveAll} disabled={!isDirty || saving}
+          style={{ padding: "0.45rem 1.25rem", background: isDirty ? "rgba(200,169,110,0.15)" : "transparent", border: `1px solid ${isDirty ? "rgba(200,169,110,0.5)" : "rgba(255,255,255,0.08)"}`, color: isDirty ? "var(--gold)" : "rgba(232,226,217,0.25)", borderRadius: 6, cursor: isDirty ? "pointer" : "default", fontSize: "0.78rem", fontWeight: 600, transition: "all 0.15s" }}>
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+        {isDirty && !saving && <span style={{ fontSize: "0.65rem", color: "rgba(232,226,217,0.35)" }}>Unsaved changes</span>}
+        {saved && !isDirty  && <span style={{ fontSize: "0.65rem", color: "#4eca99" }}>✓ Saved</span>}
       </div>
     </div>
   );
@@ -749,8 +787,12 @@ export default function PortfolioPage() {
         sector_exclude: p.sector_exclude ?? [],
       }));
       setPortfolios(all);
-      if (all.length) { setSelectedId(all[0].id); }
-      else            { setShowNew(true); setIsFirstRun(true); }
+      if (all.length) {
+        // Restore last selected portfolio from session storage
+        const lastId = sessionStorage.getItem("quant_iq_selected_portfolio");
+        const restored = lastId && all.find((p: any) => p.id === lastId);
+        setSelectedId(restored ? lastId : all[0].id);
+      } else { setShowNew(true); setIsFirstRun(true); }
       setInitLoading(false);
     }
     init();
@@ -769,7 +811,12 @@ export default function PortfolioPage() {
 
   }, []);
 
-  useEffect(() => { if (selectedId) loadPortfolioData(selectedId); }, [selectedId, loadPortfolioData]);
+  useEffect(() => {
+    if (selectedId) {
+      sessionStorage.setItem("quant_iq_selected_portfolio", selectedId);
+      loadPortfolioData(selectedId);
+    }
+  }, [selectedId, loadPortfolioData]);
 
   async function handleCreatePortfolio(name: string, prefs: ProfileDefaults) {
     const res  = await fetch("/api/portfolio", {
