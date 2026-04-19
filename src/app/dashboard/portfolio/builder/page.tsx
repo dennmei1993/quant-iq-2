@@ -614,17 +614,35 @@ function PortfolioBuilderInner() {
     try {
       const res  = await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_run", portfolio_id: portfolioId, mode: targetMode, strategy: strat }) });
       const data = await res.json();
-      return data.run?.id ?? null;
+      return data.run_id ?? null;  // route returns { run_id }
     } catch { return null; }
   }
 
   async function saveThemesToRun(runId: string, themes: RecommendedTheme[]) {
-    await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_themes", run_id: runId, themes }) });
+    const res  = await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_themes", run_id: runId, themes }) });
+    const data = await res.json();
+    if (!res.ok) console.error("[saveThemesToRun] failed:", data);
+    else         console.log("[saveThemesToRun] ok — run:", runId, "themes:", themes.length);
   }
 
   async function saveTickersToRun(runId: string, tickers: TickerAllocation[]) {
-    const rows = tickers.map(t => ({ ticker: t.ticker, name: t.name, theme_name: t.theme_name, signal: t.editSignal, weight: Number(t.editWeight || 0), capital: t.price ? (Number(t.editWeight || 0) / 100) * ((portfolio?.total_capital ?? 0) * (1 - (strategy?.cash_reserve_pct ?? 0) / 100)) : null, price: t.price, quantity: t.price && Number(t.editWeight) ? Math.floor(((Number(t.editWeight) / 100) * ((portfolio?.total_capital ?? 0) * (1 - (strategy?.cash_reserve_pct ?? 0) / 100))) / t.price) : null, rationale: t.rationale, included: t.included, edited: t.editSignal !== t.signal || t.editWeight !== String(t.weight) }));
-    await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_tickers", run_id: runId, tickers: rows }) });
+    const rows = tickers.map(t => ({
+      ticker:     t.ticker,
+      name:       t.name,
+      theme_name: t.theme_name,
+      signal:     t.editSignal ?? t.signal,
+      weight:     Number(t.editWeight ?? t.weight ?? 0),
+      price:      t.price ?? null,
+      rationale:  t.rationale ?? null,
+      included:   t.included ?? true,
+      fundamental_score: t.fundamental_score ?? null,
+      technical_score:   t.technical_score   ?? null,
+    }));
+    console.log("[saveTickersToRun] run:", runId, "rows:", rows.length, "sample:", rows[0]);
+    const res  = await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_tickers", run_id: runId, tickers: rows }) });
+    const data = await res.json();
+    if (!res.ok) console.error("[saveTickersToRun] failed:", data);
+    else         console.log("[saveTickersToRun] ok — run:", runId, "tickers:", rows.length);
   }
 
   // PATCH 4: Clear old recommendations + create new run on mount
@@ -636,8 +654,8 @@ function PortfolioBuilderInner() {
         setPortfolio(d.portfolio ?? null);
         // Clear any existing draft/recommendations runs so new build replaces old recommendation
         await fetch(`/api/portfolio/builder/recommendation?portfolio_id=${portfolioId}`, { method: "DELETE" });
-        // Create fresh run record
-        const runRes = await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolio_id: portfolioId, mode: initialMode }) });
+        // Create fresh run record (action required by new route)
+        const runRes = await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_run", portfolio_id: portfolioId, mode: initialMode }) });
         if (runRes.ok) { const d = await runRes.json(); setRunId(d.run_id); }
       });
   }, [portfolioId]);
