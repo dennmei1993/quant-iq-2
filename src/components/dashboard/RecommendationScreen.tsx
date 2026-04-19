@@ -39,11 +39,9 @@ interface Props {
   portfolioId:     string
   totalCapital:    number
   cashReservePct:  number
-  // Provided when coming from builder (step 4)
   runId?:          string
   onBack?:         () => void
   onDone:          () => void
-  // Standalone mode — loads from DB
   standalone?:     boolean
 }
 
@@ -227,6 +225,8 @@ export function RecommendationScreen({
   const [loading,    setLoading]    = useState(true)
   const [createdAt,  setCreatedAt]  = useState<string | null>(null)
   const [mode,       setMode]       = useState<string | null>(null)
+  const [horizon,    setHorizon]    = useState<string | null>(null)
+  const [style,      setStyle]      = useState<string | null>(null)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -250,6 +250,8 @@ export function RecommendationScreen({
           setRunId(run.id)
           setCreatedAt(run.created_at)
           setMode(run.mode)
+          setHorizon((run as any).strategy?.investment_horizon ?? null)
+          setStyle((run as any).strategy?.style ?? null)
           setRecs(run.portfolio_build_tickers.filter((t: any) => t.included !== false) as RecommendationTicker[])
         }
       } catch {}
@@ -320,12 +322,14 @@ export function RecommendationScreen({
             </span>
           )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.8rem' }}>
           {[
-            { label: 'BUY signals',  value: `${buys.length} tickers`            },
-            { label: 'WATCH',        value: `${watches.length} tickers`          },
-            { label: 'Investable',   value: fmtCurrency(investable)              },
-            { label: 'Added',        value: `${addedCount} of ${buys.length}`    },
+            { label: 'BUY signals',  value: `${buys.length} tickers`         },
+            { label: 'WATCH',        value: `${watches.length} tickers`       },
+            { label: 'Investable',   value: fmtCurrency(investable)           },
+            { label: 'Added',        value: `${addedCount} of ${buys.length}` },
+            ...(style   ? [{ label: 'Style',   value: style.charAt(0).toUpperCase() + style.slice(1)  }] : []),
+            ...(horizon ? [{ label: 'Horizon', value: horizon.charAt(0).toUpperCase() + horizon.slice(1) }] : []),
           ].map(({ label, value }) => (
             <div key={label}>
               <div style={{ fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
@@ -369,7 +373,7 @@ export function RecommendationScreen({
                         </div>
                       )}
                       {rec.price && <span style={{ fontSize: '0.7rem', color: T.dim, fontFamily: 'var(--font-mono)' }}>${rec.price.toFixed(2)}</span>}
-                      {suggestedCap && <span style={{ fontSize: '0.68rem', color: 'rgba(99,179,237,0.7)' }}>{fmtCurrency(suggestedCap)} suggested ({rec.weight}%)</span>}
+
                       {isAdded && rec.added_at && (
                         <span style={{ fontSize: '0.62rem', color: 'rgba(78,202,153,0.5)', fontFamily: 'var(--font-mono)' }}>
                           added {new Date(rec.added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -378,18 +382,30 @@ export function RecommendationScreen({
                     </div>
                   </div>
 
-                  <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
-                    {isAdded ? (
-                      <span style={{ fontSize: '0.72rem', color: '#4eca99', display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.8rem', border: '1px solid rgba(78,202,153,0.25)', borderRadius: 5, background: 'rgba(78,202,153,0.06)' }}>
-                        ✓ Added
-                      </span>
-                    ) : (
-                      <button onClick={() => setAddingRec(rec)}
-                        style={{ padding: '0.4rem 0.9rem', background: 'rgba(78,255,145,0.08)', border: '1px solid rgba(78,255,145,0.3)', color: 'var(--green)', borderRadius: 5, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        + Add to Holdings
-                      </button>
-                    )}
-                    <div style={{ fontSize: '0.6rem', color: T.dimmer, textAlign: 'right' }}>{rec.weight}% weight</div>
+                  <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+                    {/* Weight + capital */}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: T.cream, fontFamily: 'var(--font-mono)' }}>{rec.weight}%</div>
+                      {suggestedCap && <div style={{ fontSize: '0.65rem', color: 'rgba(99,179,237,0.7)' }}>{fmtCurrency(suggestedCap)}</div>}
+                      {horizon && <div style={{ fontSize: '0.58rem', color: T.dimmer, marginTop: 1 }}>{horizon} horizon</div>}
+                    </div>
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                      <a href={`https://finance.yahoo.com/quote/${rec.ticker}`} target="_blank" rel="noopener noreferrer"
+                        style={{ padding: '0.3rem 0.6rem', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: T.dim, borderRadius: 5, cursor: 'pointer', fontSize: '0.68rem', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                        ↗ Check
+                      </a>
+                      {isAdded ? (
+                        <span style={{ fontSize: '0.72rem', color: '#4eca99', display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', border: '1px solid rgba(78,202,153,0.25)', borderRadius: 5, background: 'rgba(78,202,153,0.06)' }}>
+                          ✓ Added
+                        </span>
+                      ) : (
+                        <button onClick={() => setAddingRec(rec)}
+                          style={{ padding: '0.3rem 0.8rem', background: 'rgba(78,255,145,0.08)', border: '1px solid rgba(78,255,145,0.3)', color: 'var(--green)', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          + Add
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -406,18 +422,57 @@ export function RecommendationScreen({
           </div>
           <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, overflow: 'hidden' }}>
             {watches.map((rec, i) => (
-              <div key={rec.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 1rem', borderBottom: i < watches.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.82rem', color: T.cream, fontFamily: 'var(--font-mono)', minWidth: 60 }}>{rec.ticker}</span>
-                <span style={{ fontSize: '0.62rem', background: 'rgba(240,180,41,0.08)', color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)', borderRadius: 4, padding: '0.05rem 0.35rem', fontWeight: 700, flexShrink: 0 }}>WATCH</span>
-                <span style={{ fontSize: '0.68rem', color: T.dim, flex: 1 }}>{rec.name}</span>
-                {rec.theme_name && <span style={{ fontSize: '0.65rem', color: T.dimmer, flexShrink: 0 }}>{rec.theme_name}</span>}
-                {rec.price && <span style={{ fontSize: '0.68rem', color: T.dim, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>${rec.price.toFixed(2)}</span>}
-                <button onClick={() => setAddingRec(rec)}
-                  style={{ padding: '0.25rem 0.6rem', background: rec.was_confirmed ? 'rgba(78,202,153,0.06)' : 'none', border: `1px solid ${rec.was_confirmed ? 'rgba(78,202,153,0.25)' : 'rgba(240,180,41,0.2)'}`, color: rec.was_confirmed ? '#4eca99' : '#f0b429', borderRadius: 4, cursor: 'pointer', fontSize: '0.65rem', flexShrink: 0 }}>
-                  {rec.was_confirmed ? '✓' : '+ Add'}
-                </button>
+              <div key={rec.id} style={{ borderBottom: i < watches.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 1rem' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.82rem', color: T.cream, fontFamily: 'var(--font-mono)', minWidth: 60 }}>{rec.ticker}</span>
+                  <span style={{ fontSize: '0.62rem', background: 'rgba(240,180,41,0.08)', color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)', borderRadius: 4, padding: '0.05rem 0.35rem', fontWeight: 700, flexShrink: 0 }}>WATCH</span>
+                  <span style={{ fontSize: '0.68rem', color: T.dim, flex: 1 }}>{rec.name}</span>
+                  {rec.theme_name && <span style={{ fontSize: '0.65rem', color: T.dimmer, flexShrink: 0 }}>{rec.theme_name}</span>}
+                  {rec.price && <span style={{ fontSize: '0.68rem', color: T.dim, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>${rec.price.toFixed(2)}</span>}
+                  <a href={`https://finance.yahoo.com/quote/${rec.ticker}`} target="_blank" rel="noopener noreferrer"
+                    style={{ padding: '0.2rem 0.5rem', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: T.dim, borderRadius: 4, cursor: 'pointer', fontSize: '0.65rem', textDecoration: 'none', flexShrink: 0 }}>
+                    ↗
+                  </a>
+                  <button onClick={() => setAddingRec(rec)}
+                    style={{ padding: '0.25rem 0.6rem', background: rec.was_confirmed ? 'rgba(78,202,153,0.06)' : 'none', border: `1px solid ${rec.was_confirmed ? 'rgba(78,202,153,0.25)' : 'rgba(240,180,41,0.2)'}`, color: rec.was_confirmed ? '#4eca99' : '#f0b429', borderRadius: 4, cursor: 'pointer', fontSize: '0.65rem', flexShrink: 0 }}>
+                    {rec.was_confirmed ? '✓' : '+ Add'}
+                  </button>
+                </div>
+                {/* Signals to watch for */}
+                <div style={{ padding: '0 1rem 0.6rem 1rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'T-score crosses 60',    desc: 'Technical momentum confirms trend' },
+                    { label: 'Price breaks resistance', desc: 'Clear breakout above key level'   },
+                    { label: 'Volume spike',           desc: 'Institutional accumulation signal' },
+                    { label: 'F-score improves',       desc: 'Fundamental upgrade from analyst'  },
+                  ].map(sig => (
+                    <span key={sig.label} title={sig.desc}
+                      style={{ fontSize: '0.58rem', background: 'rgba(240,180,41,0.05)', color: 'rgba(240,180,41,0.5)', border: '1px solid rgba(240,180,41,0.12)', borderRadius: 3, padding: '0.1rem 0.45rem', cursor: 'help' }}>
+                      {sig.label}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))}
+          </div>
+          {/* WATCH guidance */}
+          <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(240,180,41,0.04)', border: '1px solid rgba(240,180,41,0.12)', borderRadius: 6 }}>
+            <div style={{ fontSize: '0.62rem', color: 'rgba(240,180,41,0.7)', fontWeight: 600, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>When to upgrade WATCH → BUY</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.3rem 1.5rem' }}>
+              {[
+                ['T-score ≥ 60',        'Technical momentum confirmed — price trending with volume'],
+                ['F-score improves',    'Earnings beat, guidance raised, or analyst upgrade'],
+                ['Sector turns BUY',    'Sector momentum signals flip positive in our database'],
+                ['Regime shifts',       'Market regime moves to favour this sector or style'],
+                ['Price breaks out',    'Close above key resistance on above-average volume'],
+                ['Relative strength',   'Outperforming benchmark for 2+ consecutive weeks'],
+              ].map(([signal, detail]) => (
+                <div key={signal} style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '0.62rem', color: 'rgba(240,180,41,0.6)', fontWeight: 600, flexShrink: 0, minWidth: 110 }}>{signal}</span>
+                  <span style={{ fontSize: '0.62rem', color: T.dimmer, lineHeight: 1.4 }}>{detail}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
