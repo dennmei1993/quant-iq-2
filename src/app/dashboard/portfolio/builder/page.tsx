@@ -968,7 +968,7 @@ function PortfolioBuilderInner() {
           <div style={{ fontSize: "0.78rem", color: "rgba(232,226,217,0.5)", maxWidth: 380, lineHeight: 1.6 }}>
             Your portfolio recommendations have been generated and saved. Check the Recommendations panel on your portfolio page to review and add tickers to your holdings.
           </div>
-          <button onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${portfolioId}`)}
+          <button onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${portfolioId}&tab=recommendations`)}
             style={{ marginTop: "0.5rem", padding: "0.6rem 1.5rem", background: "rgba(200,169,110,0.15)", border: "1px solid rgba(200,169,110,0.4)", color: "var(--gold)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem", fontWeight: 600 }}>
             View recommendations →
           </button>
@@ -1061,7 +1061,7 @@ function PortfolioBuilderInner() {
           runId={activeRunId ?? undefined}
           standalone={false}
           onBack={() => setStep(3)}
-          onDone={() => router.push(`/dashboard/portfolio?portfolio_id=${portfolioId}`)}
+          onDone={() => router.push(`/dashboard/portfolio?portfolio_id=${portfolioId}&tab=recommendations`)}
         />
       )}
     </div>

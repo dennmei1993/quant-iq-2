@@ -704,7 +704,8 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PortfolioPage() {
-  const router   = useRouter();
+  const router      = useRouter();
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const [debugMode, setDebugMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("quant_iq_debug") === "true";
@@ -725,7 +726,7 @@ export default function PortfolioPage() {
   const [initLoading, setInitLoading] = useState(true);
   const [showNew,     setShowNew]     = useState(false);
   const [isFirstRun,  setIsFirstRun]  = useState(false);
-  const [activeTab,   setActiveTab]   = useState<"holdings" | "watchlist" | "distribution" | "history">("holdings");
+  const [activeTab,   setActiveTab]   = useState<"holdings" | "recommendations" | "watchlist" | "distribution" | "history">("holdings");
 
 
 
@@ -801,6 +802,11 @@ export default function PortfolioPage() {
         const lastId = sessionStorage.getItem("quant_iq_selected_portfolio");
         const restored = lastId && all.find((p: any) => p.id === lastId);
         setSelectedId(restored ? lastId : all[0].id);
+        // Open tab from URL param (e.g. ?tab=recommendations from builder)
+        const urlTab = new URLSearchParams(window.location.search).get("tab");
+        if (urlTab && ["holdings","recommendations","watchlist","distribution","history"].includes(urlTab)) {
+          setActiveTab(urlTab as any);
+        }
       } else { setShowNew(true); setIsFirstRun(true); }
       setInitLoading(false);
     }
@@ -1032,6 +1038,27 @@ export default function PortfolioPage() {
         </>
       )}
 
+      {/* ── Page-level action buttons ── */}
+      {selectedPortfolio && (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+          <button onClick={() => setShowAddHolding(true)}
+            style={{ padding: "0.4rem 1rem", background: "rgba(78,255,145,0.08)", border: "1px solid rgba(78,255,145,0.25)", color: "var(--green)", borderRadius: 5, fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            + Add Holding
+          </button>
+          <button
+            onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}&debug=${debugMode}`)}
+            disabled={!selectedPortfolio?.total_capital}
+            style={{ padding: "0.4rem 1rem", background: "rgba(200,169,110,0.12)", border: "1px solid rgba(200,169,110,0.3)", color: "var(--gold)", borderRadius: 5, fontSize: "0.75rem", fontWeight: 600, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer", opacity: !selectedPortfolio?.total_capital ? 0.4 : 1, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            ✦ Build portfolio
+          </button>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", cursor: "pointer", userSelect: "none", marginLeft: "auto" }}>
+            <input type="checkbox" checked={debugMode} onChange={e => toggleDebug(e.target.checked)}
+              style={{ width: 13, height: 13, accentColor: "rgba(252,92,101,0.8)", cursor: "pointer" }} />
+            <span style={{ fontSize: "0.62rem", color: debugMode ? "rgba(252,92,101,0.7)" : "rgba(232,226,217,0.3)", fontFamily: "var(--font-mono)" }}>debug</span>
+          </label>
+        </div>
+      )}
+
       {/* ── Add Holding modal ── */}
       {showAddHolding && (
         <>
@@ -1182,101 +1209,39 @@ export default function PortfolioPage() {
 
       {selectedPortfolio && (
         <>
-          {/* ── Panel 1: Capital overview ── */}
+          {/* ── Capital overview ── */}
           <Panel title="Capital Overview" defaultOpen={true}
-            badge={
-              capitalMetrics && selectedPortfolio.total_capital > 0
-                ? <span style={{ fontSize: "0.68rem", color: capitalMetrics.return_pct >= 0 ? "var(--signal-bull)" : "var(--signal-bear)", fontFamily: "var(--font-mono)", marginLeft: 4 }}>
-                    {formatPct(capitalMetrics.return_pct)}
-                  </span>
-                : undefined
-            }
+            badge={<span style={{ fontSize: "0.58rem", background: "rgba(200,169,110,0.1)", color: "rgba(200,169,110,0.65)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: 3, padding: "0px 6px", marginLeft: 6 }}>live</span>}
           >
-            {capitalMetrics && selectedPortfolio.total_capital > 0 ? (
-              <CapitalSummaryBar metrics={capitalMetrics} cashFloorPct={selectedPortfolio.cash_pct} />
-            ) : (
-              <div style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.45)", padding: "0.5rem 0" }}>
-                No capital set — update Total Capital in <strong style={{ color: "rgba(200,169,110,0.7)" }}>Portfolio Settings</strong> to track performance.
-              </div>
-            )}
+            {capitalMetrics && <CapitalSummaryBar metrics={capitalMetrics} cashFloorPct={selectedPortfolio.cash_pct} />}
           </Panel>
 
-          {/* ── Panel 1b: Performance chart ── */}
-          <Panel title="Performance" defaultOpen={false}
-            badge={
-              summary_return != null
-                ? <span style={{ fontSize: "0.68rem", color: summary_return >= 0 ? "var(--signal-bull)" : "var(--signal-bear)", fontFamily: "var(--font-mono)", marginLeft: 4 }}>
-                    {summary_return >= 0 ? "+" : ""}{summary_return.toFixed(2)}%
-                  </span>
-                : undefined
-            }
-          >
-            <PortfolioPerformanceChart
-              portfolioId={selectedPortfolio.id}
-              totalCapital={selectedPortfolio.total_capital}
-            />
+          {/* ── Performance ── */}
+          <Panel title="Performance" defaultOpen={false}>
+            <PortfolioPerformanceChart portfolioId={selectedPortfolio.id} totalCapital={selectedPortfolio.total_capital} />
           </Panel>
 
-          {/* ── Panel 1c: Active recommendations ── */}
-          <Panel title="Recommendations" defaultOpen={false}
-            badge={
-              <span style={{ fontSize: "0.58rem", background: "rgba(200,169,110,0.1)", color: "rgba(200,169,110,0.65)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: 3, padding: "0px 6px", marginLeft: 6 }}>
-                advisory
-              </span>
-            }
-          >
-            <RecommendationScreen
-              portfolioId={selectedPortfolio.id}
-              totalCapital={selectedPortfolio.total_capital}
-              cashReservePct={selectedPortfolio.cash_pct}
-              standalone={true}
-              onDone={() => loadPortfolioData(selectedPortfolio.id)}
-            />
-          </Panel>
-
-          {/* ── Panel 2: Portfolio settings ── */}
-          <Panel title="Portfolio Settings" defaultOpen={false}>
-            <PreferencePanel portfolio={selectedPortfolio} onUpdate={updatePreference} />
-          </Panel>
-
-          {/* ── Panel 3: Holdings ── */}
-          <Panel
-            title="Holdings"
-            defaultOpen={true}
-            badge={
-              holdings.length > 0
-                ? <span style={{ fontSize: "0.62rem", background: "rgba(200,169,110,0.15)", color: "var(--gold)", border: "1px solid rgba(200,169,110,0.25)", borderRadius: 10, padding: "1px 7px", marginLeft: 6 }}>{holdings.length}</span>
-                : undefined
-            }
-            action={
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button
-                  onClick={() => setShowAddHolding(true)}
-                  style={{ padding: "0.35rem 0.9rem", background: "rgba(78,255,145,0.08)", border: "1px solid rgba(78,255,145,0.25)", color: "var(--green)", borderRadius: 5, fontSize: "0.72rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  + Add Holding
+          {/* ── Main tabbed panel ── */}
+          <Panel title="Portfolio" defaultOpen={true}>
+            <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--dash-border)", marginBottom: "1.2rem", overflowX: "auto" }}>
+              {([
+                ["holdings",        "Holdings"],
+                ["recommendations", "Recommendations"],
+                ["watchlist",       "Watchlist"],
+                ["distribution",    "Signal Distribution"],
+                ["history",         "Build History"],
+              ] as const).map(([tab, label]) => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  style={{ padding: "0.45rem 1rem", background: "transparent", border: "none", borderBottom: `2px solid ${activeTab === tab ? "var(--gold)" : "transparent"}`, color: activeTab === tab ? "var(--gold)" : "rgba(232,226,217,0.40)", fontSize: "0.78rem", fontWeight: activeTab === tab ? 600 : 400, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s", flexShrink: 0 }}>
+                  {label}
                 </button>
-                <button
-                  onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}&debug=${debugMode}`)}
-                  disabled={!selectedPortfolio?.total_capital}
-                  style={{ padding: "0.35rem 0.9rem", background: "rgba(200,169,110,0.12)", border: "1px solid rgba(200,169,110,0.3)", color: "var(--gold)", borderRadius: 5, fontSize: "0.72rem", fontWeight: 600, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer", opacity: !selectedPortfolio?.total_capital ? 0.4 : 1, display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  ✦ Build portfolio
-                </button>
-                {/* Debug toggle */}
-                <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", cursor: "pointer", userSelect: "none" }}>
-                  <input type="checkbox" checked={debugMode} onChange={e => toggleDebug(e.target.checked)}
-                    style={{ width: 13, height: 13, accentColor: "rgba(252,92,101,0.8)", cursor: "pointer" }} />
-                  <span style={{ fontSize: "0.62rem", color: debugMode ? "rgba(252,92,101,0.7)" : "rgba(232,226,217,0.3)", fontFamily: "var(--font-mono)" }}>
-                    debug
-                  </span>
-                </label>
-              </div>
-            }
-          >
+              ))}
+            </div>
 
-
-
-
-            {/* Holdings table */}
+            {/* Holdings */}
+            {activeTab === "holdings" && (
+              <>
+                {/* Holdings table */}
             {holdings.length > 0 ? (
               <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
 
@@ -1384,13 +1349,41 @@ export default function PortfolioPage() {
                 No holdings yet. Add a ticker above or use <strong style={{ color: "var(--gold)" }}>✦ Build portfolio</strong> to generate a data-driven allocation.
               </div>
             )}
+              </>
+            )}
+
+            {/* Recommendations */}
+            {activeTab === "recommendations" && (
+              <RecommendationScreen
+                portfolioId={selectedPortfolio.id}
+                totalCapital={selectedPortfolio.total_capital}
+                cashReservePct={selectedPortfolio.cash_pct}
+                standalone={true}
+                onDone={() => loadPortfolioData(selectedPortfolio.id)}
+              />
+            )}
+
+            {/* Watchlist */}
+            {activeTab === "watchlist" && (
+              <PortfolioWatchlist portfolioId={selectedPortfolio.id} />
+            )}
+
+            {/* Signal Distribution */}
+            {activeTab === "distribution" && userId && (
+              <PortfolioSignalDistribution userId={userId} />
+            )}
+
+            {/* Build History */}
+            {activeTab === "history" && (
+              <PortfolioBuildHistory portfolioId={selectedPortfolio.id} />
+            )}
           </Panel>
 
-          {/* ── Panel 4: AI Advisory ── */}
+          {/* ── AI Advisory ── */}
           <Panel title="AI Advisory" defaultOpen={false}
-            action={
+            badge={
               <button onClick={generateMemo} disabled={generating || !holdings.length}
-                style={{ padding: "0.3rem 0.8rem", background: "rgba(200,169,110,0.1)", border: "1px solid rgba(200,169,110,0.25)", color: "var(--gold)", borderRadius: 4, fontSize: "0.7rem", cursor: generating || !holdings.length ? "not-allowed" : "pointer", opacity: generating || !holdings.length ? 0.5 : 1 }}>
+                style={{ fontSize: "0.62rem", background: "rgba(78,202,153,0.08)", border: "1px solid rgba(78,202,153,0.25)", color: "#4eca99", borderRadius: 4, padding: "0.15rem 0.6rem", cursor: generating || !holdings.length ? "not-allowed" : "pointer", opacity: !holdings.length ? 0.4 : 1 }}>
                 {generating ? "Generating…" : "Generate memo"}
               </button>
             }
@@ -1413,20 +1406,9 @@ export default function PortfolioPage() {
             )}
           </Panel>
 
-          {/* ── Panel 5: Analysis tabs ── */}
-          <Panel title="Analysis" defaultOpen={false}>
-            <div style={{ display: "flex", marginBottom: "1rem", background: "rgba(255,255,255,0.03)", border: "1px solid var(--dash-border)", borderRadius: 6, overflow: "hidden", width: "fit-content" }}>
-              {([["watchlist", "Watchlist"], ["distribution", "Signal Distribution"], ["history", "Build History"]] as const).map(([tab, label]) => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  style={{ padding: "0.4rem 1rem", background: activeTab === tab ? "rgba(255,255,255,0.08)" : "transparent", border: "none", color: activeTab === tab ? "var(--cream)" : "rgba(232,226,217,0.40)", fontSize: "0.78rem", fontWeight: activeTab === tab ? 600 : 400, cursor: "pointer" }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === "watchlist"    && <PortfolioWatchlist portfolioId={selectedPortfolio.id} />}
-            {activeTab === "distribution" && userId && <PortfolioSignalDistribution userId={userId} />}
-            {activeTab === "history"      && <PortfolioBuildHistory portfolioId={selectedPortfolio.id} />}
+          {/* ── Portfolio settings ── */}
+          <Panel title="Portfolio Settings" defaultOpen={false}>
+            <PreferencePanel portfolio={selectedPortfolio} onUpdate={updatePreference} />
           </Panel>
         </>
       )}
