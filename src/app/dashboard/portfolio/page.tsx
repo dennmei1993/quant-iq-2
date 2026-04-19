@@ -1227,7 +1227,7 @@ export default function PortfolioPage() {
               {([
                 ["holdings",        "Holdings"],
                 ["recommendations", "Recommendations"],
-                ["watchlist",       "Watchlist"],
+                ["watchlist",       "On Watch"],
                 ["distribution",    "Signal Distribution"],
                 ["history",         "Build History"],
               ] as const).map(([tab, label]) => (
