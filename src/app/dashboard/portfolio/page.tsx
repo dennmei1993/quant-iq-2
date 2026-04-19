@@ -705,6 +705,15 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
 
 export default function PortfolioPage() {
   const router   = useRouter();
+  const [debugMode, setDebugMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("quant_iq_debug") === "true";
+  });
+
+  function toggleDebug(val: boolean) {
+    setDebugMode(val);
+    localStorage.setItem("quant_iq_debug", String(val));
+  }
   const supabase = createClient();
 
   const [portfolios,  setPortfolios]  = useState<Portfolio[]>([]);
@@ -1247,11 +1256,19 @@ export default function PortfolioPage() {
                   + Add Holding
                 </button>
                 <button
-                  onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}`)}
+                  onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}&debug=${debugMode}`)}
                   disabled={!selectedPortfolio?.total_capital}
                   style={{ padding: "0.35rem 0.9rem", background: "rgba(200,169,110,0.12)", border: "1px solid rgba(200,169,110,0.3)", color: "var(--gold)", borderRadius: 5, fontSize: "0.72rem", fontWeight: 600, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer", opacity: !selectedPortfolio?.total_capital ? 0.4 : 1, display: "flex", alignItems: "center", gap: "0.4rem" }}>
                   ✦ Build portfolio
                 </button>
+                {/* Debug toggle */}
+                <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", cursor: "pointer", userSelect: "none" }}>
+                  <input type="checkbox" checked={debugMode} onChange={e => toggleDebug(e.target.checked)}
+                    style={{ width: 13, height: 13, accentColor: "rgba(252,92,101,0.8)", cursor: "pointer" }} />
+                  <span style={{ fontSize: "0.62rem", color: debugMode ? "rgba(252,92,101,0.7)" : "rgba(232,226,217,0.3)", fontFamily: "var(--font-mono)" }}>
+                    debug
+                  </span>
+                </label>
               </div>
             }
           >

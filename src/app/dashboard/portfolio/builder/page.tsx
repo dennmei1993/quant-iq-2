@@ -571,8 +571,11 @@ function PortfolioBuilderInner() {
   const searchParams = useSearchParams();
   const portfolioId  = searchParams.get("portfolio_id");
   const initialMode  = (searchParams.get("mode") ?? "data") as BuildMode;
+  const debugMode    = searchParams.get("debug") === "true";
 
-  const [step,      setStep]      = useState<Step>(1);
+  const [step,         setStep]         = useState<Step>(1);
+  const [autoRunning,  setAutoRunning]  = useState(false);
+  const [autoComplete, setAutoComplete] = useState(false);
   const [mode,      setMode]      = useState<BuildMode>(initialMode);
   const [portfolio, setPortfolio] = useState<any>(null);
   const [strategy,  setStrategy]  = useState<Strategy | null>(null);
@@ -660,23 +663,26 @@ function PortfolioBuilderInner() {
       });
   }, [portfolioId]);
 
-  // Step 1: load prompt and show preview modal
+  // Step 1: load prompt and show preview modal (debug) or run directly (non-debug)
   const generateStrategy = useCallback(async () => {
     setError(null);
     const args = { portfolio_id: portfolioId, mode: initialMode, run_id: runId, provider: initialMode === "llm" ? llmProvider : "claude", model_id: initialMode === "llm" ? llmModelId : undefined };
+    if (!debugMode) {
+      // Non-debug: run directly without preview
+      await runStrategy(args, undefined);
+      return;
+    }
     setPendingStrategyArgs(args);
     try {
-      // Fetch the assembled prompt for preview
       const res  = await fetch(`/api/portfolio/builder/strategy?portfolio_id=${portfolioId}&mode=${initialMode}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setPromptPreview(data.prompt);
     } catch (e: any) {
-      // If preview fails, fall back to running without preview
       setError(null);
       await runStrategy(args, undefined);
     }
-  }, [portfolioId, runId, initialMode, llmProvider, llmModelId]);
+  }, [portfolioId, runId, initialMode, llmProvider, llmModelId, debugMode]);
 
   // Step 2: send prompt to LLM (called after user confirms in modal)
   const runStrategy = useCallback(async (args: any, promptOverride: string | undefined) => {
@@ -693,9 +699,13 @@ function PortfolioBuilderInner() {
       setStrategy(data.strategy);
       if (data.macro) setMacroScores(data.macro);
       if (args.run_id) fetch("/api/portfolio/builder/run", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: args.run_id, strategy: data.strategy }) });
+      // Non-debug: auto-advance to themes
+      if (!debugMode) {
+        setStep(2);
+      }
     } catch (e: any) { setError(e.message ?? "Failed to generate strategy"); }
     finally { setLoadingStrategy(false); }
-  }, []);
+  }, [debugMode]);
 
   useEffect(() => { if (portfolio && !strategy && !loadingStrategy) generateStrategy(); }, [portfolio]);
 
@@ -703,9 +713,11 @@ function PortfolioBuilderInner() {
     if (!strategy) return;
     setError(null);
     const args = { portfolio_id: portfolioId, strategy, provider: "claude", model_id: undefined };
+    if (!debugMode) {
+      await runThemes({ ...args, targetMode }, undefined);
+      return;
+    }
     setPendingThemesArgs({ ...args, targetMode });
-
-    // Fetch prompt preview — pass strategy as query param for GET
     try {
       const strategyParam = encodeURIComponent(JSON.stringify(strategy));
       const res  = await fetch(`/api/portfolio/builder/themes?portfolio_id=${portfolioId}&strategy=${strategyParam}`);
@@ -713,11 +725,10 @@ function PortfolioBuilderInner() {
       if (!res.ok) throw new Error(data.error);
       setPromptPreviewThemes(data.prompt);
     } catch (e: any) {
-      // Preview failed — run directly without preview
       setError(null);
       await runThemes({ ...args, targetMode }, undefined);
     }
-  }, [portfolioId, strategy]);
+  }, [portfolioId, strategy, debugMode]);
 
   const runThemes = useCallback(async (args: any, promptOverride: string | undefined) => {
     setPromptPreviewThemes(null);
@@ -741,9 +752,13 @@ function PortfolioBuilderInner() {
       setResult(themesResult);
       if (runId) await saveThemesToRun(runId, themesResult);
       setMode("data"); setStep(2);
+      // Non-debug: auto-advance to allocation
+      if (!debugMode) {
+        setStep(3); // skip manual step — handled by useEffect watching dataThemes
+      }
     } catch (e: any) { setError(e.message ?? "Failed to load themes"); }
     finally { setLoading(false); }
-  }, [portfolioId, strategy]);
+  }, [portfolioId, strategy, debugMode]);
 
   const generateAllocation = useCallback(async (targetMode: BuildMode) => {
     const sourceThemes   = targetMode === "data" ? dataThemes : [];
@@ -752,9 +767,11 @@ function PortfolioBuilderInner() {
     setError(null);
 
     const args = { portfolio_id: portfolioId, strategy, themes: selectedThemes, targetMode, provider: "claude" };
+    if (!debugMode) {
+      await runAllocation(args, undefined);
+      return;
+    }
     setPendingAllocArgs(args);
-
-    // Fetch prompt preview
     try {
       const themesParam   = encodeURIComponent(JSON.stringify(selectedThemes));
       const strategyParam = encodeURIComponent(JSON.stringify(strategy));
@@ -763,10 +780,9 @@ function PortfolioBuilderInner() {
       if (!res.ok) throw new Error(data.error);
       setPromptPreviewAlloc(data.prompt);
     } catch {
-      // Preview failed — run directly
       await runAllocation(args, undefined);
     }
-  }, [portfolioId, strategy, dataThemes]);
+  }, [portfolioId, strategy, dataThemes, debugMode]);
 
   const runAllocation = useCallback(async (args: any, promptOverride: string | undefined) => {
     setPromptPreviewAlloc(null);
@@ -831,6 +847,20 @@ function PortfolioBuilderInner() {
     finally { setCommitting(false); }
   }, [portfolioId, tickers, strategy, activeRunId, mode, dataRunId, llmRunId]);
 
+  // Non-debug auto-chain: when themes load, auto-run allocation
+  useEffect(() => {
+    if (debugMode || dataThemes.length === 0 || dataTickers.length > 0 || loadingDataAllocation) return;
+    if (step === 3 && !loadingDataAllocation) generateAllocation("data");
+  }, [dataThemes, step, debugMode]);
+
+  // Non-debug auto-chain: when tickers load, auto-confirm
+  useEffect(() => {
+    if (debugMode || dataTickers.length === 0 || autoComplete) return;
+    if (step === 3 && !loadingDataAllocation) {
+      confirm().then(() => setAutoComplete(true));
+    }
+  }, [dataTickers, step, debugMode]);
+
   function updateTicker(ticker: string, field: keyof TickerAllocation, value: any) {
     const setter = mode === "data" ? setDataTickers : setLlmTickers;
     setter(prev => prev.map(t => t.ticker === ticker ? { ...t, [field]: value } : t));
@@ -847,7 +877,33 @@ function PortfolioBuilderInner() {
         </p>
       </div>
 
-      <StepIndicator current={step} total={4} />
+      {!debugMode && (autoRunning || autoComplete) ? null : <StepIndicator current={step} total={4} />}
+      {!debugMode && !autoComplete && (loadingStrategy || loadingDataThemes || loadingDataAllocation || committing) && (
+        <div style={{ padding: "2rem", textAlign: "center" }}>
+          <div style={{ fontSize: "0.82rem", color: "rgba(232,226,217,0.5)", marginBottom: "0.75rem" }}>
+            {loadingStrategy ? "Analysing market conditions and building strategy…" :
+             loadingDataThemes ? "Matching investment themes to your strategy…" :
+             loadingDataAllocation ? "Selecting tickers and allocating weights…" :
+             "Finalising recommendations…"}
+          </div>
+          <div style={{ width: 180, height: 2, background: "rgba(255,255,255,0.06)", borderRadius: 2, margin: "0 auto", overflow: "hidden" }}>
+            <div style={{ height: "100%", background: "var(--gold)", borderRadius: 2, width: loadingStrategy ? "20%" : loadingDataThemes ? "50%" : loadingDataAllocation ? "75%" : "95%", transition: "width 0.5s ease" }} />
+          </div>
+        </div>
+      )}
+      {!debugMode && autoComplete && (
+        <div style={{ padding: "2.5rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+          <div style={{ fontSize: "2rem" }}>✦</div>
+          <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--gold)" }}>Recommendations ready</div>
+          <div style={{ fontSize: "0.78rem", color: "rgba(232,226,217,0.5)", maxWidth: 380, lineHeight: 1.6 }}>
+            Your portfolio recommendations have been generated and saved. Check the Recommendations panel on your portfolio page to review and add tickers to your holdings.
+          </div>
+          <button onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${portfolioId}`)}
+            style={{ marginTop: "0.5rem", padding: "0.6rem 1.5rem", background: "rgba(200,169,110,0.15)", border: "1px solid rgba(200,169,110,0.4)", color: "var(--gold)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem", fontWeight: 600 }}>
+            View recommendations →
+          </button>
+        </div>
+      )}
 
       {error && <div style={{ background: "rgba(252,92,101,0.08)", border: "1px solid rgba(252,92,101,0.25)", borderRadius: 8, padding: "0.65rem 1rem", marginBottom: "1.2rem", fontSize: "0.8rem", color: "#fc5c65" }}>{error}</div>}
 
