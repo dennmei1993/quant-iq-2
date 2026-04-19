@@ -14,6 +14,7 @@ import { PortfolioSignalDistribution }   from "@/components/dashboard/PortfolioS
 import { PortfolioWatchlist }              from "@/components/dashboard/PortfolioWatchlist";
 import { PortfolioBuildHistory }           from "@/components/dashboard/PortfolioBuildHistory";
 import { PortfolioPerformanceChart }       from "@/components/dashboard/PortfolioPerformanceChart";
+import AddHoldingButton         from "@/components/dashboard/AddHoldingButton";
 import { RecommendationScreen }             from "@/components/dashboard/RecommendationScreen";
 import { TransactionHistory }              from "@/components/dashboard/TransactionHistory";
 import {
@@ -703,6 +704,66 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+
+// ─── Portfolio Watchlist Panel ────────────────────────────────────────────────
+
+function PortfolioWatchlistPanel({ portfolioId }: { portfolioId: string }) {
+  const [entries,  setEntries]  = useState<{ id: string; ticker: string; name: string | null; notes: string | null; added_at: string }[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [removing, setRemoving] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/portfolio/watchlist?portfolio_id=${portfolioId}`)
+      .then(r => r.json())
+      .then(d => { setEntries(d.watchlist ?? []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [portfolioId])
+
+  async function remove(ticker: string) {
+    setRemoving(ticker)
+    await fetch(`/api/portfolio/watchlist?portfolio_id=${portfolioId}&ticker=${ticker}`, { method: "DELETE" })
+    setEntries(prev => prev.filter(e => e.ticker !== ticker))
+    setRemoving(null)
+  }
+
+  if (loading) return <div style={{ color: "rgba(232,226,217,0.3)", fontSize: "0.82rem" }}>Loading…</div>
+
+  if (entries.length === 0) return (
+    <div style={{ color: "rgba(232,226,217,0.35)", fontSize: "0.82rem", padding: "0.5rem 0" }}>
+      No tickers on watchlist. Browse the <a href="/dashboard/assets" style={{ color: "var(--gold)" }}>Asset Screener</a> and click "Add to Watchlist" on any ticker page.
+    </div>
+  )
+
+  return (
+    <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr 2rem", gap: "0.5rem", padding: "0.4rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+        <span>Ticker</span><span>Notes</span><span>Added</span><span />
+      </div>
+      {entries.map((e, idx) => (
+        <div key={e.id} style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr 2rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: idx < entries.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+          <div>
+            <a href={`/dashboard/tickers/${e.ticker}`} style={{ fontWeight: 700, color: "var(--gold)", fontFamily: "var(--font-mono)", fontSize: "0.88rem", textDecoration: "none" }}>
+              {e.ticker}
+            </a>
+            {e.name && <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.40)" }}>{e.name}</div>}
+          </div>
+          <div style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.50)" }}>{e.notes ?? "—"}</div>
+          <div style={{ fontSize: "0.68rem", color: "rgba(232,226,217,0.35)", fontFamily: "var(--font-mono)" }}>
+            {new Date(e.added_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          </div>
+          <button
+            onClick={() => remove(e.ticker)}
+            disabled={removing === e.ticker}
+            style={{ background: "none", border: "none", color: "rgba(232,226,217,0.25)", cursor: "pointer", fontSize: "1rem", padding: 0, lineHeight: 1, opacity: removing === e.ticker ? 0.4 : 1 }}
+            title="Remove">×</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function PortfolioPage() {
   const router      = useRouter();
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
@@ -1041,10 +1102,10 @@ export default function PortfolioPage() {
       {/* ── Page-level action buttons ── */}
       {selectedPortfolio && (
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-          <button onClick={() => setShowAddHolding(true)}
-            style={{ padding: "0.4rem 1rem", background: "rgba(78,255,145,0.08)", border: "1px solid rgba(78,255,145,0.25)", color: "var(--green)", borderRadius: 5, fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            + Add Holding
-          </button>
+          <AddHoldingButton
+            portfolioId={selectedPortfolio.id}
+            onDone={() => loadPortfolioData(selectedPortfolio.id)}
+          />
           <button
             onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}&debug=${debugMode}`)}
             disabled={!selectedPortfolio?.total_capital}
@@ -1227,7 +1288,7 @@ export default function PortfolioPage() {
               {([
                 ["holdings",        "Holdings"],
                 ["recommendations", "Recommendations"],
-                ["watchlist",       "On Watch"],
+                ["watchlist",       "Watchlist"],
                 ["distribution",    "Signal Distribution"],
                 ["history",         "Build History"],
               ] as const).map(([tab, label]) => (
@@ -1365,7 +1426,7 @@ export default function PortfolioPage() {
 
             {/* Watchlist */}
             {activeTab === "watchlist" && (
-              <PortfolioWatchlist portfolioId={selectedPortfolio.id} />
+              <PortfolioWatchlistPanel portfolioId={selectedPortfolio.id} />
             )}
 
             {/* Signal Distribution */}

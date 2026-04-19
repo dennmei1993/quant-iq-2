@@ -11,7 +11,7 @@ import {
   formatVolume,
 } from '@/lib/polygon-ticker'
 import ThesisButton      from '@/components/dashboard/ThesisButton'
-import AddHoldingButton  from '@/components/dashboard/AddHoldingButton'
+import AddToWatchlistButton from '@/components/dashboard/AddToWatchlistButton'
 import OHLCChart                  from '@/components/dashboard/OHLCChart'
 import RelativePerformanceChart   from '@/components/dashboard/RelativePerformanceChart'
 
@@ -319,8 +319,8 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         .single()
     ),
 
-    Promise.resolve(null), // watchlistRow — replaced by AddHoldingButton
-    Promise.resolve(null), // portfolioRow  — replaced by AddHoldingButton
+    Promise.resolve(null), // watchlistRow — replaced by AddToWatchlistButton
+    Promise.resolve(null), // portfolioRow  — replaced by AddToWatchlistButton
 
     fetchTickerDetails(ticker),
     fetchTickerPrice(ticker),
@@ -531,10 +531,9 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <ThesisButton ticker={ticker} />
           {userId && (
-            <AddHoldingButton
+            <AddToWatchlistButton
               ticker={ticker}
               name={name}
-              price={signalData?.price_usd ?? price?.close ?? null}
             />
           )}
         </div>
