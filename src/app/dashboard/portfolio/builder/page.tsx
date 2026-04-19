@@ -622,10 +622,7 @@ function PortfolioBuilderInner() {
   }
 
   async function saveThemesToRun(runId: string, themes: RecommendedTheme[]) {
-    const res  = await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_themes", run_id: runId, themes }) });
-    const data = await res.json();
-    if (!res.ok) console.error("[saveThemesToRun] failed:", data);
-    else         console.log("[saveThemesToRun] ok — run:", runId, "themes:", themes.length);
+    await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_themes", run_id: runId, themes }) });
   }
 
   async function saveTickersToRun(runId: string, tickers: TickerAllocation[]) {
@@ -641,11 +638,7 @@ function PortfolioBuilderInner() {
       fundamental_score: t.fundamental_score ?? null,
       technical_score:   t.technical_score   ?? null,
     }));
-    console.log("[saveTickersToRun] run:", runId, "rows:", rows.length, "sample:", rows[0]);
-    const res  = await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_tickers", run_id: runId, tickers: rows }) });
-    const data = await res.json();
-    if (!res.ok) console.error("[saveTickersToRun] failed:", data);
-    else         console.log("[saveTickersToRun] ok — run:", runId, "tickers:", rows.length);
+    await fetch("/api/portfolio/builder/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_tickers", run_id: runId, tickers: rows }) });
   }
 
   // PATCH 4: Clear old recommendations + create new run on mount
@@ -812,14 +805,11 @@ function PortfolioBuilderInner() {
         // Normalised lowercase fallback
         if (th.name)       themeAllocMap.set(th.name.toLowerCase().trim(),       alloc);
       }
-      console.log("[runAllocation] themeAllocMap:", Object.fromEntries(themeAllocMap));
-
       const tickerResult = (data.tickers as TickerAllocation[]).map(t => {
         const themeAlloc = themeAllocMap.get(t.theme_name)
           ?? themeAllocMap.get((t.theme_name ?? "").toLowerCase().trim())
           ?? (selectedThemes.length === 1 ? Number((selectedThemes[0] as any).suggested_allocation ?? 0) : 0);
         const portfolioWeight = t.signal === "BUY" ? parseFloat(((t.weight / 100) * themeAlloc).toFixed(1)) : 0;
-        console.log("[runAllocation] ticker:", t.ticker, "theme:", t.theme_name, "themeAlloc:", themeAlloc, "weight:", t.weight, "→ portfolioWeight:", portfolioWeight);
         return { ...t, weight: portfolioWeight, editWeight: t.signal === "BUY" ? String(portfolioWeight) : "0", editSignal: t.signal, included: true };
       });
       setResult(tickerResult);
@@ -920,9 +910,8 @@ function PortfolioBuilderInner() {
         if (themeRunId) await saveTickersToRun(themeRunId, tickerResult);
         setLoadingDataAllocation(false);
 
-        // Step 4: Confirm → recommendations
+        // Step 4: Confirm → recommendations (saveTickersToRun already called above)
         setCommitting(true);
-        await saveTickersToRun(themeRunId ?? "", tickerResult);
         await fetch("/api/portfolio/builder/recommendation", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ run_id: themeRunId, portfolio_id: portfolioId }),
