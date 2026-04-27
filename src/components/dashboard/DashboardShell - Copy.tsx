@@ -19,7 +19,6 @@ const NAV = [
   { href: '/dashboard/assets',    label: 'Asset Screener', icon: '📊', section: null,        separator: false },
   { href: '/dashboard/portfolio', label: 'My Portfolio',   icon: '🗂️', section: 'Portfolio', separator: false },
   { href: '/dashboard/alerts',    label: 'Alerts',         icon: '🔔', section: null,        separator: false },
-  { href: '/dashboard/options',   label: 'Options Wheel',  icon: '⚙️', section: 'Options',  separator: false },
   { href: '/dashboard/settings',  label: 'Settings',       icon: '⚙',  section: 'Account',  separator: false },
 ]
 
