@@ -25,21 +25,20 @@ const TIME_FILTERS = [
   { label: '5d',  hours: 120 },
 ]
 
-// Numeric impact_score thresholds: 0-10 scale
 const IMPACT_FILTERS = [
   { label: 'All',    min: null },
-  { label: 'High',   min: 7    },  // 7-10
-  { label: 'Medium', min: 4    },  // 4-10
-  { label: 'Low',    min: 0    },  // 0-10 (same as all but explicit)
+  { label: 'High',   min: 7    },
+  { label: 'Medium', min: 4    },
+  { label: 'Low',    min: 0    },
 ]
 
 const TYPE_FILTERS = [
-  { label: 'All Types',       value: ''                 },
-  { label: 'Monetary Policy', value: 'monetary_policy'  },
-  { label: 'Geopolitical',    value: 'geopolitical'     },
-  { label: 'Corporate',       value: 'corporate'        },
-  { label: 'Economic Data',   value: 'economic_data'    },
-  { label: 'Regulatory',      value: 'regulatory'       },
+  { label: 'All Types',       value: ''                },
+  { label: 'Monetary Policy', value: 'monetary_policy' },
+  { label: 'Geopolitical',    value: 'geopolitical'    },
+  { label: 'Corporate',       value: 'corporate'       },
+  { label: 'Economic Data',   value: 'economic_data'   },
+  { label: 'Regulatory',      value: 'regulatory'      },
 ]
 
 const TYPE_LABELS: Record<string, string> = {
@@ -50,12 +49,11 @@ const TYPE_LABELS: Record<string, string> = {
   regulatory:      'Regulatory',
 }
 
-// Derive impact label from numeric score
 function impactFromScore(score: number | null): { label: string; css: string } {
-  if (score === null)  return { label: '—',      css: styles.impactNone }
-  if (score >= 7)      return { label: 'High',   css: styles.impactHigh }
-  if (score >= 4)      return { label: 'Medium', css: styles.impactMed  }
-  return                      { label: 'Low',    css: styles.impactLow  }
+  if (score === null) return { label: '—',      css: styles.impactNone }
+  if (score >= 7)     return { label: 'High',   css: styles.impactHigh }
+  if (score >= 4)     return { label: 'Medium', css: styles.impactMed  }
+  return                     { label: 'Low',    css: styles.impactLow  }
 }
 
 function relTime(iso: string) {
@@ -63,7 +61,7 @@ function relTime(iso: string) {
   const mins = Math.floor(diff / 60000)
   if (mins < 60) return `${mins}m ago`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
+  if (hrs < 24)  return `${hrs}h ago`
   return `${Math.floor(hrs / 24)}d ago`
 }
 
@@ -75,22 +73,20 @@ function formatTime(iso: string) {
 }
 
 export default function EventsPage() {
-  const [events, setEvents]       = useState<Event[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [timeFilter, setTimeFilter]   = useState(24)
-  const [impactMin, setImpactMin]     = useState<number | null>(null)
-  const [typeFilter, setTypeFilter]   = useState('')
-  const [expanded, setExpanded]   = useState<string | null>(null)
+  const [events,     setEvents]     = useState<Event[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [timeFilter, setTimeFilter] = useState(24)
+  const [impactMin,  setImpactMin]  = useState<number | null>(null)
+  const [typeFilter, setTypeFilter] = useState('')
+  const [expanded,   setExpanded]   = useState<string | null>(null)
 
   const fetchEvents = useCallback(async () => {
-    setLoading(true)
-    setExpanded(null)
-    const since = new Date(Date.now() - timeFilter * 60 * 60 * 1000).toISOString()
+    setLoading(true); setExpanded(null)
+    const since  = new Date(Date.now() - timeFilter * 3_600_000).toISOString()
     const params = new URLSearchParams({ since, limit: '500' })
     if (impactMin !== null) params.set('impact', String(impactMin))
     if (typeFilter)         params.set('event_type', typeFilter)
-
-    const res = await fetch(`/api/events?${params}`)
+    const res  = await fetch(`/api/events?${params}`)
     const data = await res.json()
     setEvents(data.events ?? [])
     setLoading(false)
@@ -98,17 +94,18 @@ export default function EventsPage() {
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
+  // ── All colour decisions via CSS variables ──────────────────
   const dotColor = (score: number | null) => {
-    if (score === null) return '#555'
-    if (score >= 7) return '#e87070'
-    if (score >= 4) return '#e09845'
-    return 'rgba(200,185,165,0.3)'
+    if (score === null) return 'var(--border)'
+    if (score >= 7)     return 'var(--signal-bear)'
+    if (score >= 4)     return 'var(--signal-neut)'
+    return 'var(--border-subtle)'
   }
 
   const sentimentClass = (score: number | null) => {
     if (score === null) return panelStyles.scoreNeut
-    if (score > 0.2)  return panelStyles.scoreBull
-    if (score < -0.2) return panelStyles.scoreBear
+    if (score > 0.2)   return panelStyles.scoreBull
+    if (score < -0.2)  return panelStyles.scoreBear
     return panelStyles.scoreNeut
   }
 
@@ -120,17 +117,16 @@ export default function EventsPage() {
     regulatory:      styles.typeReg,
   }
 
-  const timeLabel = TIME_FILTERS.find(f => f.hours === timeFilter)?.label ?? '24h'
+  const timeLabel   = TIME_FILTERS.find(f => f.hours === timeFilter)?.label ?? '24h'
   const impactLabel = IMPACT_FILTERS.find(f => f.min === impactMin)?.label ?? 'All'
 
   return (
     <div>
       {/* ── FILTER BAR ── */}
       <div className={styles.filterBar}>
-
         <div className={styles.filterRow}>
           <div className={styles.filterGroup}>
-            <span className={styles.filterLabel}>Time range</span>
+            <span className={styles.filterLabel}>Time Range</span>
             <div className={styles.filterToggle}>
               {TIME_FILTERS.map(f => (
                 <button key={f.hours}
@@ -141,15 +137,12 @@ export default function EventsPage() {
               ))}
             </div>
           </div>
-
           <div className={styles.filterMeta}>
             {loading
               ? <span className={styles.filterCount}>Loading…</span>
               : <span className={styles.filterCount}>{events.length} event{events.length !== 1 ? 's' : ''}</span>
             }
-            <button className={styles.refreshBtn} onClick={fetchEvents} disabled={loading}>
-              ↻ Refresh
-            </button>
+            <button className={styles.refreshBtn} onClick={fetchEvents} disabled={loading}>↻ Refresh</button>
           </div>
         </div>
 
@@ -166,7 +159,6 @@ export default function EventsPage() {
               ))}
             </div>
           </div>
-
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Type</span>
             <div className={styles.filterToggle}>
@@ -180,7 +172,6 @@ export default function EventsPage() {
             </div>
           </div>
         </div>
-
       </div>
 
       {/* ── EVENT LIST ── */}
@@ -195,11 +186,8 @@ export default function EventsPage() {
         </div>
 
         {loading && <div className={panelStyles.empty}>Loading events…</div>}
-
         {!loading && events.length === 0 && (
-          <div className={panelStyles.empty}>
-            No events found — try a longer time range or broader filter.
-          </div>
+          <div className={panelStyles.empty}>No events found — try a longer time range or broader filter.</div>
         )}
 
         {events.map(e => {
