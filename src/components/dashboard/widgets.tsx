@@ -1,4 +1,4 @@
-// src/components/dashboard/EventFeedPreview.tsx
+// src/components/dashboard/widgets.tsx
 import Link from 'next/link'
 import styles from './ui.module.css'
 
@@ -27,7 +27,7 @@ export function EventFeedPreview({ events }: { events: Event[] }) {
         {events.map(e => {
           const score = e.sentiment_score ?? 0
           const scoreClass = score > 0.2 ? styles.scoreBull : score < -0.2 ? styles.scoreBear : styles.scoreNeut
-          const dotColor = score > 0.2 ? '#4eca99' : score < -0.2 ? '#e87070' : '#e09845'
+          const dotColor = score > 0.2 ? 'var(--signal-bull)' : score < -0.2 ? 'var(--signal-bear)' : 'var(--signal-neut)'
           const relTime = getRelativeTime(e.published_at)
           return (
             <div key={e.id} className={styles.eventItem}>
@@ -50,16 +50,14 @@ export function EventFeedPreview({ events }: { events: Event[] }) {
   )
 }
 
-// src/components/dashboard/MacroGauges.tsx
 export function MacroGauges() {
-  // Static macro environment display — will be data-driven in a future sprint
   const gauges = [
-    { label: 'Fed Policy (Hawkish)', value: 72, color: '#e87070', display: '72%' },
-    { label: 'Inflation Pressure',   value: 68, color: '#e09845', display: '3.1% CPI' },
-    { label: 'Growth Momentum',      value: 55, color: '#4eca99', display: 'Moderate' },
-    { label: 'Geopolitical Risk',    value: 45, color: '#e09845', display: 'Medium' },
-    { label: 'USD Strength',         value: 63, color: '#7ab4e8', display: 'DXY 104' },
-    { label: 'Credit Spreads',       value: 38, color: '#4eca99', display: 'Contained' },
+    { label: 'Fed Policy (Hawkish)', value: 72, color: 'var(--signal-bear)', display: '72%'      },
+    { label: 'Inflation Pressure',   value: 68, color: 'var(--signal-neut)', display: '3.1% CPI' },
+    { label: 'Growth Momentum',      value: 55, color: 'var(--signal-bull)', display: 'Moderate'  },
+    { label: 'Geopolitical Risk',    value: 45, color: 'var(--signal-neut)', display: 'Medium'    },
+    { label: 'USD Strength',         value: 63, color: 'var(--color-info)',  display: 'DXY 104'   },
+    { label: 'Credit Spreads',       value: 38, color: 'var(--signal-bull)', display: 'Contained' },
   ]
   return (
     <div className={styles.panel}>
@@ -79,30 +77,29 @@ export function MacroGauges() {
   )
 }
 
-// src/components/dashboard/SectorHeatmap.tsx
 export function SectorHeatmap({ sectors }: { sectors: Array<{ sector: string; score: number }> }) {
   const displaySectors = sectors.length > 0 ? sectors : [
-    { sector: 'technology', score: 0.5 },
-    { sector: 'defence',    score: 0.3 },
+    { sector: 'technology', score: 0.5  },
+    { sector: 'defence',    score: 0.3  },
     { sector: 'energy',     score: -0.2 },
     { sector: 'financials', score: -0.3 },
-    { sector: 'healthcare', score: 0.1 },
+    { sector: 'healthcare', score: 0.1  },
     { sector: 'utilities',  score: -0.1 },
-    { sector: 'materials',  score: 0.2 },
+    { sector: 'materials',  score: 0.2  },
     { sector: 'consumer',   score: -0.1 },
   ]
 
   function sectorBg(score: number) {
-    if (score >  0.3) return 'rgba(42,124,94,0.55)'
-    if (score >  0.1) return 'rgba(42,124,94,0.3)'
-    if (score < -0.3) return 'rgba(184,48,48,0.55)'
-    if (score < -0.1) return 'rgba(184,48,48,0.3)'
-    return 'rgba(200,120,32,0.25)'
+    if (score >  0.3) return 'rgba(var(--green-rgb), 0.15)'
+    if (score >  0.1) return 'rgba(var(--green-rgb), 0.08)'
+    if (score < -0.3) return 'rgba(var(--red-rgb),   0.15)'
+    if (score < -0.1) return 'rgba(var(--red-rgb),   0.08)'
+    return 'rgba(var(--amber-rgb), 0.08)'
   }
   function sectorColor(score: number) {
-    if (score > 0.1) return '#4eca99'
-    if (score < -0.1) return '#e87070'
-    return '#e09845'
+    if (score >  0.1) return 'var(--signal-bull)'
+    if (score < -0.1) return 'var(--signal-bear)'
+    return 'var(--signal-neut)'
   }
 
   return (
@@ -130,7 +127,6 @@ export function SectorHeatmap({ sectors }: { sectors: Array<{ sector: string; sc
   )
 }
 
-// ── Helpers ──────────────────────────────────────────────────
 function getRelativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60000)

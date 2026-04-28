@@ -3,12 +3,12 @@ import Link from 'next/link'
 import styles from './ui.module.css'
 
 interface Props {
-  title: string
-  value: string
-  sub: string
-  delta: string
+  title:     string
+  value:     string
+  sub:       string
+  delta:     string
   deltaType: 'up' | 'down' | 'neutral'
-  href?: string
+  href?:     string
 }
 
 export function KpiCard({ title, value, sub, delta, deltaType, href }: Props) {
