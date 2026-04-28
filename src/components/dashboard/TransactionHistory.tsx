@@ -26,10 +26,10 @@ interface Props {
 const TYPE_COLOR: Record<string, string> = {
   buy:        'var(--signal-bull)',
   sell:       'var(--signal-bear)',
-  dividend:   '#e0c97a',
-  deposit:    'rgba(122,180,232,0.8)',
-  withdrawal: 'rgba(232,180,122,0.8)',
-  split:      'rgba(200,169,110,0.7)',
+  dividend:   'var(--signal-neut)',
+  deposit:    'rgba(37,99,235,0.8)',
+  withdrawal: 'rgba(180,83,9,0.8)',
+  split:      'rgba(180,83,9,0.7)',
 }
 
 function fmtDate(iso: string) {
@@ -165,17 +165,17 @@ export function TransactionHistory({ portfolioId, ticker, avgCost, onDelete }: P
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 6,
           background: 'none', border: 'none', cursor: 'pointer',
-          padding: '0.3rem 0.85rem', borderTop: '1px solid rgba(255,255,255,0.04)',
+          padding: '0.3rem 0.85rem', borderTop: '1px solid var(--border-subtle)',
         }}
       >
-        <span style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.35)', transition: 'color 0.15s' }}>
+        <span style={{ fontSize: '0.55rem', color: 'var(--text-4)', transition: 'color 0.15s' }}>
           {open ? '▼' : '▶'}
         </span>
-        <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.38)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>
+        <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>
           Transaction history
         </span>
         {fetched && transactions.length > 0 && (
-          <span style={{ fontSize: '0.58rem', background: 'rgba(200,169,110,0.12)', color: 'rgba(200,169,110,0.65)', border: '1px solid rgba(200,169,110,0.2)', borderRadius: 8, padding: '0 5px' }}>
+          <span style={{ fontSize: '0.58rem', background: 'rgba(180,83,9,0.12)', color: 'rgba(180,83,9,0.65)', border: '1px solid rgba(180,83,9,0.2)', borderRadius: 8, padding: '0 5px' }}>
             {transactions.length}
           </span>
         )}
@@ -185,15 +185,15 @@ export function TransactionHistory({ portfolioId, ticker, avgCost, onDelete }: P
       {open && (
         <div style={{ padding: '0 0.85rem 0.6rem', background: 'rgba(0,0,0,0.15)' }}>
           {loading ? (
-            <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.35)', padding: '0.5rem 0' }}>Loading…</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-4)', padding: '0.5rem 0' }}>Loading…</div>
           ) : transactions.length === 0 ? (
-            <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.35)', padding: '0.5rem 0' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-4)', padding: '0.5rem 0' }}>
               No transactions recorded. Use the B/S buttons on the holding row to add one.
             </div>
           ) : (
             <div style={{ marginTop: '0.4rem' }}>
               {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '60px 80px 70px 70px 70px 70px 1fr 40px', gap: '0.4rem', padding: '0.25rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.58rem', color: 'rgba(232,226,217,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '60px 80px 70px 70px 70px 70px 1fr 40px', gap: '0.4rem', padding: '0.25rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.58rem', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 <span>Type</span>
                 <span>Date</span>
                 <span style={{ textAlign: 'right' }}>Qty</span>
@@ -206,53 +206,53 @@ export function TransactionHistory({ portfolioId, ticker, avgCost, onDelete }: P
 
               {/* Rows */}
               {enriched.map(txn => (
-                <div key={txn.id} style={{ display: 'grid', gridTemplateColumns: '60px 80px 70px 70px 70px 70px 1fr 40px', gap: '0.4rem', padding: '0.3rem 0', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center' }}>
+                <div key={txn.id} style={{ display: 'grid', gridTemplateColumns: '60px 80px 70px 70px 70px 70px 1fr 40px', gap: '0.4rem', padding: '0.3rem 0', borderBottom: '1px solid var(--bg-subtle)', alignItems: 'center' }}>
 
                   {/* Type badge */}
-                  <span style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: TYPE_COLOR[txn.type] ?? 'rgba(232,226,217,0.5)', background: `${TYPE_COLOR[txn.type] ?? 'rgba(232,226,217,0.5)'}15`, padding: '0.1rem 0.4rem', borderRadius: 3, width: 'fit-content' }}>
+                  <span style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: TYPE_COLOR[txn.type] ?? 'var(--text-3)', background: `${TYPE_COLOR[txn.type] ?? 'var(--text-3)'}15`, padding: '0.1rem 0.4rem', borderRadius: 3, width: 'fit-content' }}>
                     {txn.type}
                   </span>
 
                   {/* Date */}
-                  <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.50)', fontFamily: 'var(--font-mono)' }}>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
                     {fmtDate(txn.executed_at)}
                   </span>
 
                   {/* Qty */}
-                  <span style={{ textAlign: 'right', fontSize: '0.68rem', color: 'rgba(232,226,217,0.65)', fontFamily: 'var(--font-mono)' }}>
+                  <span style={{ textAlign: 'right', fontSize: '0.68rem', color: 'var(--text-2)', fontFamily: 'var(--font-mono)' }}>
                     {txn.quantity != null ? txn.quantity.toLocaleString() : '—'}
                   </span>
 
                   {/* Price */}
-                  <span style={{ textAlign: 'right', fontSize: '0.68rem', color: 'rgba(232,226,217,0.65)', fontFamily: 'var(--font-mono)' }}>
+                  <span style={{ textAlign: 'right', fontSize: '0.68rem', color: 'var(--text-2)', fontFamily: 'var(--font-mono)' }}>
                     {txn.price != null ? `$${Number(txn.price).toFixed(2)}` : '—'}
                   </span>
 
                   {/* Total amount */}
-                  <span style={{ textAlign: 'right', fontSize: '0.68rem', color: 'rgba(232,226,217,0.65)', fontFamily: 'var(--font-mono)' }}>
+                  <span style={{ textAlign: 'right', fontSize: '0.68rem', color: 'var(--text-2)', fontFamily: 'var(--font-mono)' }}>
                     {txn.type === 'sell' ? '-' : ''}{fmtCurrency(txn.total_amount)}
                   </span>
 
                   {/* Gain/Loss — only for sells */}
                   <span style={{ textAlign: 'right', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 600,
-                    color: txn.gainAmt == null ? 'rgba(232,226,217,0.25)' : txn.gainAmt >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' }}>
+                    color: txn.gainAmt == null ? 'var(--text-4)' : txn.gainAmt >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' }}>
                     {txn.gainAmt != null
                       ? `${txn.gainAmt >= 0 ? '+' : '-'}${fmtCurrency(txn.gainAmt)}`
                       : txn.type === 'dividend' ? `+${fmtCurrency(txn.total_amount)}` : '—'}
                   </span>
 
                   {/* Notes */}
-                  <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {txn.notes ?? (txn.fees > 0 ? `fee $${txn.fees}` : '')}
                   </span>
 
                   {/* Edit + Delete */}
                   <div style={{ display: 'flex', gap: 3, alignItems: 'center', justifyContent: 'flex-end' }}>
                     <button onClick={() => openEdit(txn)}
-                      style={{ background: 'none', border: 'none', color: 'rgba(200,169,110,0.4)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 2px', lineHeight: 1 }}
+                      style={{ background: 'none', border: 'none', color: 'rgba(180,83,9,0.4)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 2px', lineHeight: 1 }}
                       title="Edit transaction">✎</button>
                     <button onClick={() => handleDelete(txn.id)} disabled={deleting === txn.id}
-                      style={{ background: 'none', border: 'none', color: 'rgba(232,226,217,0.20)', cursor: 'pointer', fontSize: '0.85rem', padding: '0 2px', lineHeight: 1, opacity: deleting === txn.id ? 0.4 : 1 }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '0.85rem', padding: '0 2px', lineHeight: 1, opacity: deleting === txn.id ? 0.4 : 1 }}
                       title="Delete transaction">×</button>
                   </div>
                 </div>
@@ -268,26 +268,26 @@ export function TransactionHistory({ portfolioId, ticker, avgCost, onDelete }: P
                 const totalDivs   = divs.reduce((s, t)  => s + Number(t.total_amount), 0)
                 const totalGain   = enriched.reduce((s, t) => s + (t.gainAmt ?? 0), 0)
                 return (
-                  <div style={{ display: 'flex', gap: '1.5rem', padding: '0.5rem 0 0', marginTop: '0.2rem', borderTop: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)' }}>
-                      <span style={{ color: 'rgba(232,226,217,0.30)' }}>Total bought: </span>
-                      <span style={{ color: 'rgba(232,226,217,0.65)', fontFamily: 'var(--font-mono)' }}>{fmtCurrency(totalBought)}</span>
+                  <div style={{ display: 'flex', gap: '1.5rem', padding: '0.5rem 0 0', marginTop: '0.2rem', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-3)' }}>
+                      <span style={{ color: 'var(--text-4)' }}>Total bought: </span>
+                      <span style={{ color: 'var(--text-2)', fontFamily: 'var(--font-mono)' }}>{fmtCurrency(totalBought)}</span>
                     </span>
                     {totalSold > 0 && (
-                      <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)' }}>
-                        <span style={{ color: 'rgba(232,226,217,0.30)' }}>Total sold: </span>
-                        <span style={{ color: 'rgba(232,226,217,0.65)', fontFamily: 'var(--font-mono)' }}>{fmtCurrency(totalSold)}</span>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-3)' }}>
+                        <span style={{ color: 'var(--text-4)' }}>Total sold: </span>
+                        <span style={{ color: 'var(--text-2)', fontFamily: 'var(--font-mono)' }}>{fmtCurrency(totalSold)}</span>
                       </span>
                     )}
                     {totalDivs > 0 && (
-                      <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)' }}>
-                        <span style={{ color: 'rgba(232,226,217,0.30)' }}>Dividends: </span>
-                        <span style={{ color: '#e0c97a', fontFamily: 'var(--font-mono)' }}>+{fmtCurrency(totalDivs)}</span>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-3)' }}>
+                        <span style={{ color: 'var(--text-4)' }}>Dividends: </span>
+                        <span style={{ color: 'var(--signal-neut)', fontFamily: 'var(--font-mono)' }}>+{fmtCurrency(totalDivs)}</span>
                       </span>
                     )}
                     {sells.length > 0 && (
-                      <span style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)' }}>
-                        <span style={{ color: 'rgba(232,226,217,0.30)' }}>Realised: </span>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-3)' }}>
+                        <span style={{ color: 'var(--text-4)' }}>Realised: </span>
                         <span style={{ color: totalGain >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                           {totalGain >= 0 ? '+' : '-'}{fmtCurrency(totalGain)}
                         </span>
@@ -306,56 +306,56 @@ export function TransactionHistory({ portfolioId, ticker, avgCost, onDelete }: P
     {editTxn && (
       <>
         <div onClick={() => setEditTxn(null)} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.6)' }} />
-        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.3rem', width: 360, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.3rem', width: 360, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
             <div>
-              <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.40)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Edit Transaction</div>
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Edit Transaction</div>
               <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>
                 {editTxn.type.toUpperCase()} · {ticker}
               </div>
             </div>
-            <button onClick={() => setEditTxn(null)} style={{ background: 'none', border: 'none', color: 'rgba(232,226,217,0.35)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+            <button onClick={() => setEditTxn(null)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '0.9rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
               <div>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Quantity</div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Quantity</div>
                 <input value={editQty} onChange={e => setEditQty(e.target.value)} type="number"
-                  style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 5, color: 'var(--cream)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--border-subtle)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
               </div>
               <div>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Price ($)</div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Price ($)</div>
                 <input value={editPrice} onChange={e => setEditPrice(e.target.value)} type="number"
-                  style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 5, color: 'var(--cream)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--border-subtle)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
               <div>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Date</div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Date</div>
                 <input value={editDate} onChange={e => setEditDate(e.target.value)} type="date"
-                  style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 5, color: 'var(--cream)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--border-subtle)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
               </div>
               <div>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Fees ($)</div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Fees ($)</div>
                 <input value={editFees} onChange={e => setEditFees(e.target.value)} type="number" placeholder="0.00"
-                  style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 5, color: 'var(--cream)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--border-subtle)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Notes</div>
+              <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Notes</div>
               <input value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Optional"
-                style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 5, color: 'var(--cream)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
+                style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--border-subtle)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
           </div>
 
-          {editError && <div style={{ fontSize: '0.72rem', color: '#fc5c65', marginBottom: '0.7rem' }}>{editError}</div>}
+          {editError && <div style={{ fontSize: '0.72rem', color: 'var(--signal-bear)', marginBottom: '0.7rem' }}>{editError}</div>}
 
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <button onClick={() => setEditTxn(null)} style={{ padding: '0.4rem 0.9rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,226,217,0.40)', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem' }}>
+            <button onClick={() => setEditTxn(null)} style={{ padding: '0.4rem 0.9rem', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-3)', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem' }}>
               Cancel
             </button>
-            <button onClick={handleEdit} disabled={editSaving} style={{ padding: '0.4rem 1rem', background: 'rgba(200,169,110,0.12)', border: '1px solid rgba(200,169,110,0.35)', color: 'var(--gold)', fontWeight: 700, borderRadius: 6, cursor: editSaving ? 'not-allowed' : 'pointer', fontSize: '0.78rem', opacity: editSaving ? 0.6 : 1 }}>
+            <button onClick={handleEdit} disabled={editSaving} style={{ padding: '0.4rem 1rem', background: 'rgba(180,83,9,0.12)', border: '1px solid rgba(180,83,9,0.35)', color: 'var(--gold)', fontWeight: 700, borderRadius: 6, cursor: editSaving ? 'not-allowed' : 'pointer', fontSize: '0.78rem', opacity: editSaving ? 0.6 : 1 }}>
               {editSaving ? '…' : 'Save changes'}
             </button>
           </div>

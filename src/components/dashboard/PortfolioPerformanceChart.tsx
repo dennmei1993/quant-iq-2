@@ -81,17 +81,17 @@ export function PortfolioPerformanceChart({ portfolioId, totalCapital }: Props) 
   useEffect(() => { fetch_data() }, [fetch_data])
 
   if (loading) return (
-    <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(232,226,217,0.35)', fontSize: '0.82rem' }}>
+    <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-4)', fontSize: '0.82rem' }}>
       Loading performance data…
     </div>
   )
 
   if (error) return (
-    <div style={{ padding: '1rem', color: '#e87070', fontSize: '0.8rem' }}>Failed to load: {error}</div>
+    <div style={{ padding: '1rem', color: 'var(--signal-bear)', fontSize: '0.8rem' }}>Failed to load: {error}</div>
   )
 
   if (series.length === 0) return (
-    <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(232,226,217,0.40)', fontSize: '0.82rem' }}>
+    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.82rem' }}>
       No performance data yet. Add holdings and transactions to start tracking.
     </div>
   )
@@ -153,14 +153,14 @@ export function PortfolioPerformanceChart({ portfolioId, totalCapital }: Props) 
       {/* ── Summary strip ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.6rem', marginBottom: '1rem' }}>
         {[
-          { label: 'Current Value',   value: formatCurrency(lastPoint?.value ?? 0),        color: 'var(--cream)' },
+          { label: 'Current Value',   value: formatCurrency(lastPoint?.value ?? 0),        color: 'var(--text)' },
           { label: 'Total Return',    value: formatPct(portfolioReturn),                    color: gainColor(portfolioReturn) },
           { label: `vs ${summary?.benchmark_ticker ?? 'SPY'}`, value: formatPct(summary?.vs_benchmark_pct ?? 0), color: gainColor(summary?.vs_benchmark_pct ?? 0) },
           { label: 'Unrealised P&L',  value: formatCurrency(summary?.unrealised_gain ?? 0), color: gainColor(summary?.unrealised_gain ?? 0) },
           { label: 'Realised P&L',    value: formatCurrency(summary?.realised_gain   ?? 0), color: gainColor(summary?.realised_gain   ?? 0) },
         ].map(({ label, value, color }) => (
-          <div key={label} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 6, padding: '0.5rem 0.7rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.40)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3, fontFamily: 'var(--font-mono)' }}>{label}</div>
+          <div key={label} style={{ background: 'var(--bg-subtle)', borderRadius: 6, padding: '0.5rem 0.7rem', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.55rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3, fontFamily: 'var(--font-mono)' }}>{label}</div>
             <div style={{ fontSize: '0.85rem', color, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{value}</div>
           </div>
         ))}
@@ -170,19 +170,19 @@ export function PortfolioPerformanceChart({ portfolioId, totalCapital }: Props) 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
         <div style={{ display: 'flex', gap: '0.3rem' }}>
           {PERIODS.map(p => (
-            <button key={p} onClick={() => setPeriod(p)} style={{ padding: '0.25rem 0.6rem', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.06em', textTransform: 'uppercase', border: `1px solid ${period === p ? 'rgba(200,169,110,0.5)' : 'rgba(255,255,255,0.07)'}`, background: period === p ? 'rgba(200,169,110,0.15)' : 'none', color: period === p ? 'var(--gold)' : 'rgba(232,226,217,0.40)', borderRadius: 4, cursor: 'pointer' }}>
+            <button key={p} onClick={() => setPeriod(p)} style={{ padding: '0.25rem 0.6rem', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.06em', textTransform: 'uppercase', border: `1px solid ${period === p ? 'rgba(180,83,9,0.5)' : 'var(--border)'}`, background: period === p ? 'rgba(180,83,9,0.15)' : 'none', color: period === p ? 'var(--gold)' : 'var(--text-3)', borderRadius: 4, cursor: 'pointer' }}>
               {p}
             </button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
           <button onClick={() => setShowBench(b => !b)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', opacity: showBench ? 1 : 0.4 }}>
-            <div style={{ width: 20, height: 2, background: 'rgba(122,180,232,0.7)', borderRadius: 1 }} />
-            <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.55)' }}>{summary?.benchmark_ticker ?? 'SPY'}</span>
+            <div style={{ width: 20, height: 2, background: 'rgba(37,99,235,0.7)', borderRadius: 1 }} />
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>{summary?.benchmark_ticker ?? 'SPY'}</span>
           </button>
           <button onClick={() => setShowCost(c => !c)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', opacity: showCost ? 1 : 0.4 }}>
-            <div style={{ width: 20, height: 2, background: 'rgba(232,226,217,0.25)', borderRadius: 1, borderTop: '1px dashed rgba(232,226,217,0.3)' }} />
-            <span style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.55)' }}>Cost basis</span>
+            <div style={{ width: 20, height: 2, background: 'var(--text-4)', borderRadius: 1, borderTop: '1px dashed var(--text-4)' }} />
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>Cost basis</span>
           </button>
         </div>
       </div>
@@ -207,8 +207,8 @@ export function PortfolioPerformanceChart({ portfolioId, totalCapital }: Props) 
         >
           <defs>
             <linearGradient id="portGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(78,255,145,0.15)" />
-              <stop offset="100%" stopColor="rgba(78,255,145,0)" />
+              <stop offset="0%" stopColor="rgba(21,128,61,0.15)" />
+              <stop offset="100%" stopColor="rgba(21,128,61,0)" />
             </linearGradient>
             <clipPath id="chartClip">
               <rect x={PAD.left} y={PAD.top} width={chartW} height={chartH} />
@@ -219,9 +219,9 @@ export function PortfolioPerformanceChart({ portfolioId, totalCapital }: Props) 
           {yTickVals.map((v, i) => (
             <g key={i}>
               <line x1={PAD.left} x2={PAD.left + chartW} y1={yPos(v)} y2={yPos(v)}
-                stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+                stroke="var(--border-subtle)" strokeWidth={1} />
               <text x={PAD.left - 6} y={yPos(v) + 4} textAnchor="end"
-                fill="rgba(232,226,217,0.35)" fontSize={9} fontFamily="monospace">
+                fill="var(--text-4)" fontSize={9} fontFamily="monospace">
                 {formatCurrency(v)}
               </text>
             </g>
@@ -230,7 +230,7 @@ export function PortfolioPerformanceChart({ portfolioId, totalCapital }: Props) 
           {/* X axis labels */}
           {xLabelIdxs.map(i => (
             <text key={i} x={xPos(i)} y={H - 8} textAnchor="middle"
-              fill="rgba(232,226,217,0.30)" fontSize={9} fontFamily="monospace">
+              fill="var(--text-4)" fontSize={9} fontFamily="monospace">
               {series[i]?.date.slice(5)}
             </text>
           ))}
@@ -244,27 +244,27 @@ export function PortfolioPerformanceChart({ portfolioId, totalCapital }: Props) 
 
             {/* Cost basis dashed line */}
             {showCost && (
-              <path d={costPath} fill="none" stroke="rgba(232,226,217,0.25)" strokeWidth={1} strokeDasharray="4 3" />
+              <path d={costPath} fill="none" stroke="var(--text-4)" strokeWidth={1} strokeDasharray="4 3" />
             )}
 
             {/* Benchmark line */}
             {showBench && benchPath && (
-              <path d={benchPath} fill="none" stroke="rgba(122,180,232,0.65)" strokeWidth={1.5} />
+              <path d={benchPath} fill="none" stroke="rgba(37,99,235,0.65)" strokeWidth={1.5} />
             )}
 
             {/* Portfolio line */}
-            <path d={portfolioPath} fill="none" stroke="rgba(78,255,145,0.85)" strokeWidth={2} />
+            <path d={portfolioPath} fill="none" stroke="rgba(21,128,61,0.85)" strokeWidth={2} />
 
             {/* Tooltip vertical line + dot */}
             {tooltip != null && (
               <>
                 <line x1={tooltip.x} x2={tooltip.x} y1={PAD.top} y2={PAD.top + chartH}
-                  stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+                  stroke="var(--border)" strokeWidth={1} />
                 <circle cx={tooltip.x} cy={yPos(series[tooltip.idx].value)} r={4}
-                  fill="rgba(78,255,145,0.9)" stroke="#0f1c2e" strokeWidth={2} />
+                  fill="rgba(21,128,61,0.9)" stroke="var(--chart-bg)" strokeWidth={2} />
                 {showBench && ttBench != null && (
                   <circle cx={tooltip.x} cy={yPos(ttBench)} r={3}
-                    fill="rgba(122,180,232,0.9)" stroke="#0f1c2e" strokeWidth={1.5} />
+                    fill="rgba(37,99,235,0.9)" stroke="var(--chart-bg)" strokeWidth={1.5} />
                 )}
               </>
             )}
@@ -278,36 +278,36 @@ export function PortfolioPerformanceChart({ portfolioId, totalCapital }: Props) 
             top: Math.max(8, tooltip.y - 100),
             left: tooltip.x / (svgRef.current ? W / svgRef.current.getBoundingClientRect().width : 1) > W * 0.65 ? 'auto' : (tooltip.x / (W / (svgRef.current?.getBoundingClientRect().width ?? W))) + 12,
             right: tooltip.x / (svgRef.current ? W / svgRef.current.getBoundingClientRect().width : 1) > W * 0.65 ? 12 : 'auto',
-            background: 'rgba(13,24,41,0.95)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'rgba(0,0,0,0.85)',
+            border: '1px solid var(--border)',
             borderRadius: 6,
             padding: '0.6rem 0.8rem',
             pointerEvents: 'none',
             zIndex: 10,
             minWidth: 160,
           }}>
-            <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.50)', fontFamily: 'monospace', marginBottom: 6 }}>
+            <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', fontFamily: 'monospace', marginBottom: 6 }}>
               {ttPoint.date}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <span style={{ fontSize: '0.7rem', color: 'rgba(78,255,145,0.8)' }}>Portfolio</span>
-                <span style={{ fontSize: '0.7rem', color: 'var(--cream)', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(ttPoint.value)}</span>
+                <span style={{ fontSize: '0.7rem', color: 'rgba(21,128,61,0.8)' }}>Portfolio</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text)', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(ttPoint.value)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <span style={{ fontSize: '0.7rem', color: 'rgba(232,226,217,0.45)' }}>Return</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>Return</span>
                 <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: gainColor(ttPoint.return_pct), fontWeight: 600 }}>{formatPct(ttPoint.return_pct)}</span>
               </div>
               {showBench && ttBench != null && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(122,180,232,0.7)' }}>{summary?.benchmark_ticker ?? 'SPY'}</span>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(122,180,232,0.9)', fontFamily: 'monospace' }}>{formatCurrency(ttBench)}</span>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(37,99,235,0.7)' }}>{summary?.benchmark_ticker ?? 'SPY'}</span>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(37,99,235,0.9)', fontFamily: 'monospace' }}>{formatCurrency(ttBench)}</span>
                 </div>
               )}
               {showCost && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(232,226,217,0.35)' }}>Cost basis</span>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(232,226,217,0.55)', fontFamily: 'monospace' }}>{formatCurrency(ttPoint.invested)}</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-4)' }}>Cost basis</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-3)', fontFamily: 'monospace' }}>{formatCurrency(ttPoint.invested)}</span>
                 </div>
               )}
             </div>
@@ -317,7 +317,7 @@ export function PortfolioPerformanceChart({ portfolioId, totalCapital }: Props) 
 
       {/* Data note */}
       {summary && (
-        <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.28)', marginTop: '0.5rem', fontFamily: 'monospace' }}>
+        <div style={{ fontSize: '0.6rem', color: 'var(--text-4)', marginTop: '0.5rem', fontFamily: 'monospace' }}>
           {summary.data_points} trading days · from {summary.start_date} · benchmark: {summary.benchmark_ticker} normalised to portfolio start value
         </div>
       )}

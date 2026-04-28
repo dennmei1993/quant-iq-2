@@ -19,13 +19,13 @@ interface Props {
 }
 
 const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: '0.65rem', color: 'rgba(232,226,217,0.45)',
+  display: 'block', fontSize: '0.65rem', color: 'var(--text-3)',
   marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.08em',
 }
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '0.45rem 0.65rem',
-  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: 5, color: 'var(--cream)', fontSize: '0.82rem', outline: 'none',
+  background: 'var(--border-subtle)', border: '1px solid var(--border)',
+  borderRadius: 5, color: 'var(--text)', fontSize: '0.82rem', outline: 'none',
   boxSizing: 'border-box',
 }
 
@@ -64,15 +64,15 @@ function TickerSearch({ value, onChange, onSelect }: {
       <input value={value} onChange={e => onChange(e.target.value.toUpperCase())}
         placeholder="Search AAPL, MSFT…" autoComplete="off" style={inputStyle} />
       {open && results.length > 0 && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 6, marginTop: 2, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)', borderRadius: 6, marginTop: 2, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
           {results.map(a => (
             <div key={a.ticker} onMouseDown={() => { onSelect(a); setOpen(false) }}
-              style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'transparent' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+              style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', borderBottom: '1px solid var(--border-subtle)', background: 'transparent' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--border-subtle)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
               <span style={{ fontWeight: 700, color: 'var(--gold)', fontFamily: 'monospace', minWidth: 52 }}>{a.ticker}</span>
-              <span style={{ fontSize: '0.75rem', color: 'rgba(232,226,217,0.55)', flex: 1 }}>{a.name}</span>
-              <span style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.35)', textTransform: 'uppercase' }}>{a.asset_type}</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-3)', flex: 1 }}>{a.name}</span>
+              <span style={{ fontSize: '0.6rem', color: 'var(--text-4)', textTransform: 'uppercase' }}>{a.asset_type}</span>
             </div>
           ))}
         </div>
@@ -159,7 +159,7 @@ export default function AddHoldingButton({
     <>
       <button onClick={() => setOpen(true)} style={{
         padding: '0.4rem 1rem',
-        background: 'rgba(78,255,145,0.08)', border: '1px solid rgba(78,255,145,0.25)',
+        background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.25)',
         color: 'var(--green)', borderRadius: 6, cursor: 'pointer',
         fontSize: '0.78rem', fontWeight: 600,
         display: 'flex', alignItems: 'center', gap: '0.4rem',
@@ -172,28 +172,28 @@ export default function AddHoldingButton({
           <div onClick={handleClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)' }} />
           <div style={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-            zIndex: 301, background: 'var(--navy2)', border: '1px solid var(--dash-border)',
+            zIndex: 301, background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)',
             borderRadius: 8, padding: '1.4rem', width: 400,
             boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.1rem' }}>
               <div>
-                <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.40)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>
+                <div style={{ fontSize: '0.6rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>
                   Add Holding
                 </div>
                 {propTicker ? (
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--green)', fontFamily: 'var(--font-mono)' }}>
-                    {propTicker} {propName && <span style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.40)', fontFamily: 'sans-serif', fontWeight: 400 }}>{propName}</span>}
+                    {propTicker} {propName && <span style={{ fontSize: '0.68rem', color: 'var(--text-3)', fontFamily: 'sans-serif', fontWeight: 400 }}>{propName}</span>}
                   </div>
                 ) : (
-                  <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--cream)' }}>Record a buy transaction</div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text)' }}>Record a buy transaction</div>
                 )}
               </div>
-              <button onClick={handleClose} style={{ background: 'none', border: 'none', color: 'rgba(232,226,217,0.35)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+              <button onClick={handleClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
             </div>
 
             {done ? (
-              <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#4eca99', fontSize: '0.88rem', fontWeight: 600 }}>
+              <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--signal-bull)', fontSize: '0.88rem', fontWeight: 600 }}>
                 ✓ Holding added
               </div>
             ) : (
@@ -205,7 +205,7 @@ export default function AddHoldingButton({
                     <div>
                       <div style={labelStyle}>Portfolio</div>
                       {portfolios.length === 0
-                        ? <div style={{ fontSize: '0.75rem', color: 'rgba(232,226,217,0.35)' }}>No portfolios — create one first</div>
+                        ? <div style={{ fontSize: '0.75rem', color: 'var(--text-4)' }}>No portfolios — create one first</div>
                         : <select value={portfolioId} onChange={e => setPortfolioId(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
                             {portfolios.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
@@ -243,21 +243,21 @@ export default function AddHoldingButton({
                   </div>
 
                   {qty && priceVal && (
-                    <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.45)', padding: '0.4rem 0.65rem', background: 'rgba(255,255,255,0.03)', borderRadius: 5, border: '1px solid rgba(255,255,255,0.06)' }}>
-                      Total: <strong style={{ color: 'var(--cream)' }}>${total.toFixed(2)}</strong>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', padding: '0.4rem 0.65rem', background: 'var(--bg-subtle)', borderRadius: 5, border: '1px solid var(--border)' }}>
+                      Total: <strong style={{ color: 'var(--text)' }}>${total.toFixed(2)}</strong>
                     </div>
                   )}
                 </div>
 
-                {error && <div style={{ fontSize: '0.72rem', color: '#fc5c65', marginBottom: '0.7rem' }}>{error}</div>}
+                {error && <div style={{ fontSize: '0.72rem', color: 'var(--signal-bear)', marginBottom: '0.7rem' }}>{error}</div>}
 
                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                  <button onClick={handleClose} style={{ padding: '0.45rem 1rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,226,217,0.40)', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem' }}>
+                  <button onClick={handleClose} style={{ padding: '0.45rem 1rem', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-3)', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem' }}>
                     Cancel
                   </button>
                   <button onClick={handleSubmit} disabled={saving} style={{
                     padding: '0.45rem 1.1rem',
-                    background: 'rgba(78,255,145,0.12)', border: '1px solid rgba(78,255,145,0.35)',
+                    background: 'rgba(21,128,61,0.12)', border: '1px solid rgba(21,128,61,0.35)',
                     color: 'var(--green)', fontWeight: 700, borderRadius: 6,
                     cursor: saving ? 'not-allowed' : 'pointer',
                     fontSize: '0.78rem', opacity: saving ? 0.6 : 1,

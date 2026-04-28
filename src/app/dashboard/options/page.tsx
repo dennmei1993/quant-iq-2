@@ -91,7 +91,7 @@ interface ScannerRun {
   run_at:          string
   tickers_scanned: number
   tickers_passed:  number
-  candidates:      any[]
+  candidates:      any[]   // jsonb in DB — cast on load
   status:          string
   error_msg:       string | null
 }
@@ -132,29 +132,29 @@ const STATE_LABEL: Record<OptsState, string> = {
 }
 
 const STATE_COLOR: Record<OptsState, string> = {
-  csp_pending: '#e0c97a',
-  csp_open:    '#4eca99',
-  assigned:    '#7ab4e8',
-  cc_pending:  '#e0c97a',
-  cc_open:     '#4eca99',
-  closing:     '#e87070',
-  closed:      'rgba(232,226,217,0.35)',
+  csp_pending: 'var(--signal-neut)',
+  csp_open:    'var(--signal-bull)',
+  assigned:    'var(--color-info)',
+  cc_pending:  'var(--signal-neut)',
+  cc_open:     'var(--signal-bull)',
+  closing:     'var(--signal-bear)',
+  closed:      'var(--text-4)',
 }
 
 const APPROVAL_COLOR: Record<ApprovalStatus, string> = {
-  pending:       '#e0c97a',
-  approved:      '#4eca99',
-  rejected:      '#e87070',
-  auto_approved: 'rgba(78,202,153,0.6)',
+  pending:       'var(--signal-neut)',
+  approved:      'var(--signal-bull)',
+  rejected:      'var(--signal-bear)',
+  auto_approved: 'rgba(21,128,61,0.6)',
 }
 
 const ORDER_STATUS_COLOR: Record<OrderStatus, string> = {
-  awaiting_approval: '#e0c97a',
-  submitted:         '#7ab4e8',
-  filled:            '#4eca99',
-  cancelled:         'rgba(232,226,217,0.35)',
-  rejected:          '#e87070',
-  expired:           'rgba(232,226,217,0.35)',
+  awaiting_approval: 'var(--signal-neut)',
+  submitted:         'var(--color-info)',
+  filled:            'var(--signal-bull)',
+  cancelled:         'var(--text-4)',
+  rejected:          'var(--signal-bear)',
+  expired:           'var(--text-4)',
 }
 
 const pill = (label: string, color: string) => (
@@ -164,9 +164,9 @@ const pill = (label: string, color: string) => (
 )
 
 const T = {
-  cream:  'var(--cream)',
-  dim:    'rgba(232,226,217,0.55)',
-  dimmer: 'rgba(232,226,217,0.35)',
+  cream:  'var(--text)',
+  dim:    'var(--text-3)',
+  dimmer: 'var(--text-4)',
   border: 'var(--dash-border)',
   gold:   'var(--gold)',
 }
@@ -192,7 +192,7 @@ const TABS: [Tab, string][] = [
 
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, overflow: 'hidden', marginBottom: '1rem' }}>
+    <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)', borderRadius: 8, overflow: 'hidden', marginBottom: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 1rem', borderBottom: '1px solid var(--dash-border)' }}>
         <div style={{ fontSize: '0.68rem', fontWeight: 600, color: T.dim, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{title}</div>
         {action}
@@ -210,11 +210,11 @@ function PositionsTab({ positions, onRefresh }: { positions: Position[]; onRefre
 
   function PositionRow({ p }: { p: Position }) {
     const dte      = daysUntil(p.option_expiry)
-    const pnlCol   = p.unrealised_pnl == null ? T.dimmer : p.unrealised_pnl >= 0 ? '#4eca99' : '#e87070'
+    const pnlCol   = p.unrealised_pnl == null ? T.dimmer : p.unrealised_pnl >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)'
     const stateCol = STATE_COLOR[p.opts_state] ?? T.dimmer
 
     return (
-      <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', alignItems: 'center' }}>
+      <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', alignItems: 'center' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontWeight: 700, color: T.cream, fontFamily: 'monospace', fontSize: '0.88rem' }}>{p.symbol}</span>
@@ -231,11 +231,11 @@ function PositionsTab({ positions, onRefresh }: { positions: Position[]; onRefre
 
         <div style={{ textAlign: 'right' }}>
           {p.option_expiry && <div style={{ fontSize: '0.78rem', color: T.dim, fontFamily: 'monospace' }}>{fmtDate(p.option_expiry)}</div>}
-          {dte != null && <div style={{ fontSize: '0.62rem', color: dte <= 7 ? '#e87070' : T.dimmer }}>{dte}d</div>}
+          {dte != null && <div style={{ fontSize: '0.62rem', color: dte <= 7 ? 'var(--signal-bear)' : T.dimmer }}>{dte}d</div>}
         </div>
 
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '0.78rem', color: '#4eca99', fontFamily: 'monospace' }}>{fmtCurrency(p.total_premium_collected)}</div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--signal-bull)', fontFamily: 'monospace' }}>{fmtCurrency(p.total_premium_collected)}</div>
           <div style={{ fontSize: '0.6rem', color: T.dimmer }}>premium</div>
         </div>
 
@@ -247,7 +247,7 @@ function PositionsTab({ positions, onRefresh }: { positions: Position[]; onRefre
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: '0.82rem', fontWeight: 600, color: pnlCol, fontFamily: 'monospace' }}>{fmtCurrency(p.unrealised_pnl)}</div>
           {p.realised_pnl != null && p.realised_pnl !== 0 && (
-            <div style={{ fontSize: '0.62rem', color: p.realised_pnl >= 0 ? '#4eca99' : '#e87070' }}>R: {fmtCurrency(p.realised_pnl)}</div>
+            <div style={{ fontSize: '0.62rem', color: p.realised_pnl >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' }}>R: {fmtCurrency(p.realised_pnl)}</div>
           )}
         </div>
 
@@ -281,7 +281,7 @@ function PositionsTab({ positions, onRefresh }: { positions: Position[]; onRefre
           ? <div style={{ padding: '1rem', color: T.dimmer, fontSize: '0.82rem' }}>No active positions</div>
           : <>
               {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid var(--border-subtle)' }}>
                 <span>Symbol / State</span><span style={{ textAlign: 'right' }}>Strike</span><span style={{ textAlign: 'right' }}>Expiry</span><span style={{ textAlign: 'right' }}>Premium</span><span style={{ textAlign: 'right' }}>Greeks</span><span style={{ textAlign: 'right' }}>P&L</span><span style={{ textAlign: 'right' }}>Status</span>
               </div>
               {active.map(p => <PositionRow key={p.id} p={p} />)}
@@ -291,7 +291,7 @@ function PositionsTab({ positions, onRefresh }: { positions: Position[]; onRefre
 
       {closed.length > 0 && (
         <Section title={`Closed Positions · ${closed.length}`}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid var(--border-subtle)' }}>
             <span>Symbol</span><span style={{ textAlign: 'right' }}>Strike</span><span style={{ textAlign: 'right' }}>Expiry</span><span style={{ textAlign: 'right' }}>Premium</span><span style={{ textAlign: 'right' }}>Greeks</span><span style={{ textAlign: 'right' }}>Realised</span><span style={{ textAlign: 'right' }}>Closed</span>
           </div>
           {closed.slice(0, 20).map(p => <PositionRow key={p.id} p={p} />)}
@@ -329,11 +329,11 @@ function ApprovalsTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () =>
   function OrderRow({ o, showActions }: { o: Order; showActions?: boolean }) {
     const dte = daysUntil(o.option_expiry)
     return (
-      <div style={{ padding: '0.7rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr' + (showActions ? ' 7rem' : ' 6rem'), gap: '0.5rem', alignItems: 'center' }}>
+      <div style={{ padding: '0.7rem 1rem', borderBottom: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr' + (showActions ? ' 7rem' : ' 6rem'), gap: '0.5rem', alignItems: 'center' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontWeight: 700, color: T.cream, fontFamily: 'monospace', fontSize: '0.88rem' }}>{o.symbol}</span>
-            {pill(o.action.toUpperCase(), o.action === 'sell' ? '#4eca99' : '#e87070')}
+            {pill(o.action.toUpperCase(), o.action === 'sell' ? 'var(--signal-bull)' : 'var(--signal-bear)')}
           </div>
           {o.option_symbol && <div style={{ fontSize: '0.62rem', color: T.dimmer, fontFamily: 'monospace', marginTop: 2 }}>{o.option_symbol}</div>}
         </div>
@@ -354,11 +354,11 @@ function ApprovalsTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () =>
         {showActions ? (
           <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'flex-end' }}>
             <button onClick={() => act(o.id, 'approved')} disabled={acting === o.id}
-              style={{ padding: '0.3rem 0.65rem', background: 'rgba(78,202,153,0.1)', border: '1px solid rgba(78,202,153,0.35)', color: '#4eca99', borderRadius: 4, cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700, opacity: acting === o.id ? 0.5 : 1 }}>
+              style={{ padding: '0.3rem 0.65rem', background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.35)', color: 'var(--signal-bull)', borderRadius: 4, cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700, opacity: acting === o.id ? 0.5 : 1 }}>
               ✓ Approve
             </button>
             <button onClick={() => act(o.id, 'rejected')} disabled={acting === o.id}
-              style={{ padding: '0.3rem 0.55rem', background: 'rgba(232,112,112,0.08)', border: '1px solid rgba(232,112,112,0.25)', color: '#e87070', borderRadius: 4, cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700, opacity: acting === o.id ? 0.5 : 1 }}>
+              style={{ padding: '0.3rem 0.55rem', background: 'rgba(185,28,28,0.08)', border: '1px solid rgba(185,28,28,0.25)', color: 'var(--signal-bear)', borderRadius: 4, cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700, opacity: acting === o.id ? 0.5 : 1 }}>
               ✗
             </button>
           </div>
@@ -372,14 +372,14 @@ function ApprovalsTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () =>
   }
 
   const colHeader = (showActions?: boolean) => (
-    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr' + (showActions ? ' 7rem' : ' 6rem'), gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr' + (showActions ? ' 7rem' : ' 6rem'), gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid var(--border-subtle)' }}>
       <span>Symbol</span><span style={{ textAlign: 'right' }}>Type</span><span style={{ textAlign: 'right' }}>Contract</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Limit</span><span style={{ textAlign: 'right' }}>Status</span><span style={{ textAlign: 'right' }}>Created</span>{showActions ? <span /> : <span style={{ textAlign: 'right' }}>Approval</span>}
     </div>
   )
 
   return (
     <>
-      {error && <div style={{ margin: '0.5rem 0', padding: '0.5rem 1rem', background: 'rgba(232,112,112,0.08)', border: '1px solid rgba(232,112,112,0.2)', borderRadius: 5, fontSize: '0.75rem', color: '#e87070' }}>{error}</div>}
+      {error && <div style={{ margin: '0.5rem 0', padding: '0.5rem 1rem', background: 'rgba(185,28,28,0.08)', border: '1px solid rgba(185,28,28,0.2)', borderRadius: 5, fontSize: '0.75rem', color: 'var(--signal-bear)' }}>{error}</div>}
 
       <Section title={`Awaiting Approval · ${pending.length}`}>
         {pending.length === 0
@@ -407,21 +407,21 @@ function TradeLogTab({ trades }: { trades: TradeLog[] }) {
   return (
     <Section title={`Trade Log · ${trades.length} entries`}
       action={<div style={{ display: 'flex', gap: '1.5rem' }}>
-        <span style={{ fontSize: '0.68rem', color: T.dimmer }}>Total P&L: <strong style={{ color: totalPnl >= 0 ? '#4eca99' : '#e87070', fontFamily: 'monospace' }}>{fmtCurrency(totalPnl)}</strong></span>
+        <span style={{ fontSize: '0.68rem', color: T.dimmer }}>Total P&L: <strong style={{ color: totalPnl >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)', fontFamily: 'monospace' }}>{fmtCurrency(totalPnl)}</strong></span>
         <span style={{ fontSize: '0.68rem', color: T.dimmer }}>Commission: <strong style={{ color: T.dim, fontFamily: 'monospace' }}>{fmtCurrency(totalComm)}</strong></span>
       </div>}
     >
       {/* Header */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.7fr 1.2fr 0.7fr 0.7fr 0.7fr 0.8fr 0.7fr', gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.7fr 1.2fr 0.7fr 0.7fr 0.7fr 0.8fr 0.7fr', gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid var(--border-subtle)' }}>
         <span>Symbol</span><span>Type</span><span>Contract</span><span style={{ textAlign: 'right' }}>Fill</span><span style={{ textAlign: 'right' }}>Value</span><span style={{ textAlign: 'right' }}>P&L</span><span style={{ textAlign: 'right' }}>Cum P&L</span><span style={{ textAlign: 'right' }}>Date</span>
       </div>
       {trades.slice(0, 50).map(t => (
-        <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '1fr 0.7fr 1.2fr 0.7fr 0.7fr 0.7fr 0.8fr 0.7fr', gap: '0.5rem', padding: '0.5rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center' }}>
+        <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '1fr 0.7fr 1.2fr 0.7fr 0.7fr 0.7fr 0.8fr 0.7fr', gap: '0.5rem', padding: '0.5rem 1rem', borderBottom: '1px solid var(--bg-subtle)', alignItems: 'center' }}>
           <div>
             <span style={{ fontWeight: 700, color: T.cream, fontFamily: 'monospace', fontSize: '0.82rem' }}>{t.symbol}</span>
           </div>
           <div style={{ fontSize: '0.72rem' }}>
-            {t.action && pill(t.action.toUpperCase(), t.action === 'sell' ? '#4eca99' : '#e87070')}
+            {t.action && pill(t.action.toUpperCase(), t.action === 'sell' ? 'var(--signal-bull)' : 'var(--signal-bear)')}
           </div>
           <div style={{ fontSize: '0.68rem', color: T.dim, fontFamily: 'monospace' }}>
             {t.option_symbol ?? t.trade_type}
@@ -430,8 +430,8 @@ function TradeLogTab({ trades }: { trades: TradeLog[] }) {
           </div>
           <div style={{ textAlign: 'right', fontSize: '0.75rem', color: T.dim, fontFamily: 'monospace' }}>{t.fill_price ? `$${t.fill_price}` : '—'}</div>
           <div style={{ textAlign: 'right', fontSize: '0.75rem', color: T.dim, fontFamily: 'monospace' }}>{fmtCurrency(t.total_value)}</div>
-          <div style={{ textAlign: 'right', fontSize: '0.75rem', fontWeight: 600, color: t.pnl == null ? T.dimmer : t.pnl >= 0 ? '#4eca99' : '#e87070', fontFamily: 'monospace' }}>{fmtCurrency(t.pnl)}</div>
-          <div style={{ textAlign: 'right', fontSize: '0.75rem', color: t.cumulative_pnl == null ? T.dimmer : t.cumulative_pnl >= 0 ? '#4eca99' : '#e87070', fontFamily: 'monospace' }}>{fmtCurrency(t.cumulative_pnl)}</div>
+          <div style={{ textAlign: 'right', fontSize: '0.75rem', fontWeight: 600, color: t.pnl == null ? T.dimmer : t.pnl >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)', fontFamily: 'monospace' }}>{fmtCurrency(t.pnl)}</div>
+          <div style={{ textAlign: 'right', fontSize: '0.75rem', color: t.cumulative_pnl == null ? T.dimmer : t.cumulative_pnl >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)', fontFamily: 'monospace' }}>{fmtCurrency(t.cumulative_pnl)}</div>
           <div style={{ textAlign: 'right', fontSize: '0.65rem', color: T.dimmer, fontFamily: 'monospace' }}>{fmtDateTime(t.logged_at)}</div>
         </div>
       ))}
@@ -448,7 +448,7 @@ function ScannerTab({ runs }: { runs: ScannerRun[] }) {
     <>
       {/* Latest run summary */}
       {latest && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, marginBottom: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)', borderRadius: 8, marginBottom: '1rem' }}>
           {[
             { label: 'Last Run',       value: fmtDateTime(latest.run_at) },
             { label: 'Scanned',        value: String(latest.tickers_scanned) },
@@ -465,16 +465,16 @@ function ScannerTab({ runs }: { runs: ScannerRun[] }) {
 
       {latest?.candidates?.length > 0 && (
         <Section title={`Latest Candidates · ${latest.candidates.length}`}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.35rem 1rem', fontSize: '0.58rem', color: T.dimmer, textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '1px solid var(--border-subtle)' }}>
             <span>Symbol</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>Strike</span><span style={{ textAlign: 'right' }}>Expiry</span><span style={{ textAlign: 'right' }}>Premium</span><span style={{ textAlign: 'right' }}>Delta</span>
           </div>
           {latest.candidates.map((c: any, i: number) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.5rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center' }}>
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.5rem 1rem', borderBottom: '1px solid var(--bg-subtle)', alignItems: 'center' }}>
               <span style={{ fontWeight: 700, color: T.gold, fontFamily: 'monospace' }}>{c.symbol ?? c.ticker}</span>
               <span style={{ textAlign: 'right', fontSize: '0.78rem', color: T.dim, fontFamily: 'monospace' }}>{c.price ? `$${c.price}` : '—'}</span>
               <span style={{ textAlign: 'right', fontSize: '0.78rem', color: T.cream, fontFamily: 'monospace' }}>{c.strike ? `$${c.strike}` : '—'}</span>
               <span style={{ textAlign: 'right', fontSize: '0.75rem', color: T.dim, fontFamily: 'monospace' }}>{c.expiry ? fmtDate(c.expiry) : '—'}</span>
-              <span style={{ textAlign: 'right', fontSize: '0.78rem', color: '#4eca99', fontFamily: 'monospace' }}>{c.premium ? `$${c.premium}` : '—'}</span>
+              <span style={{ textAlign: 'right', fontSize: '0.78rem', color: 'var(--signal-bull)', fontFamily: 'monospace' }}>{c.premium ? `$${c.premium}` : '—'}</span>
               <span style={{ textAlign: 'right', fontSize: '0.75rem', color: T.dim, fontFamily: 'monospace' }}>{c.delta ? c.delta.toFixed(2) : '—'}</span>
             </div>
           ))}
@@ -483,12 +483,12 @@ function ScannerTab({ runs }: { runs: ScannerRun[] }) {
 
       <Section title={`Scanner History · ${runs.length} runs`}>
         {runs.slice(0, 20).map(r => (
-          <div key={r.id} style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', padding: '0.5rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+          <div key={r.id} style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', padding: '0.5rem 1rem', borderBottom: '1px solid var(--bg-subtle)' }}>
             <span style={{ fontSize: '0.72rem', color: T.dimmer, fontFamily: 'monospace', minWidth: 130 }}>{fmtDateTime(r.run_at)}</span>
             <span style={{ fontSize: '0.72rem', color: T.dim }}>Scanned <strong style={{ color: T.cream }}>{r.tickers_scanned}</strong></span>
-            <span style={{ fontSize: '0.72rem', color: T.dim }}>Passed <strong style={{ color: '#4eca99' }}>{r.tickers_passed}</strong></span>
-            {pill(r.status, r.status === 'ok' ? '#4eca99' : '#e87070')}
-            {r.error_msg && <span style={{ fontSize: '0.68rem', color: '#e87070' }}>{r.error_msg}</span>}
+            <span style={{ fontSize: '0.72rem', color: T.dim }}>Passed <strong style={{ color: 'var(--signal-bull)' }}>{r.tickers_passed}</strong></span>
+            {pill(r.status, r.status === 'ok' ? 'var(--signal-bull)' : 'var(--signal-bear)')}
+            {r.error_msg && <span style={{ fontSize: '0.68rem', color: 'var(--signal-bear)' }}>{r.error_msg}</span>}
           </div>
         ))}
       </Section>
@@ -531,9 +531,9 @@ function WatchlistTab({ entries, onRefresh }: { entries: WatchlistEntry[]; onRef
           <input value={newSymbol} onChange={e => setNewSymbol(e.target.value.toUpperCase())}
             onKeyDown={e => e.key === 'Enter' && addSymbol()}
             placeholder="AAPL" maxLength={10}
-            style={{ width: 80, padding: '0.3rem 0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: 'var(--cream)', fontSize: '0.75rem', outline: 'none' }} />
+            style={{ width: 80, padding: '0.3rem 0.5rem', background: 'var(--border-subtle)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: '0.75rem', outline: 'none' }} />
           <button onClick={addSymbol} disabled={adding || !newSymbol.trim()}
-            style={{ padding: '0.3rem 0.65rem', background: 'rgba(200,169,110,0.1)', border: '1px solid rgba(200,169,110,0.3)', color: 'var(--gold)', borderRadius: 4, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+            style={{ padding: '0.3rem 0.65rem', background: 'rgba(180,83,9,0.1)', border: '1px solid rgba(180,83,9,0.3)', color: 'var(--gold)', borderRadius: 4, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
             + Add
           </button>
         </div>
@@ -542,7 +542,7 @@ function WatchlistTab({ entries, onRefresh }: { entries: WatchlistEntry[]; onRef
       {entries.length === 0
         ? <div style={{ padding: '1rem', color: T.dimmer, fontSize: '0.82rem' }}>No symbols on options watchlist. Add a symbol to start scanning for CSP candidates.</div>
         : entries.map(e => (
-            <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.6rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.6rem 1rem', borderBottom: '1px solid var(--border-subtle)' }}>
               <button onClick={() => toggleEnabled(e.id, e.enabled)} disabled={toggling === e.id}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: toggling === e.id ? 0.4 : 1 }}
                 title={e.enabled ? 'Disable' : 'Enable'}>
@@ -566,14 +566,14 @@ function WatchlistTab({ entries, onRefresh }: { entries: WatchlistEntry[]; onRef
 // ─── Alerts tab ───────────────────────────────────────────────────────────────
 
 function AlertsTab({ alerts }: { alerts: any[] }) {
-  const LEVEL_COLOR: Record<string, string> = { info: '#7ab4e8', warning: '#e0c97a', critical: '#e87070' }
+  const LEVEL_COLOR: Record<string, string> = { info: 'var(--color-info)', warning: 'var(--signal-neut)', critical: 'var(--signal-bear)' }
 
   return (
     <Section title={`Options Alerts · ${alerts.length}`}>
       {alerts.length === 0
         ? <div style={{ padding: '1rem', color: T.dimmer, fontSize: '0.82rem' }}>No alerts</div>
         : alerts.slice(0, 50).map(a => (
-            <div key={a.id} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.7rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <div key={a.id} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.7rem 1rem', borderBottom: '1px solid var(--border-subtle)' }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: LEVEL_COLOR[a.level] ?? T.dimmer, marginTop: 5, flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '0.78rem', fontWeight: 600, color: T.cream }}>{a.title}</div>
@@ -582,7 +582,7 @@ function AlertsTab({ alerts }: { alerts: any[] }) {
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 {pill(a.level, LEVEL_COLOR[a.level] ?? T.dimmer)}
                 <div style={{ fontSize: '0.62rem', color: T.dimmer, marginTop: 3 }}>{fmtDateTime(a.created_at)}</div>
-                {a.sent && <div style={{ fontSize: '0.6rem', color: '#4eca99', marginTop: 1 }}>✓ sent</div>}
+                {a.sent && <div style={{ fontSize: '0.6rem', color: 'var(--signal-bull)', marginTop: 1 }}>✓ sent</div>}
               </div>
             </div>
           ))
@@ -619,7 +619,7 @@ export default function OptionsPage() {
       setPositions(posRes.data ?? [])
       setOrders(ordRes.data ?? [])
       setTrades(trdRes.data ?? [])
-      setScanner(scnRes.data ?? [])
+      setScanner((scnRes.data ?? []).map(r => ({ ...r, candidates: Array.isArray(r.candidates) ? r.candidates : [] })))
       setWatchlist(wlRes.data ?? [])
       setAlerts(altRes.data ?? [])
       setLastRefresh(new Date())
@@ -652,7 +652,7 @@ export default function OptionsPage() {
             Updated {lastRefresh.toLocaleTimeString()}
           </span>
           <button onClick={load} disabled={loading}
-            style={{ padding: '0.35rem 0.85rem', background: 'rgba(200,169,110,0.08)', border: '1px solid rgba(200,169,110,0.25)', color: T.gold, borderRadius: 5, cursor: loading ? 'wait' : 'pointer', fontSize: '0.72rem', opacity: loading ? 0.6 : 1 }}>
+            style={{ padding: '0.35rem 0.85rem', background: 'rgba(180,83,9,0.08)', border: '1px solid rgba(180,83,9,0.25)', color: T.gold, borderRadius: 5, cursor: loading ? 'wait' : 'pointer', fontSize: '0.72rem', opacity: loading ? 0.6 : 1 }}>
             {loading ? 'Loading…' : '↻ Refresh'}
           </button>
         </div>
@@ -665,7 +665,7 @@ export default function OptionsPage() {
             style={{ padding: '0.45rem 1rem', background: 'transparent', border: 'none', borderBottom: `2px solid ${tab === t ? 'var(--gold)' : 'transparent'}`, color: tab === t ? 'var(--gold)' : T.dimmer, fontSize: '0.78rem', fontWeight: tab === t ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s', flexShrink: 0, position: 'relative' }}>
             {label}
             {t === 'approvals' && pendingCount > 0 && (
-              <span style={{ position: 'absolute', top: 6, right: 4, background: '#e87070', color: '#fff', borderRadius: 8, fontSize: '0.55rem', fontWeight: 700, padding: '0 4px', lineHeight: '14px', minWidth: 14, textAlign: 'center' }}>
+              <span style={{ position: 'absolute', top: 6, right: 4, background: 'var(--signal-bear)', color: 'var(--bg)', borderRadius: 8, fontSize: '0.55rem', fontWeight: 700, padding: '0 4px', lineHeight: '14px', minWidth: 14, textAlign: 'center' }}>
                 {pendingCount}
               </span>
             )}

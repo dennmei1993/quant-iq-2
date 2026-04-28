@@ -117,3 +117,57 @@ code, pre {
   border: 1px solid var(--border);
   border-radius: 4px;
 }
+
+/* ─── Dark-theme rgba overrides ─────────────────────────────────────────────
+   Components use hardcoded rgba(232,226,217,0.X) values from the dark theme.
+   These CSS custom property tricks can't catch inline styles, so we use a
+   combination of variable remapping and targeted element overrides.
+   The real fix is updating component inline styles — see below.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Ensure all text in dashboard is readable on white */
+.dashboard-content,
+[data-dashboard] {
+  color: var(--text);
+}
+
+/* Panel/card backgrounds that used dark navy */
+[style*="background: rgba(255,255,255,0.01)"],
+[style*="background: rgba(255,255,255,0.02)"],
+[style*="background: rgba(255,255,255,0.03)"],
+[style*="background: rgba(255,255,255,0.025)"] {
+  background: var(--bg-subtle) !important;
+}
+
+/* Dark navy panel backgrounds */
+[style*="background: var(--navy2)"] { background: var(--bg-subtle) !important; }
+[style*="background: var(--navy)"]  { background: var(--bg) !important; }
+
+/* Borders that used low-opacity white */
+[style*="border: 1px solid rgba(255,255,255,0.06)"],
+[style*="border: 1px solid rgba(255,255,255,0.04)"],
+[style*="border: 1px solid rgba(255,255,255,0.08)"],
+[style*="border: 1px solid rgba(255,255,255,0.1)"],
+[style*="border: 1px solid var(--dash-border)"] {
+  border-color: var(--border) !important;
+}
+
+/* ─── Additional semantic colour variables ───────────────────────────────────
+   Used by components for signal colours, charts, and status indicators.     */
+:root {
+  /* Chart/canvas backgrounds — charts need a defined bg for canvas rendering */
+  --chart-bg:      #f1f5f9;
+  --chart-bg-dark: #1e293b;   /* kept for OHLC/candlestick contrast */
+
+  /* Informational blue */
+  --color-info:   #2563eb;
+
+  /* Purple — used in theme charts */
+  --color-purple: #7c3aed;
+
+  /* Green — explicit RGB values for rgba() usage in components */
+  --green-rgb:    21, 128, 61;
+  --amber-rgb:    180, 83, 9;
+  --red-rgb:      185, 28, 28;
+  --blue-rgb:     37, 99, 235;
+}
