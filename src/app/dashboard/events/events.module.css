@@ -1,7 +1,7 @@
 /* src/app/dashboard/events/events.module.css */
 
 /* additions for impact_score */
-.impactNone  { background: rgba(255,255,255,0.04); color: rgba(200,185,165,0.45); border: 1px solid rgba(255,255,255,0.05); }
+.impactNone  { background: var(--bg-subtle); color: rgba(200,185,165,0.2); border: 1px solid var(--border-subtle); }
 .impactScore { font-family: 'DM Mono', monospace; font-size: 0.6rem; opacity: 0.7; }
 
 
@@ -43,7 +43,7 @@
 
 .filterToggle {
   display: inline-flex;
-  background: rgba(255,255,255,0.04);
+  background: var(--bg-subtle);
   border-radius: 5px;
   border: 1px solid rgba(200,169,110,0.12);
   overflow: hidden;
@@ -139,7 +139,7 @@
 .typeCorp     { background: rgba(42,124,94,0.15); color: #4eca99; border: 1px solid rgba(42,124,94,0.25); }
 .typeEcon     { background: rgba(100,80,200,0.15); color: #b0a0f0; border: 1px solid rgba(100,80,200,0.25); }
 .typeReg      { background: rgba(200,120,32,0.15); color: #e09845; border: 1px solid rgba(200,120,32,0.25); }
-.typeDefault  { background: rgba(255,255,255,0.06); color: rgba(200,185,165,0.5); border: 1px solid rgba(255,255,255,0.08); }
+.typeDefault  { background: var(--border-subtle); color: rgba(200,185,165,0.5); border: 1px solid var(--border-subtle); }
 
 /* ── Sector tags ── */
 .sectorTag {
@@ -163,7 +163,7 @@
 }
 .impactHigh { background: rgba(184,48,48,0.15);  color: #e87070; border: 1px solid rgba(184,48,48,0.25); }
 .impactMed  { background: rgba(200,120,32,0.15);  color: #e09845; border: 1px solid rgba(200,120,32,0.25); }
-.impactLow  { background: rgba(255,255,255,0.05); color: rgba(200,185,165,0.3); border: 1px solid rgba(255,255,255,0.06); }
+.impactLow  { background: var(--border-subtle); color: rgba(200,185,165,0.3); border: 1px solid var(--border-subtle); }
 
 .eventTime {
   font-family: 'DM Mono', monospace;
@@ -183,7 +183,7 @@
 .eventDetails {
   margin-top: 0.7rem;
   padding: 0.75rem 0.9rem;
-  background: rgba(255,255,255,0.03);
+  background: var(--bg-subtle);
   border-radius: 6px;
   border-left: 2px solid rgba(200,169,110,0.3);
   display: flex;
