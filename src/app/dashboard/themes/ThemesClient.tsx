@@ -1,14 +1,10 @@
 'use client'
 // src/app/dashboard/themes/ThemesClient.tsx
-// Handles timeframe filter, sort, expand/collapse, asset pipeline
-
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import type { Theme, Regime, SignalMap, TickerWeight } from './page'
 import ThemeTickerManager from '@/components/dashboard/ThemeTickerManager'
 import styles from './themes.module.css'
-
-// ── Constants ──────────────────────────────────────────────────────────────────
 
 const MOMENTUM_LABEL: Record<string, string> = {
   strong_up:    '↑↑ Strong',
@@ -19,11 +15,11 @@ const MOMENTUM_LABEL: Record<string, string> = {
 }
 
 const MOMENTUM_COLOR: Record<string, string> = {
-  strong_up:    'var(--green)',
-  moderate_up:  '#7affb0',
-  neutral:      'var(--amber)',
-  moderate_down:'#ff8a9a',
-  strong_down:  'var(--red)',
+  strong_up:    'var(--signal-bull)',
+  moderate_up:  'var(--signal-bull)',
+  neutral:      'var(--signal-neut)',
+  moderate_down:'var(--signal-bear)',
+  strong_down:  'var(--signal-bear)',
 }
 
 const TF_LABEL: Record<string, string> = {
@@ -31,8 +27,6 @@ const TF_LABEL: Record<string, string> = {
   '3m': '3 months',
   '6m': '6 months',
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function relTime(iso: string | null): string {
   if (!iso) return ''
@@ -64,8 +58,6 @@ function signalClass(signal: string | null): string {
 function signalLabel(signal: string | null): string {
   return (signal ?? 'hold').toUpperCase()
 }
-
-// ── Sub-components ─────────────────────────────────────────────────────────────
 
 function RegimeBar({ regime }: { regime: Regime | null }) {
   if (!regime) return null
@@ -134,12 +126,7 @@ function AssetPipeline({ themeId, tickers, signalMap: initialSignalMap }: {
         if (!d) return
         const fresh: SignalMap = {}
         for (const t of (d.tickers ?? [])) {
-          fresh[t.ticker] = {
-            signal:     t.signal,
-            score:      t.score,
-            price_usd:  t.price_usd,
-            change_pct: t.change_pct,
-          }
+          fresh[t.ticker] = { signal: t.signal, score: t.score, price_usd: t.price_usd, change_pct: t.change_pct }
         }
         setSignalMap(fresh)
       })
@@ -157,25 +144,20 @@ function AssetPipeline({ themeId, tickers, signalMap: initialSignalMap }: {
         const sig = signalMap[tw.ticker]
         const wt  = tw.final_weight != null ? Math.round(tw.final_weight) : null
         return (
-          <Link key={tw.ticker} href={`/dashboard/tickers/${tw.ticker}`} className={styles.assetPill} style={{ textDecoration: 'none', display: 'block' }} onClick={e => e.stopPropagation()}>
+          <Link key={tw.ticker} href={`/dashboard/tickers/${tw.ticker}`} className={styles.assetPill}
+            onClick={e => e.stopPropagation()}>
             <div className={styles.assetPillTicker}>{tw.ticker}</div>
-            {tw.asset_type && (
-              <div className={styles.assetPillType}>{tw.asset_type}</div>
-            )}
-            {wt != null && (
-              <div className={styles.assetPillWeight}>Weight {wt}%</div>
-            )}
+            {tw.asset_type && <div className={styles.assetPillType}>{tw.asset_type}</div>}
+            {wt != null && <div className={styles.assetPillWeight}>Weight {wt}%</div>}
             {loading
               ? <span className={styles.sigHold}>…</span>
-              : sig?.signal
-              ? <span className={signalClass(sig.signal)}>{signalLabel(sig.signal)}</span>
-              : null
+              : sig?.signal ? <span className={signalClass(sig.signal)}>{signalLabel(sig.signal)}</span> : null
             }
             {sig?.price_usd != null && (
               <div className={styles.assetPillWeight}>
                 ${sig.price_usd.toFixed(2)}
                 {sig.change_pct != null && (
-                  <span style={{ color: sig.change_pct >= 0 ? 'var(--green)' : 'var(--red)', marginLeft: 4 }}>
+                  <span style={{ color: sig.change_pct >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)', marginLeft: 4 }}>
                     {sig.change_pct >= 0 ? '+' : ''}{sig.change_pct.toFixed(2)}%
                   </span>
                 )}
@@ -188,16 +170,10 @@ function AssetPipeline({ themeId, tickers, signalMap: initialSignalMap }: {
   )
 }
 
-function ThemeCard({
-  theme, signalMap, expanded, onToggle, isWatchlist,
-}: {
-  theme:      Theme
-  signalMap:  SignalMap
-  expanded:   boolean
-  onToggle:   () => void
-  isWatchlist: boolean
+function ThemeCard({ theme, signalMap, expanded, onToggle, isWatchlist }: {
+  theme: Theme; signalMap: SignalMap; expanded: boolean; onToggle: () => void; isWatchlist: boolean
 }) {
-  const mColor  = MOMENTUM_COLOR[theme.momentum ?? 'neutral'] ?? 'var(--amber)'
+  const mColor  = MOMENTUM_COLOR[theme.momentum ?? 'neutral'] ?? 'var(--signal-neut)'
   const conv    = theme.conviction ?? 0
   const cardCls = [
     styles.themeCard,
@@ -216,20 +192,14 @@ function ThemeCard({
               : <span className={`${styles.tag} ${styles.tagTf}`}>{TF_LABEL[theme.timeframe] ?? theme.timeframe}</span>
             }
             {theme.label && theme.label !== 'WATCHLIST' && (
-              <span className={`${styles.tag} ${momentumTagClass(theme.momentum)}`}>
-                {theme.label}
-              </span>
+              <span className={`${styles.tag} ${momentumTagClass(theme.momentum)}`}>{theme.label}</span>
             )}
             {theme.momentum && !isWatchlist && (
-              <span className={`${styles.tag} ${momentumTagClass(theme.momentum)}`}>
-                {MOMENTUM_LABEL[theme.momentum]}
-              </span>
+              <span className={`${styles.tag} ${momentumTagClass(theme.momentum)}`}>{MOMENTUM_LABEL[theme.momentum]}</span>
             )}
           </div>
           <div className={styles.themeName}>{theme.name}</div>
-          {expanded && theme.brief && (
-            <div className={styles.themeBrief}>{theme.brief}</div>
-          )}
+          {expanded && theme.brief && <div className={styles.themeBrief}>{theme.brief}</div>}
           {expanded && (theme.anchor_reason || theme.anchored_since) && (
             <div className={styles.themeAnchor}>
               {theme.anchor_reason && `⚓ ${theme.anchor_reason}`}
@@ -241,60 +211,33 @@ function ThemeCard({
         <div className={styles.themeCardRight}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div>
-              <div
-                className={styles.convNum}
-                style={{ color: isWatchlist ? 'var(--blue)' : mColor }}
-              >
-                {conv}
-              </div>
+              <div className={styles.convNum} style={{ color: isWatchlist ? 'var(--color-info)' : mColor }}>{conv}</div>
               <div className={styles.convLabel}>Conviction</div>
             </div>
-            <div>
-              <div className={styles.convBarBg}>
-                <div
-                  className={styles.convBarFill}
-                  style={{ width: `${conv}%`, background: isWatchlist ? 'var(--blue)' : mColor }}
-                />
-              </div>
+            <div className={styles.convBarBg}>
+              <div className={styles.convBarFill} style={{ width: `${conv}%`, background: isWatchlist ? 'var(--color-info)' : mColor }} />
             </div>
           </div>
           {!isWatchlist && theme.momentum && (
-            <div className={styles.momentumVal} style={{ color: mColor }}>
-              {MOMENTUM_LABEL[theme.momentum]}
-            </div>
+            <div className={styles.momentumVal} style={{ color: mColor }}>{MOMENTUM_LABEL[theme.momentum]}</div>
           )}
         </div>
       </div>
 
       {expanded && (
-        <div className={styles.pipeline} style={isWatchlist ? { background: 'rgba(90,154,245,0.02)' } : undefined}>
-          <div className={styles.pipelineHdr}>
-            Candidate assets · ranked by theme weight
-          </div>
+        <div className={styles.pipeline} style={isWatchlist ? { background: 'rgba(var(--blue-rgb), 0.02)' } : undefined}>
+          <div className={styles.pipelineHdr}>Candidate assets · ranked by theme weight</div>
           {isWatchlist ? (
-            // Watchlist themes: use ThemeTickerManager for full add/remove/reweight UI
-            <ThemeTickerManager
-              themeId={theme.id}
-              initialTickers={theme.ticker_weights}
-            />
+            <ThemeTickerManager themeId={theme.id} initialTickers={theme.ticker_weights} />
           ) : (
-            // Dynamic themes: read-only asset pipeline with signal badges
             <>
               <AssetPipeline themeId={theme.id} tickers={theme.ticker_weights} signalMap={signalMap} />
               <div className={styles.pipelineActions}>
-                <button className={`${styles.pipelineBtn} ${styles.pipeBtnPrimary}`}>
-                  + Add all BUY to watchlist
-                </button>
-                <Link
-                  href="/dashboard/assets"
-                  className={`${styles.pipelineBtn} ${styles.pipeBtnSecondary}`}
-                >
-                  View in screener →
-                </Link>
+                <button className={`${styles.pipelineBtn} ${styles.pipeBtnPrimary}`}>+ Add all BUY to watchlist</button>
+                <Link href="/dashboard/assets" className={`${styles.pipelineBtn} ${styles.pipeBtnSecondary}`}>View in screener →</Link>
                 {theme.anchored_since && (
                   <span className={styles.anchorNote}>
-                    anchored {relTime(theme.anchored_since)}
-                    {theme.anchor_reason && ` · ${theme.anchor_reason}`}
+                    anchored {relTime(theme.anchored_since)}{theme.anchor_reason && ` · ${theme.anchor_reason}`}
                   </span>
                 )}
               </div>
@@ -306,104 +249,57 @@ function ThemeCard({
   )
 }
 
-// ── Main client component ──────────────────────────────────────────────────────
-
-interface Props {
-  themes:    Theme[]
-  regime:    Regime | null
-  signalMap: SignalMap
-}
+interface Props { themes: Theme[]; regime: Regime | null; signalMap: SignalMap }
 
 export default function ThemesClient({ themes, regime, signalMap }: Props) {
-  const [expandedId, setExpandedId] = useState<string | null>(
-    themes.find(t => t.theme_type === 'dynamic')?.id ?? null
-  )
-  const [tfFilter, setTfFilter] = useState<string>('all')
-  const [sortBy,   setSortBy]   = useState<'conviction' | 'timeframe'>('conviction')
+  const [expandedId, setExpandedId] = useState<string | null>(themes.find(t => t.theme_type === 'dynamic')?.id ?? null)
+  const [tfFilter,   setTfFilter]   = useState<string>('all')
+  const [sortBy,     setSortBy]     = useState<'conviction' | 'timeframe'>('conviction')
 
-  const dynamicThemes   = useMemo(() =>
+  const dynamicThemes = useMemo(() =>
     themes
       .filter(t => t.theme_type === 'dynamic')
       .filter(t => tfFilter === 'all' || t.timeframe === tfFilter)
-      .sort((a, b) =>
-        sortBy === 'conviction'
-          ? (b.conviction ?? 0) - (a.conviction ?? 0)
-          : a.timeframe.localeCompare(b.timeframe)
-      ),
+      .sort((a, b) => sortBy === 'conviction' ? (b.conviction ?? 0) - (a.conviction ?? 0) : a.timeframe.localeCompare(b.timeframe)),
     [themes, tfFilter, sortBy]
   )
 
-  const watchlistThemes = useMemo(() =>
-    themes.filter(t => t.theme_type === 'watchlist'),
-    [themes]
-  )
-
-  const toggle = (id: string) =>
-    setExpandedId(prev => prev === id ? null : id)
-
-  const updatedAt = themes[0]
-    ? relTime(themes[0].anchored_since ?? themes[0].expires_at)
-    : ''
+  const watchlistThemes = useMemo(() => themes.filter(t => t.theme_type === 'watchlist'), [themes])
+  const toggle = (id: string) => setExpandedId(prev => prev === id ? null : id)
+  const updatedAt = themes[0] ? relTime(themes[0].anchored_since ?? themes[0].expires_at) : ''
 
   return (
     <div className={styles.page}>
-
-      {/* Controls */}
       <div className={styles.controls}>
         <div className={styles.controlsLeft}>
           <div className={styles.tfToggle}>
             {['all', '1m', '3m', '6m'].map(tf => (
-              <button
-                key={tf}
-                className={`${styles.tfBtn} ${tfFilter === tf ? styles.tfBtnActive : ''}`}
-                onClick={() => setTfFilter(tf)}
-              >
-                {tf}
-              </button>
+              <button key={tf} className={`${styles.tfBtn} ${tfFilter === tf ? styles.tfBtnActive : ''}`} onClick={() => setTfFilter(tf)}>{tf}</button>
             ))}
           </div>
-          <button
-            className={styles.sortBtn}
-            onClick={() => setSortBy(s => s === 'conviction' ? 'timeframe' : 'conviction')}
-          >
+          <button className={styles.sortBtn} onClick={() => setSortBy(s => s === 'conviction' ? 'timeframe' : 'conviction')}>
             Sort: {sortBy} ↓
           </button>
         </div>
-        <div className={styles.controlsRight}>
-          {themes.length} themes{updatedAt ? ` · updated ${updatedAt}` : ''}
-        </div>
+        <div className={styles.controlsRight}>{themes.length} themes{updatedAt ? ` · updated ${updatedAt}` : ''}</div>
       </div>
 
-      {/* Regime context */}
       <RegimeBar regime={regime} />
 
-      {/* Dynamic themes */}
       <div>
         <div className={styles.sectionHdr}>
           <span className={styles.sectionTitle}>Market themes</span>
           <span className={styles.sectionCount}>{dynamicThemes.length} active</span>
         </div>
         {dynamicThemes.length === 0 ? (
-          <div className={styles.empty}>
-            {tfFilter !== 'all'
-              ? `No ${tfFilter} themes — try a different timeframe filter`
-              : 'No market themes yet — run the themes cron to generate'}
-          </div>
+          <div className={styles.empty}>{tfFilter !== 'all' ? `No ${tfFilter} themes — try a different timeframe filter` : 'No market themes yet — run the themes cron to generate'}</div>
         ) : (
           dynamicThemes.map(t => (
-            <ThemeCard
-              key={t.id}
-              theme={t}
-              signalMap={signalMap}
-              expanded={expandedId === t.id}
-              onToggle={() => toggle(t.id)}
-              isWatchlist={false}
-            />
+            <ThemeCard key={t.id} theme={t} signalMap={signalMap} expanded={expandedId === t.id} onToggle={() => toggle(t.id)} isWatchlist={false} />
           ))
         )}
       </div>
 
-      {/* Watchlist themes */}
       {watchlistThemes.length > 0 && (
         <div>
           <div className={styles.sectionHdr}>
@@ -411,18 +307,10 @@ export default function ThemesClient({ themes, regime, signalMap }: Props) {
             <span className={styles.sectionCount}>{watchlistThemes.length} active</span>
           </div>
           {watchlistThemes.map(t => (
-            <ThemeCard
-              key={t.id}
-              theme={t}
-              signalMap={signalMap}
-              expanded={expandedId === t.id}
-              onToggle={() => toggle(t.id)}
-              isWatchlist={true}
-            />
+            <ThemeCard key={t.id} theme={t} signalMap={signalMap} expanded={expandedId === t.id} onToggle={() => toggle(t.id)} isWatchlist={true} />
           ))}
         </div>
       )}
-
     </div>
   )
 }
