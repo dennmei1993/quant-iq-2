@@ -70,8 +70,8 @@ export function PromptPreviewModal({ prompt, title = 'LLM Prompt Preview', descr
         position: 'fixed', zIndex: 501,
         top: '3vh', left: '50%', transform: 'translateX(-50%)',
         width: 'min(1100px, 96vw)', height: '94vh',
-        background: '#0a1628',
-        border: '1px solid rgba(200,169,110,0.3)',
+        background: 'var(--chart-bg)',
+        border: '1px solid rgba(180,83,9,0.3)',
         borderRadius: 10,
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 32px 80px rgba(0,0,0,0.8)',
@@ -79,28 +79,28 @@ export function PromptPreviewModal({ prompt, title = 'LLM Prompt Preview', descr
       }}>
 
         {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-          <span style={{ fontSize: '0.58rem', background: 'rgba(252,92,101,0.15)', color: '#fc5c65', border: '1px solid rgba(252,92,101,0.3)', borderRadius: 4, padding: '0.1rem 0.5rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <span style={{ fontSize: '0.58rem', background: 'rgba(185,28,28,0.15)', color: 'var(--signal-bear)', border: '1px solid rgba(185,28,28,0.3)', borderRadius: 4, padding: '0.1rem 0.5rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             DEV
           </span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--cream)' }}>{title}</div>
-            {description && <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', marginTop: 1 }}>{description}</div>}
+            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)' }}>{title}</div>
+            {description && <div style={{ fontSize: '0.65rem', color: 'var(--text-3)', marginTop: 1 }}>{description}</div>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(232,226,217,0.35)' }}>
+            <span style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'var(--text-4)' }}>
               {lineCount.toLocaleString()} lines · {charCount.toLocaleString()} chars
-              {dirty && <span style={{ color: '#f0b429', marginLeft: 6 }}>● edited</span>}
+              {dirty && <span style={{ color: 'var(--signal-neut)', marginLeft: 6 }}>● edited</span>}
             </span>
-            <button onClick={handleCopy} style={btnStyle('rgba(99,179,237,0.15)', 'rgba(99,179,237,0.5)', '#63b3ed')}>
+            <button onClick={handleCopy} style={btnStyle('rgba(37,99,235,0.15)', 'rgba(37,99,235,0.5)', 'var(--color-info)')}>
               {copyLabel}
             </button>
             {dirty && (
-              <button onClick={handleReset} style={btnStyle('rgba(240,180,41,0.1)', 'rgba(240,180,41,0.4)', '#f0b429')}>
+              <button onClick={handleReset} style={btnStyle('rgba(180,83,9,0.1)', 'rgba(180,83,9,0.4)', 'var(--signal-neut)')}>
                 Reset
               </button>
             )}
-            <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'rgba(232,226,217,0.35)', cursor: 'pointer', fontSize: '1.3rem', lineHeight: 1, padding: '0 4px' }}>×</button>
+            <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.3rem', lineHeight: 1, padding: '0 4px' }}>×</button>
           </div>
         </div>
 
@@ -108,33 +108,33 @@ export function PromptPreviewModal({ prompt, title = 'LLM Prompt Preview', descr
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
           {/* Section nav */}
-          <div style={{ width: 220, borderRight: '1px solid rgba(255,255,255,0.06)', padding: '0.75rem 0', overflowY: 'auto', flexShrink: 0 }}>
-            <div style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.30)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 0.85rem', marginBottom: '0.5rem' }}>
+          <div style={{ width: 220, borderRight: '1px solid var(--border)', padding: '0.75rem 0', overflowY: 'auto', flexShrink: 0 }}>
+            <div style={{ fontSize: '0.55rem', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 0.85rem', marginBottom: '0.5rem' }}>
               Sections
             </div>
             {sections.length === 0 ? (
-              <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.25)', padding: '0 0.85rem' }}>No sections detected</div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-4)', padding: '0 0.85rem' }}>No sections detected</div>
             ) : (
               sections.map((s, i) => (
                 <button key={i} onClick={() => jumpToSection(s.heading)}
                   style={{
-                    width: '100%', textAlign: 'left', background: section === s.heading ? 'rgba(200,169,110,0.08)' : 'none',
-                    border: 'none', borderLeft: `2px solid ${section === s.heading ? 'rgba(200,169,110,0.6)' : 'transparent'}`,
+                    width: '100%', textAlign: 'left', background: section === s.heading ? 'rgba(180,83,9,0.08)' : 'none',
+                    border: 'none', borderLeft: `2px solid ${section === s.heading ? 'rgba(180,83,9,0.6)' : 'transparent'}`,
                     padding: '0.3rem 0.85rem', cursor: 'pointer', transition: 'all 0.1s',
                   }}>
-                  <div style={{ fontSize: '0.65rem', color: section === s.heading ? 'var(--gold)' : 'rgba(232,226,217,0.55)', fontWeight: section === s.heading ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: '0.65rem', color: section === s.heading ? 'var(--gold)' : 'var(--text-3)', fontWeight: section === s.heading ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {s.label}
                   </div>
-                  <div style={{ fontSize: '0.55rem', color: 'rgba(232,226,217,0.25)', marginTop: 1 }}>line {s.line}</div>
+                  <div style={{ fontSize: '0.55rem', color: 'var(--text-4)', marginTop: 1 }}>line {s.line}</div>
                 </button>
               ))
             )}
 
             {/* Diff summary if edited */}
             {dirty && (
-              <div style={{ margin: '0.75rem 0.85rem 0', padding: '0.5rem', background: 'rgba(240,180,41,0.06)', border: '1px solid rgba(240,180,41,0.2)', borderRadius: 5 }}>
-                <div style={{ fontSize: '0.58rem', color: '#f0b429', fontWeight: 600, marginBottom: 3 }}>Prompt edited</div>
-                <div style={{ fontSize: '0.58rem', color: 'rgba(232,226,217,0.40)' }}>
+              <div style={{ margin: '0.75rem 0.85rem 0', padding: '0.5rem', background: 'rgba(180,83,9,0.06)', border: '1px solid rgba(180,83,9,0.2)', borderRadius: 5 }}>
+                <div style={{ fontSize: '0.58rem', color: 'var(--signal-neut)', fontWeight: 600, marginBottom: 3 }}>Prompt edited</div>
+                <div style={{ fontSize: '0.58rem', color: 'var(--text-3)' }}>
                   {Math.abs(charCount - prompt.length)} chars {charCount > prompt.length ? 'added' : 'removed'}
                 </div>
               </div>
@@ -153,7 +153,7 @@ export function PromptPreviewModal({ prompt, title = 'LLM Prompt Preview', descr
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: 'rgba(232,226,217,0.85)',
+              color: 'var(--text)',
               fontSize: '0.75rem',
               lineHeight: 1.7,
               fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace',
@@ -167,19 +167,19 @@ export function PromptPreviewModal({ prompt, title = 'LLM Prompt Preview', descr
         </div>
 
         {/* ── Footer ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.65rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-          <div style={{ fontSize: '0.65rem', color: 'rgba(232,226,217,0.35)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.65rem 1rem', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-4)' }}>
             {dirty
               ? 'Edited prompt will be sent instead of the original.'
               : 'Edit the prompt above to override what gets sent to the LLM.'}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button onClick={onCancel} style={btnStyle('transparent', 'rgba(255,255,255,0.12)', 'rgba(232,226,217,0.45)')}>
+            <button onClick={onCancel} style={btnStyle('transparent', 'var(--border)', 'var(--text-3)')}>
               Cancel
             </button>
             <button
               onClick={() => onConfirm(value)}
-              style={btnStyle('rgba(200,169,110,0.15)', 'rgba(200,169,110,0.5)', 'var(--gold)', true)}
+              style={btnStyle('rgba(180,83,9,0.15)', 'rgba(180,83,9,0.5)', 'var(--gold)', true)}
             >
               {dirty ? '✦ Send edited prompt' : '✦ Send prompt'}
             </button>

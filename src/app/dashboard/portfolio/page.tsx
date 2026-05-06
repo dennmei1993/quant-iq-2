@@ -63,7 +63,7 @@ type ProfileDefaults = Omit<Portfolio, "id" | "name" | "user_id" | "created_at">
 const SIG_COLOR: Record<string, string> = {
   buy:   "var(--signal-bull)",
   watch: "var(--signal-neut)",
-  hold:  "rgba(232,226,217,0.3)",
+  hold:  "var(--text-4)",
   avoid: "var(--signal-bear)",
 };
 
@@ -77,22 +77,22 @@ const PREF_LABELS = {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const labelStyle: React.CSSProperties = {
-  display: "block", fontSize: "0.68rem", color: "rgba(232,226,217,0.45)",
+  display: "block", fontSize: "0.68rem", color: "var(--text-3)",
   marginBottom: "0.25rem", textTransform: "uppercase", letterSpacing: "0.08em",
 };
 
 const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "0.5rem 0.7rem", background: "rgba(255,255,255,0.05)",
-  border: "1px solid var(--dash-border)", borderRadius: 6, color: "var(--cream)",
+  width: "100%", padding: "0.5rem 0.7rem", background: "var(--border-subtle)",
+  border: "1px solid var(--dash-border)", borderRadius: 6, color: "var(--text)",
   fontSize: "0.85rem", outline: "none", boxSizing: "border-box",
 };
 
 function pillStyle(active: boolean, saving = false): React.CSSProperties {
   return {
     padding: "0.3rem 0.75rem",
-    background: active ? "rgba(200,169,110,0.18)" : "rgba(255,255,255,0.04)",
-    border: `1px solid ${active ? "rgba(200,169,110,0.45)" : "var(--dash-border)"}`,
-    color: active ? "var(--gold)" : "rgba(232,226,217,0.40)",
+    background: active ? "rgba(180,83,9,0.18)" : "var(--border-subtle)",
+    border: `1px solid ${active ? "rgba(180,83,9,0.45)" : "var(--dash-border)"}`,
+    color: active ? "var(--gold)" : "var(--text-3)",
     borderRadius: 5, fontSize: "0.75rem", fontWeight: active ? 600 : 400,
     cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.5 : 1,
     transition: "all 0.15s", whiteSpace: "nowrap" as const,
@@ -129,17 +129,17 @@ function CapitalInput({ portfolioId, onSave }: { portfolioId: string; onSave: (v
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
       <div style={{ position: "relative" }}>
-        <span style={{ position: "absolute", left: "0.6rem", top: "50%", transform: "translateY(-50%)", color: "rgba(232,226,217,0.45)", fontSize: "0.85rem" }}>$</span>
+        <span style={{ position: "absolute", left: "0.6rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-3)", fontSize: "0.85rem" }}>$</span>
         <input
           value={val}
           onChange={e => setVal(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleSave()}
           placeholder="e.g. 50,000"
-          style={{ paddingLeft: "1.4rem", padding: "0.45rem 0.7rem 0.45rem 1.4rem", background: "rgba(255,255,255,0.05)", border: "1px solid var(--dash-border)", borderRadius: 6, color: "var(--cream)", fontSize: "0.82rem", outline: "none", width: 140 }}
+          style={{ paddingLeft: "1.4rem", padding: "0.45rem 0.7rem 0.45rem 1.4rem", background: "var(--border-subtle)", border: "1px solid var(--dash-border)", borderRadius: 6, color: "var(--text)", fontSize: "0.82rem", outline: "none", width: 140 }}
         />
       </div>
       <button onClick={handleSave} disabled={saving || !val}
-        style={{ padding: "0.45rem 1rem", background: "var(--gold)", color: "var(--navy)", fontWeight: 700, borderRadius: 5, border: "none", fontSize: "0.78rem", cursor: saving || !val ? "not-allowed" : "pointer", opacity: saving || !val ? 0.5 : 1 }}>
+        style={{ padding: "0.45rem 1rem", background: "var(--gold)", color: "var(--bg)", fontWeight: 700, borderRadius: 5, border: "none", fontSize: "0.78rem", cursor: saving || !val ? "not-allowed" : "pointer", opacity: saving || !val ? 0.5 : 1 }}>
         {saving ? "…" : "Set capital"}
       </button>
       {saved && <span style={{ fontSize: "0.72rem", color: "var(--signal-bull)" }}>✓</span>}
@@ -161,7 +161,7 @@ function Panel({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{
-      background: "var(--navy2)", border: "1px solid var(--dash-border)",
+      background: "var(--bg-subtle)", border: "1px solid var(--dash-border)",
       borderRadius: 10, marginBottom: "1rem", overflow: "hidden",
     }}>
       <button
@@ -173,10 +173,10 @@ function Panel({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-          <span style={{ fontSize: "0.6rem", color: open ? "var(--green)" : "rgba(232,226,217,0.35)", transition: "color 0.15s" }}>
+          <span style={{ fontSize: "0.6rem", color: open ? "var(--green)" : "var(--text-4)", transition: "color 0.15s" }}>
             {open ? "▼" : "▶"}
           </span>
-          <span style={{ fontSize: "0.72rem", fontFamily: "var(--font-mono)", color: "rgba(232,226,217,0.60)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+          <span style={{ fontSize: "0.72rem", fontFamily: "var(--font-mono)", color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
             {title}
           </span>
           {badge}
@@ -219,12 +219,12 @@ function CapitalSummaryBar({ metrics, cashFloorPct = 0 }: {
         />
         <Metric label="Cash Available"
           value={formatCurrency(metrics.cash_available)}
-          valueColor="#63b3ed"
+          valueColor="var(--color-info)"
           sub={metrics.realised_gain !== 0 ? "Includes proceeds from sells" : "Ready to invest"}
         />
       </div>
 
-      <div style={{ height: 1, background: "rgba(255,255,255,0.05)" }} />
+      <div style={{ height: 1, background: "var(--border-subtle)" }} />
 
       {/* Row 2 — performance */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
@@ -250,9 +250,9 @@ function CapitalSummaryBar({ metrics, cashFloorPct = 0 }: {
       </div>
 
       {belowFloor && (
-        <div style={{ background: "rgba(252,92,101,0.08)", border: "1px solid rgba(252,92,101,0.25)", borderRadius: 6, padding: "0.4rem 0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <span style={{ color: "#fc5c65", fontSize: "0.75rem", fontWeight: 600 }}>⚠ Below min cash reserve</span>
-          <span style={{ color: "rgba(232,226,217,0.45)", fontSize: "0.72rem" }}>
+        <div style={{ background: "rgba(185,28,28,0.08)", border: "1px solid rgba(185,28,28,0.25)", borderRadius: 6, padding: "0.4rem 0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ color: "var(--signal-bear)", fontSize: "0.75rem", fontWeight: 600 }}>⚠ Below min cash reserve</span>
+          <span style={{ color: "var(--text-3)", fontSize: "0.72rem" }}>
             Floor is {cashFloorPct}% ({formatCurrency(cashFloorAmt)}). Available: {formatCurrency(metrics.cash_available)}.
           </span>
         </div>
@@ -260,12 +260,12 @@ function CapitalSummaryBar({ metrics, cashFloorPct = 0 }: {
 
       {metrics.total_capital > 0 && (
         <div>
-          <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${Math.min(100, investedPct)}%`, background: "linear-gradient(90deg, rgba(200,169,110,0.6), rgba(200,169,110,0.9))", borderRadius: 3, transition: "width 0.5s" }} />
+          <div style={{ height: 4, background: "var(--border-subtle)", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${Math.min(100, investedPct)}%`, background: "linear-gradient(90deg, rgba(180,83,9,0.6), rgba(180,83,9,0.9))", borderRadius: 3, transition: "width 0.5s" }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.3rem" }}>
-            <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{formatCurrency(metrics.invested)} in open positions</span>
-            <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{formatCurrency(metrics.cash_available)} available</span>
+            <span style={{ fontSize: "0.62rem", color: "var(--text-4)" }}>{formatCurrency(metrics.invested)} in open positions</span>
+            <span style={{ fontSize: "0.62rem", color: "var(--text-4)" }}>{formatCurrency(metrics.cash_available)} available</span>
           </div>
         </div>
       )}
@@ -275,9 +275,9 @@ function CapitalSummaryBar({ metrics, cashFloorPct = 0 }: {
 function Metric({ label, value, sub, valueColor }: { label: string; value: string; sub?: React.ReactNode; valueColor?: string }) {
   return (
     <div>
-      <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.25rem" }}>{label}</div>
-      <div style={{ fontSize: "1.25rem", fontWeight: 700, color: valueColor ?? "var(--cream)", letterSpacing: "-0.02em", marginBottom: "0.2rem" }}>{value}</div>
-      {sub && <div style={{ fontSize: "0.68rem", color: "rgba(232,226,217,0.35)", lineHeight: 1.4 }}>{sub}</div>}
+      <div style={{ fontSize: "0.62rem", color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.25rem" }}>{label}</div>
+      <div style={{ fontSize: "1.25rem", fontWeight: 700, color: valueColor ?? "var(--text)", letterSpacing: "-0.02em", marginBottom: "0.2rem" }}>{value}</div>
+      {sub && <div style={{ fontSize: "0.68rem", color: "var(--text-4)", lineHeight: 1.4 }}>{sub}</div>}
     </div>
   );
 }
@@ -394,7 +394,7 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
       {/* Investment universe — named stock cohorts */}
       <div>
         <div style={labelStyle}>Stock Universe</div>
-        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginBottom: "0.4rem" }}>
+        <div style={{ fontSize: "0.62rem", color: "var(--text-4)", marginBottom: "0.4rem" }}>
           Named cohorts of individual stocks
         </div>
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -426,7 +426,7 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
       {/* ETF categories */}
       <div>
         <div style={labelStyle}>ETF Categories</div>
-        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginBottom: "0.4rem" }}>
+        <div style={{ fontSize: "0.62rem", color: "var(--text-4)", marginBottom: "0.4rem" }}>
           When asset type includes ETF — which kind
         </div>
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -452,7 +452,7 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
             );
           })}
         </div>
-        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginTop: "0.4rem" }}>
+        <div style={{ fontSize: "0.62rem", color: "var(--text-4)", marginTop: "0.4rem" }}>
           Leave all unchecked for no restriction. Multiple selections combine as OR (any of these).
         </div>
       </div>
@@ -472,19 +472,19 @@ function PreferencePanel({ portfolio, onUpdate }: { portfolio: Portfolio; onUpda
             );
           })}
         </div>
-        <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)", marginTop: "0.3rem" }}>
+        <div style={{ fontSize: "0.62rem", color: "var(--text-4)", marginTop: "0.3rem" }}>
           Always excluded from recommendations regardless of market signals
         </div>
       </div>
 
       {/* Save button */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", paddingTop: "0.5rem", borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: "0.25rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", paddingTop: "0.5rem", borderTop: "1px solid var(--border)", marginTop: "0.25rem" }}>
         <button onClick={saveAll} disabled={!isDirty || saving}
-          style={{ padding: "0.45rem 1.25rem", background: isDirty ? "rgba(200,169,110,0.15)" : "transparent", border: `1px solid ${isDirty ? "rgba(200,169,110,0.5)" : "rgba(255,255,255,0.08)"}`, color: isDirty ? "var(--gold)" : "rgba(232,226,217,0.25)", borderRadius: 6, cursor: isDirty ? "pointer" : "default", fontSize: "0.78rem", fontWeight: 600, transition: "all 0.15s" }}>
+          style={{ padding: "0.45rem 1.25rem", background: isDirty ? "rgba(180,83,9,0.15)" : "transparent", border: `1px solid ${isDirty ? "rgba(180,83,9,0.5)" : "var(--border)"}`, color: isDirty ? "var(--gold)" : "var(--text-4)", borderRadius: 6, cursor: isDirty ? "pointer" : "default", fontSize: "0.78rem", fontWeight: 600, transition: "all 0.15s" }}>
           {saving ? "Saving…" : "Save changes"}
         </button>
-        {isDirty && !saving && <span style={{ fontSize: "0.65rem", color: "rgba(232,226,217,0.35)" }}>Unsaved changes</span>}
-        {saved && !isDirty  && <span style={{ fontSize: "0.65rem", color: "#4eca99" }}>✓ Saved</span>}
+        {isDirty && !saving && <span style={{ fontSize: "0.65rem", color: "var(--text-4)" }}>Unsaved changes</span>}
+        {saved && !isDirty  && <span style={{ fontSize: "0.65rem", color: "var(--signal-bull)" }}>✓ Saved</span>}
       </div>
     </div>
   );
@@ -519,21 +519,21 @@ function NewPortfolioModal({ defaults, onClose, onCreate, isFirstRun = false }: 
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 10, padding: "1.6rem", width: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}>
+      <div style={{ background: "var(--bg-subtle)", border: "1px solid var(--dash-border)", borderRadius: 10, padding: "1.6rem", width: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.2rem" }}>
           <div>
-            <h3 style={{ color: "var(--cream)", fontFamily: "serif", fontSize: "1.25rem", margin: "0 0 0.3rem" }}>
+            <h3 style={{ color: "var(--text)", fontFamily: "serif", fontSize: "1.25rem", margin: "0 0 0.3rem" }}>
               {isFirstRun ? "Create your first portfolio" : "New portfolio"}
             </h3>
-            <p style={{ fontSize: "0.78rem", color: "rgba(232,226,217,0.40)", margin: 0 }}>
+            <p style={{ fontSize: "0.78rem", color: "var(--text-3)", margin: 0 }}>
               {isFirstRun
                 ? "Pre-filled from your investment personality — adjust per-portfolio below."
                 : "Inherits your investment personality defaults — adjust as needed."}
             </p>
           </div>
           {!isFirstRun && (
-            <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(232,226,217,0.35)", cursor: "pointer", fontSize: "1.2rem", padding: "0 4px", lineHeight: 1 }}>×</button>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-4)", cursor: "pointer", fontSize: "1.2rem", padding: "0 4px", lineHeight: 1 }}>×</button>
           )}
         </div>
 
@@ -547,7 +547,7 @@ function NewPortfolioModal({ defaults, onClose, onCreate, isFirstRun = false }: 
           <div>
             <label style={labelStyle}>Total capital</label>
             <div style={{ position: "relative", width: 160 }}>
-              <span style={{ position: "absolute", left: "0.6rem", top: "50%", transform: "translateY(-50%)", color: "rgba(232,226,217,0.45)", fontSize: "0.85rem" }}>$</span>
+              <span style={{ position: "absolute", left: "0.6rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-3)", fontSize: "0.85rem" }}>$</span>
               <input value={capitalStr} onChange={e => setCapitalStr(e.target.value)} placeholder="50,000" style={{ ...inputStyle, paddingLeft: "1.4rem" }} />
             </div>
           </div>
@@ -614,10 +614,10 @@ function NewPortfolioModal({ defaults, onClose, onCreate, isFirstRun = false }: 
 
           <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end", marginTop: "0.4rem" }}>
             {!isFirstRun && (
-              <button type="button" onClick={onClose} style={{ padding: "0.5rem 1rem", background: "transparent", border: "1px solid var(--dash-border)", color: "rgba(232,226,217,0.45)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem" }}>Cancel</button>
+              <button type="button" onClick={onClose} style={{ padding: "0.5rem 1rem", background: "transparent", border: "1px solid var(--dash-border)", color: "var(--text-3)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem" }}>Cancel</button>
             )}
             <button type="submit" disabled={saving}
-              style={{ padding: "0.5rem 1.1rem", background: "var(--gold)", color: "var(--navy)", fontWeight: 700, borderRadius: 6, border: "none", fontSize: "0.82rem", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
+              style={{ padding: "0.5rem 1.1rem", background: "var(--gold)", color: "var(--bg)", fontWeight: 700, borderRadius: 6, border: "none", fontSize: "0.82rem", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
               {saving ? "Creating…" : "Create portfolio"}
             </button>
           </div>
@@ -667,23 +667,23 @@ function TickerAutocomplete({ value, onChange, onSelect, error }: {
     if (e.key === "Escape") setOpen(false);
   }
 
-  const typeColor: Record<string, string> = { stock: "rgba(78,202,153,0.7)", etf: "rgba(200,169,110,0.7)", crypto: "rgba(122,180,232,0.7)", commodity: "rgba(232,180,122,0.7)" };
+  const typeColor: Record<string, string> = { stock: "rgba(21,128,61,0.7)", etf: "rgba(180,83,9,0.7)", crypto: "rgba(37,99,235,0.7)", commodity: "rgba(180,83,9,0.7)" };
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
       <label style={labelStyle}>Ticker</label>
       <input value={value} onChange={e => onChange(e.target.value.toUpperCase())} onKeyDown={handleKey}
         onFocus={() => results.length > 0 && setOpen(true)} placeholder="Search AAPL, XLE…" autoComplete="off"
-        style={{ ...inputStyle, background: error ? "rgba(232,112,112,0.06)" : "rgba(255,255,255,0.05)", border: `1px solid ${error ? "rgba(232,112,112,0.4)" : "var(--dash-border)"}` }} />
-      {searching && <div style={{ position: "absolute", right: "0.6rem", top: "2.1rem", fontSize: "0.65rem", color: "rgba(232,226,217,0.35)" }}>…</div>}
+        style={{ ...inputStyle, background: error ? "rgba(185,28,28,0.06)" : "var(--border-subtle)", border: `1px solid ${error ? "rgba(185,28,28,0.4)" : "var(--dash-border)"}` }} />
+      {searching && <div style={{ position: "absolute", right: "0.6rem", top: "2.1rem", fontSize: "0.65rem", color: "var(--text-4)" }}>…</div>}
       {open && results.length > 0 && (
-        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 6, marginTop: 2, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "var(--bg-subtle)", border: "1px solid var(--dash-border)", borderRadius: 6, marginTop: 2, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
           {results.map((asset, i) => (
             <div key={asset.ticker} onMouseDown={() => { onSelect(asset); setOpen(false); setResults([]); }} onMouseEnter={() => setActiveIdx(i)}
-              style={{ padding: "0.55rem 0.8rem", cursor: "pointer", background: i === activeIdx ? "rgba(255,255,255,0.06)" : "transparent", borderBottom: i < results.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              style={{ padding: "0.55rem 0.8rem", cursor: "pointer", background: i === activeIdx ? "var(--border)" : "transparent", borderBottom: i < results.length - 1 ? "1px solid var(--border-subtle)" : "none", display: "flex", alignItems: "center", gap: "0.6rem" }}>
               <span style={{ fontWeight: 700, color: "var(--gold)", fontFamily: "monospace", fontSize: "0.85rem", minWidth: "3.5rem" }}>{asset.ticker}</span>
-              <span style={{ fontSize: "0.75rem", color: "rgba(232,226,217,0.55)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{asset.name}</span>
-              <span style={{ fontSize: "0.6rem", color: typeColor[asset.asset_type] ?? "rgba(232,226,217,0.35)", textTransform: "uppercase", flexShrink: 0 }}>{asset.asset_type}</span>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-3)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{asset.name}</span>
+              <span style={{ fontSize: "0.6rem", color: typeColor[asset.asset_type] ?? "var(--text-4)", textTransform: "uppercase", flexShrink: 0 }}>{asset.asset_type}</span>
             </div>
           ))}
         </div>
@@ -729,28 +729,28 @@ function PortfolioWatchlistPanel({ portfolioId, onHoldingAdded }: { portfolioId:
     setRemoving(null)
   }
 
-  if (loading) return <div style={{ color: "rgba(232,226,217,0.3)", fontSize: "0.82rem" }}>Loading…</div>
+  if (loading) return <div style={{ color: "var(--text-4)", fontSize: "0.82rem" }}>Loading…</div>
 
   if (entries.length === 0) return (
-    <div style={{ color: "rgba(232,226,217,0.35)", fontSize: "0.82rem", padding: "0.5rem 0" }}>
+    <div style={{ color: "var(--text-4)", fontSize: "0.82rem", padding: "0.5rem 0" }}>
       No tickers on watchlist. Browse the <a href="/dashboard/assets" style={{ color: "var(--gold)" }}>Asset Screener</a> and click "Add to Watchlist" on any ticker page.
     </div>
   )
 
   return (
-    <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
+    <div style={{ background: "var(--bg-subtle)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 2fr 0.8fr 7rem 2rem", gap: "0.5rem", padding: "0.4rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 2fr 0.8fr 7rem 2rem", gap: "0.5rem", padding: "0.4rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
         <span>Ticker</span><span>Notes</span><span>Added</span><span /><span />
       </div>
       {entries.map((e, idx) => (
-        <div key={e.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 2fr 0.8fr 7rem 2rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: idx < entries.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+        <div key={e.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 2fr 0.8fr 7rem 2rem", gap: "0.5rem", padding: "0.55rem 0.85rem", alignItems: "center", borderBottom: idx < entries.length - 1 ? "1px solid var(--border-subtle)" : "none" }}>
           <div>
             <span style={{ fontWeight: 700, color: "var(--gold)", fontFamily: "var(--font-mono)", fontSize: "0.88rem" }}>{e.ticker}</span>
-            {e.name && <div style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.40)" }}>{e.name}</div>}
+            {e.name && <div style={{ fontSize: "0.62rem", color: "var(--text-3)" }}>{e.name}</div>}
           </div>
-          <div style={{ fontSize: "0.72rem", color: "rgba(232,226,217,0.50)" }}>{e.notes ?? "—"}</div>
-          <div style={{ fontSize: "0.68rem", color: "rgba(232,226,217,0.35)", fontFamily: "var(--font-mono)" }}>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-3)" }}>{e.notes ?? "—"}</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--text-4)", fontFamily: "var(--font-mono)" }}>
             {new Date(e.added_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
           </div>
           {/* Actions: Add Holding + Check + Remove */}
@@ -763,12 +763,12 @@ function PortfolioWatchlistPanel({ portfolioId, onHoldingAdded }: { portfolioId:
               onDone={() => { onHoldingAdded(); remove(e.ticker); }}
             />
             <a href={`/dashboard/tickers/${e.ticker}`}
-              style={{ fontSize: "0.65rem", padding: "0.25rem 0.5rem", background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(232,226,217,0.5)", borderRadius: 4, textDecoration: "none", whiteSpace: "nowrap" }}>
+              style={{ fontSize: "0.65rem", padding: "0.25rem 0.5rem", background: "none", border: "1px solid var(--border)", color: "var(--text-3)", borderRadius: 4, textDecoration: "none", whiteSpace: "nowrap" }}>
               ↗ Check
             </a>
           </div>
           <button onClick={() => remove(e.ticker)} disabled={removing === e.ticker}
-            style={{ background: "none", border: "none", color: "rgba(232,226,217,0.25)", cursor: "pointer", fontSize: "1rem", padding: 0, lineHeight: 1, opacity: removing === e.ticker ? 0.4 : 1 }}
+            style={{ background: "none", border: "none", color: "var(--text-4)", cursor: "pointer", fontSize: "1rem", padding: 0, lineHeight: 1, opacity: removing === e.ticker ? 0.4 : 1 }}
             title="Remove">×</button>
         </div>
       ))}
@@ -1044,7 +1044,7 @@ export default function PortfolioPage() {
     : null;
   const summary_return = capitalMetrics && capitalMetrics.total_capital > 0 ? capitalMetrics.return_pct : null;
 
-  if (initLoading) return <div style={{ color: "rgba(232,226,217,0.25)", fontSize: "0.85rem", padding: "3rem 0" }}>Loading…</div>;
+  if (initLoading) return <div style={{ color: "var(--text-4)", fontSize: "0.85rem", padding: "3rem 0" }}>Loading…</div>;
 
   return (
     <>
@@ -1057,9 +1057,9 @@ export default function PortfolioPage() {
 
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.2rem" }}>
-        <h1 style={{ color: "var(--cream)", fontFamily: "serif", fontSize: "1.8rem", margin: 0 }}>Portfolio</h1>
+        <h1 style={{ color: "var(--text)", fontFamily: "serif", fontSize: "1.8rem", margin: 0 }}>Portfolio</h1>
         <button onClick={() => setShowNew(true)}
-          style={{ padding: "0.45rem 0.9rem", background: "rgba(200,169,110,0.12)", border: "1px solid rgba(200,169,110,0.3)", color: "var(--gold)", borderRadius: 6, fontSize: "0.8rem", cursor: "pointer", fontWeight: 500 }}>
+          style={{ padding: "0.45rem 0.9rem", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.3)", color: "var(--gold)", borderRadius: 6, fontSize: "0.8rem", cursor: "pointer", fontWeight: 500 }}>
           + New portfolio
         </button>
       </div>
@@ -1068,7 +1068,7 @@ export default function PortfolioPage() {
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.2rem", flexWrap: "wrap" }}>
         {portfolios.map(p => (
           <button key={p.id} onClick={() => setSelectedId(p.id)}
-            style={{ padding: "0.4rem 1rem", background: p.id === selectedId ? "rgba(200,169,110,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${p.id === selectedId ? "rgba(200,169,110,0.4)" : "var(--dash-border)"}`, color: p.id === selectedId ? "var(--gold)" : "rgba(232,226,217,0.45)", borderRadius: 6, fontSize: "0.82rem", fontWeight: p.id === selectedId ? 600 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+            style={{ padding: "0.4rem 1rem", background: p.id === selectedId ? "rgba(180,83,9,0.15)" : "var(--border-subtle)", border: `1px solid ${p.id === selectedId ? "rgba(180,83,9,0.4)" : "var(--dash-border)"}`, color: p.id === selectedId ? "var(--gold)" : "var(--text-3)", borderRadius: 6, fontSize: "0.82rem", fontWeight: p.id === selectedId ? 600 : 400, cursor: "pointer", transition: "all 0.15s" }}>
             {p.name}
           </button>
         ))}
@@ -1076,9 +1076,9 @@ export default function PortfolioPage() {
         {selectedPortfolio && (
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            style={{ marginLeft: "auto", padding: "0.4rem 0.8rem", background: "none", border: "1px solid rgba(232,112,112,0.25)", color: "rgba(232,112,112,0.55)", borderRadius: 6, fontSize: "0.75rem", cursor: "pointer", transition: "all 0.15s" }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(232,112,112,0.55)"; e.currentTarget.style.color = "rgba(232,112,112,0.85)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(232,112,112,0.25)"; e.currentTarget.style.color = "rgba(232,112,112,0.55)"; }}
+            style={{ marginLeft: "auto", padding: "0.4rem 0.8rem", background: "none", border: "1px solid rgba(185,28,28,0.25)", color: "rgba(185,28,28,0.55)", borderRadius: 6, fontSize: "0.75rem", cursor: "pointer", transition: "all 0.15s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(185,28,28,0.55)"; e.currentTarget.style.color = "rgba(185,28,28,0.85)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(185,28,28,0.25)"; e.currentTarget.style.color = "rgba(185,28,28,0.55)"; }}
           >
             Delete portfolio
           </button>
@@ -1089,21 +1089,21 @@ export default function PortfolioPage() {
       {showDeleteConfirm && selectedPortfolio && (
         <>
           <div onClick={() => setShowDeleteConfirm(false)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.55)" }} />
-          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 201, background: "var(--navy2)", border: "1px solid var(--dash-border)", borderRadius: 8, padding: "1.6rem", width: 360, boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
-            <div style={{ fontSize: "0.72rem", fontFamily: "var(--font-mono)", color: "rgba(232,112,112,0.7)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.8rem" }}>Delete portfolio</div>
-            <p style={{ fontSize: "0.88rem", color: "rgba(232,226,217,0.75)", lineHeight: 1.6, marginBottom: "0.4rem" }}>
-              Delete <strong style={{ color: "var(--cream)" }}>{selectedPortfolio.name}</strong>?
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 201, background: "var(--bg-subtle)", border: "1px solid var(--dash-border)", borderRadius: 8, padding: "1.6rem", width: 360, boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+            <div style={{ fontSize: "0.72rem", fontFamily: "var(--font-mono)", color: "rgba(185,28,28,0.7)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.8rem" }}>Delete portfolio</div>
+            <p style={{ fontSize: "0.88rem", color: "var(--text)", lineHeight: 1.6, marginBottom: "0.4rem" }}>
+              Delete <strong style={{ color: "var(--text)" }}>{selectedPortfolio.name}</strong>?
             </p>
-            <p style={{ fontSize: "0.78rem", color: "rgba(232,226,217,0.45)", lineHeight: 1.55, marginBottom: "1.4rem" }}>
+            <p style={{ fontSize: "0.78rem", color: "var(--text-3)", lineHeight: 1.55, marginBottom: "1.4rem" }}>
               This will permanently remove the portfolio and all {holdings.length > 0 ? `${holdings.length} holding${holdings.length !== 1 ? "s" : ""}` : "holdings"}. This cannot be undone.
             </p>
             <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end" }}>
               <button onClick={() => setShowDeleteConfirm(false)}
-                style={{ padding: "0.5rem 1rem", background: "transparent", border: "1px solid var(--dash-border)", color: "rgba(232,226,217,0.45)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem" }}>
+                style={{ padding: "0.5rem 1rem", background: "transparent", border: "1px solid var(--dash-border)", color: "var(--text-3)", borderRadius: 6, cursor: "pointer", fontSize: "0.82rem" }}>
                 Cancel
               </button>
               <button onClick={handleDeletePortfolio} disabled={deleting}
-                style={{ padding: "0.5rem 1.1rem", background: "rgba(232,112,112,0.15)", border: "1px solid rgba(232,112,112,0.4)", color: "#e87070", fontWeight: 600, borderRadius: 6, cursor: deleting ? "not-allowed" : "pointer", fontSize: "0.82rem", opacity: deleting ? 0.6 : 1 }}>
+                style={{ padding: "0.5rem 1.1rem", background: "rgba(185,28,28,0.15)", border: "1px solid rgba(185,28,28,0.4)", color: "var(--signal-bear)", fontWeight: 600, borderRadius: 6, cursor: deleting ? "not-allowed" : "pointer", fontSize: "0.82rem", opacity: deleting ? 0.6 : 1 }}>
                 {deleting ? "Deleting…" : "Delete"}
               </button>
             </div>
@@ -1121,13 +1121,13 @@ export default function PortfolioPage() {
           <button
             onClick={() => selectedPortfolio && router.push(`/dashboard/portfolio/builder?portfolio_id=${selectedPortfolio.id}&debug=${debugMode}`)}
             disabled={!selectedPortfolio?.total_capital}
-            style={{ padding: "0.4rem 1rem", background: "rgba(200,169,110,0.12)", border: "1px solid rgba(200,169,110,0.3)", color: "var(--gold)", borderRadius: 5, fontSize: "0.75rem", fontWeight: 600, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer", opacity: !selectedPortfolio?.total_capital ? 0.4 : 1, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            style={{ padding: "0.4rem 1rem", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.3)", color: "var(--gold)", borderRadius: 5, fontSize: "0.75rem", fontWeight: 600, cursor: !selectedPortfolio?.total_capital ? "not-allowed" : "pointer", opacity: !selectedPortfolio?.total_capital ? 0.4 : 1, display: "flex", alignItems: "center", gap: "0.4rem" }}>
             ✦ Build portfolio
           </button>
           <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", cursor: "pointer", userSelect: "none", marginLeft: "auto" }}>
             <input type="checkbox" checked={debugMode} onChange={e => toggleDebug(e.target.checked)}
-              style={{ width: 13, height: 13, accentColor: "rgba(252,92,101,0.8)", cursor: "pointer" }} />
-            <span style={{ fontSize: "0.62rem", color: debugMode ? "rgba(252,92,101,0.7)" : "rgba(232,226,217,0.3)", fontFamily: "var(--font-mono)" }}>debug</span>
+              style={{ width: 13, height: 13, accentColor: "rgba(185,28,28,0.8)", cursor: "pointer" }} />
+            <span style={{ fontSize: "0.62rem", color: debugMode ? "rgba(185,28,28,0.7)" : "var(--text-4)", fontFamily: "var(--font-mono)" }}>debug</span>
           </label>
         </div>
       )}
@@ -1136,16 +1136,16 @@ export default function PortfolioPage() {
       {showAddHolding && (
         <>
           <div onClick={() => setShowAddHolding(false)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)' }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.4rem', width: 400, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.4rem', width: 400, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
               <div>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Add Holding</div>
-                <div style={{ fontSize: '0.9rem', color: 'rgba(232,226,217,0.85)', fontWeight: 500 }}>
+                <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Add Holding</div>
+                <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 500 }}>
                   {ahAsset ? ahAsset.ticker : 'Select a ticker'}
                 </div>
-                {ahAsset && <div style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.40)', marginTop: 2 }}>{ahAsset.name}</div>}
+                {ahAsset && <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', marginTop: 2 }}>{ahAsset.name}</div>}
               </div>
-              <button onClick={() => setShowAddHolding(false)} style={{ background: 'none', border: 'none', color: 'rgba(232,226,217,0.35)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+              <button onClick={() => setShowAddHolding(false)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
             </div>
 
             {/* Ticker search */}
@@ -1183,22 +1183,22 @@ export default function PortfolioPage() {
 
             {/* Total preview */}
             {ahQty && ahPrice && (
-              <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.50)', marginBottom: '0.8rem', padding: '0.5rem 0.7rem', background: 'rgba(255,255,255,0.03)', borderRadius: 5, border: '1px solid rgba(255,255,255,0.06)' }}>
-                Total cost: <strong style={{ color: 'var(--cream)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: '0.8rem', padding: '0.5rem 0.7rem', background: 'var(--bg-subtle)', borderRadius: 5, border: '1px solid var(--border)' }}>
+                Total cost: <strong style={{ color: 'var(--text)' }}>
                   ${(parseFloat(ahQty||'0') * parseFloat(ahPrice||'0') + parseFloat(ahFees||'0')).toFixed(2)}
                 </strong>
               </div>
             )}
 
-            {ahError && <div style={{ fontSize: '0.72rem', color: '#e87070', marginBottom: '0.8rem' }}>{ahError}</div>}
+            {ahError && <div style={{ fontSize: '0.72rem', color: 'var(--signal-bear)', marginBottom: '0.8rem' }}>{ahError}</div>}
 
             <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
               <button onClick={() => setShowAddHolding(false)}
-                style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--dash-border)', color: 'rgba(232,226,217,0.40)', borderRadius: 6, cursor: 'pointer', fontSize: '0.82rem' }}>
+                style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--dash-border)', color: 'var(--text-3)', borderRadius: 6, cursor: 'pointer', fontSize: '0.82rem' }}>
                 Cancel
               </button>
               <button onClick={handleAddHolding} disabled={ahSaving || !ahAsset}
-                style={{ padding: '0.5rem 1.1rem', background: 'rgba(78,255,145,0.12)', border: '1px solid rgba(78,255,145,0.3)', color: 'var(--green)', fontWeight: 700, borderRadius: 6, cursor: ahSaving || !ahAsset ? 'not-allowed' : 'pointer', fontSize: '0.82rem', opacity: ahSaving || !ahAsset ? 0.5 : 1 }}>
+                style={{ padding: '0.5rem 1.1rem', background: 'rgba(21,128,61,0.12)', border: '1px solid rgba(21,128,61,0.3)', color: 'var(--green)', fontWeight: 700, borderRadius: 6, cursor: ahSaving || !ahAsset ? 'not-allowed' : 'pointer', fontSize: '0.82rem', opacity: ahSaving || !ahAsset ? 0.5 : 1 }}>
                 {ahSaving ? 'Adding…' : 'Add Holding'}
               </button>
             </div>
@@ -1210,20 +1210,20 @@ export default function PortfolioPage() {
       {txModal && (
         <>
           <div onClick={() => setTxModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)' }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.4rem', width: 360, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.4rem', width: 360, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <div>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.40)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Record transaction</div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Record transaction</div>
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{txModal.ticker}</div>
               </div>
-              <button onClick={() => setTxModal(null)} style={{ background: 'none', border: 'none', color: 'rgba(232,226,217,0.35)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+              <button onClick={() => setTxModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
             </div>
 
             {/* Buy / Sell toggle */}
             <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem' }}>
               {(['buy', 'sell'] as const).map(t => (
                 <button key={t} onClick={() => { setTxType(t); setTxError(''); }}
-                  style={{ flex: 1, padding: '0.45rem', border: `1px solid ${txType === t ? (t === 'buy' ? 'rgba(78,255,145,0.4)' : 'rgba(232,112,112,0.4)') : 'var(--dash-border)'}`, background: txType === t ? (t === 'buy' ? 'rgba(78,255,145,0.08)' : 'rgba(232,112,112,0.08)') : 'none', color: txType === t ? (t === 'buy' ? 'var(--green)' : '#e87070') : 'rgba(232,226,217,0.40)', borderRadius: 5, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  style={{ flex: 1, padding: '0.45rem', border: `1px solid ${txType === t ? (t === 'buy' ? 'rgba(21,128,61,0.4)' : 'rgba(185,28,28,0.4)') : 'var(--dash-border)'}`, background: txType === t ? (t === 'buy' ? 'rgba(21,128,61,0.08)' : 'rgba(185,28,28,0.08)') : 'none', color: txType === t ? (t === 'buy' ? 'var(--green)' : 'var(--signal-bear)') : 'var(--text-3)', borderRadius: 5, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   {t}
                 </button>
               ))}
@@ -1257,22 +1257,22 @@ export default function PortfolioPage() {
             </div>
 
             {txQty && txPrice && (
-              <div style={{ fontSize: '0.72rem', color: 'rgba(232,226,217,0.50)', marginBottom: '0.8rem', padding: '0.5rem 0.7rem', background: 'rgba(255,255,255,0.03)', borderRadius: 5, border: '1px solid rgba(255,255,255,0.06)' }}>
-                Total: <strong style={{ color: 'var(--cream)' }}>${(parseFloat(txQty || '0') * parseFloat(txPrice || '0') + parseFloat(txFees || '0')).toFixed(2)}</strong>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: '0.8rem', padding: '0.5rem 0.7rem', background: 'var(--bg-subtle)', borderRadius: 5, border: '1px solid var(--border)' }}>
+                Total: <strong style={{ color: 'var(--text)' }}>${(parseFloat(txQty || '0') * parseFloat(txPrice || '0') + parseFloat(txFees || '0')).toFixed(2)}</strong>
                 {txType === 'sell' && txQty && txPrice && txModal.currentQty > 0 && (
-                  <span style={{ marginLeft: 10, color: 'rgba(232,226,217,0.35)' }}>
+                  <span style={{ marginLeft: 10, color: 'var(--text-4)' }}>
                     Remaining: {Math.max(0, txModal.currentQty - parseFloat(txQty || '0')).toFixed(2)} shares
                   </span>
                 )}
               </div>
             )}
 
-            {txError && <div style={{ fontSize: '0.72rem', color: '#e87070', marginBottom: '0.8rem' }}>{txError}</div>}
+            {txError && <div style={{ fontSize: '0.72rem', color: 'var(--signal-bear)', marginBottom: '0.8rem' }}>{txError}</div>}
 
             <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
-              <button onClick={() => setTxModal(null)} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--dash-border)', color: 'rgba(232,226,217,0.40)', borderRadius: 6, cursor: 'pointer', fontSize: '0.82rem' }}>Cancel</button>
+              <button onClick={() => setTxModal(null)} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--dash-border)', color: 'var(--text-3)', borderRadius: 6, cursor: 'pointer', fontSize: '0.82rem' }}>Cancel</button>
               <button onClick={handleTransaction} disabled={txSaving}
-                style={{ padding: '0.5rem 1.1rem', background: txType === 'buy' ? 'rgba(78,255,145,0.15)' : 'rgba(232,112,112,0.15)', border: `1px solid ${txType === 'buy' ? 'rgba(78,255,145,0.35)' : 'rgba(232,112,112,0.35)'}`, color: txType === 'buy' ? 'var(--green)' : '#e87070', fontWeight: 700, borderRadius: 6, cursor: txSaving ? 'not-allowed' : 'pointer', fontSize: '0.82rem', opacity: txSaving ? 0.6 : 1 }}>
+                style={{ padding: '0.5rem 1.1rem', background: txType === 'buy' ? 'rgba(21,128,61,0.15)' : 'rgba(185,28,28,0.15)', border: `1px solid ${txType === 'buy' ? 'rgba(21,128,61,0.35)' : 'rgba(185,28,28,0.35)'}`, color: txType === 'buy' ? 'var(--green)' : 'var(--signal-bear)', fontWeight: 700, borderRadius: 6, cursor: txSaving ? 'not-allowed' : 'pointer', fontSize: '0.82rem', opacity: txSaving ? 0.6 : 1 }}>
                 {txSaving ? '…' : txType === 'buy' ? 'Record Buy' : 'Record Sell'}
               </button>
             </div>
@@ -1284,7 +1284,7 @@ export default function PortfolioPage() {
         <>
           {/* ── Capital overview ── */}
           <Panel title="Capital Overview" defaultOpen={true}
-            badge={<span style={{ fontSize: "0.58rem", background: "rgba(200,169,110,0.1)", color: "rgba(200,169,110,0.65)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: 3, padding: "0px 6px", marginLeft: 6 }}>live</span>}
+            badge={<span style={{ fontSize: "0.58rem", background: "rgba(180,83,9,0.1)", color: "rgba(180,83,9,0.65)", border: "1px solid rgba(180,83,9,0.2)", borderRadius: 3, padding: "0px 6px", marginLeft: 6 }}>live</span>}
           >
             {capitalMetrics && <CapitalSummaryBar metrics={capitalMetrics} cashFloorPct={selectedPortfolio.cash_pct} />}
           </Panel>
@@ -1305,7 +1305,7 @@ export default function PortfolioPage() {
                 ["history",         "Build History"],
               ] as const).map(([tab, label]) => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
-                  style={{ padding: "0.45rem 1rem", background: "transparent", border: "none", borderBottom: `2px solid ${activeTab === tab ? "var(--gold)" : "transparent"}`, color: activeTab === tab ? "var(--gold)" : "rgba(232,226,217,0.40)", fontSize: "0.78rem", fontWeight: activeTab === tab ? 600 : 400, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s", flexShrink: 0 }}>
+                  style={{ padding: "0.45rem 1rem", background: "transparent", border: "none", borderBottom: `2px solid ${activeTab === tab ? "var(--gold)" : "transparent"}`, color: activeTab === tab ? "var(--gold)" : "var(--text-3)", fontSize: "0.78rem", fontWeight: activeTab === tab ? 600 : 400, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s", flexShrink: 0 }}>
                   {label}
                 </button>
               ))}
@@ -1316,10 +1316,10 @@ export default function PortfolioPage() {
               <>
                 {/* Holdings table */}
             {holdings.length > 0 ? (
-              <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
+              <div style={{ background: "var(--bg-subtle)", border: "1px solid var(--dash-border)", borderRadius: 7, overflow: "hidden" }}>
 
                 {/* Table header */}
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 0.8fr 0.8fr 0.8fr 0.9fr 0.9fr 0.9fr 1fr 5rem", gap: "0.5rem", padding: "0.5rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "rgba(232,226,217,0.40)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 0.8fr 0.8fr 0.8fr 0.9fr 0.9fr 0.9fr 1fr 5rem", gap: "0.5rem", padding: "0.5rem 0.85rem", borderBottom: "1px solid var(--dash-border)", fontSize: "0.6rem", color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
                   <span>Ticker</span>
                   <span style={{ textAlign: "right" }}>Qty</span>
                   <span style={{ textAlign: "right" }}>Avg cost</span>
@@ -1335,7 +1335,7 @@ export default function PortfolioPage() {
                 {holdings.map(h => {
                   const sig          = h.signal;
                   const sc           = sig?.signal ?? "hold";
-                  const scCol        = SIG_COLOR[sc] ?? "rgba(232,226,217,0.3)";
+                  const scCol        = SIG_COLOR[sc] ?? "var(--text-4)";
                   const livePrice    = sig?.price_usd   ?? null;
                   const chg          = sig?.change_pct  ?? null;
                   const qty          = h.quantity ?? null;
@@ -1344,8 +1344,8 @@ export default function PortfolioPage() {
                   const costBase     = cost != null && qty != null ? cost * qty : null;
                   const unrealised   = mktVal != null && costBase != null ? mktVal - costBase : null;
                   const realisedGain = Number((h as any).realised_gain ?? 0);
-                  const unrealisedCol = unrealised == null ? "rgba(232,226,217,0.25)" : unrealised >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
-                  const realisedCol   = realisedGain === 0 ? "rgba(232,226,217,0.25)" : realisedGain > 0 ? "var(--signal-bull)" : "var(--signal-bear)";
+                  const unrealisedCol = unrealised == null ? "var(--text-4)" : unrealised >= 0 ? "var(--signal-bull)" : "var(--signal-bear)";
+                  const realisedCol   = realisedGain === 0 ? "var(--text-4)" : realisedGain > 0 ? "var(--signal-bull)" : "var(--signal-bear)";
 
                   return (
                     <React.Fragment key={h.id}>
@@ -1355,29 +1355,29 @@ export default function PortfolioPage() {
                         {/* Ticker + signal badge */}
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                            <span style={{ fontWeight: 700, color: "var(--cream)", fontSize: "0.85rem" }}>{h.ticker}</span>
+                            <span style={{ fontWeight: 700, color: "var(--text)", fontSize: "0.85rem" }}>{h.ticker}</span>
                             <span style={{ fontSize: "0.58rem", color: scCol, background: `${scCol}15`, padding: "0.05rem 0.3rem", borderRadius: 8, textTransform: "uppercase" }}>{sc}</span>
                           </div>
-                          {h.name && <span style={{ fontSize: "0.62rem", color: "rgba(232,226,217,0.35)" }}>{h.name}</span>}
+                          {h.name && <span style={{ fontSize: "0.62rem", color: "var(--text-4)" }}>{h.name}</span>}
                         </div>
 
                         {/* Qty — FIFO computed, read-only */}
-                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--cream)", fontFamily: "var(--font-mono)" }}>
+                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--text)", fontFamily: "var(--font-mono)" }}>
                           {qty != null ? Number(qty).toLocaleString(undefined, { maximumFractionDigits: 4 }) : "—"}
                         </div>
 
                         {/* Avg cost — FIFO weighted, read-only */}
-                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "rgba(232,226,217,0.65)", fontFamily: "var(--font-mono)" }}>
+                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--text-2)", fontFamily: "var(--font-mono)" }}>
                           {cost != null ? `$${Number(cost).toFixed(2)}` : "—"}
                         </div>
 
                         {/* Live price */}
-                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "rgba(232,226,217,0.60)", fontFamily: "var(--font-mono)" }}>
+                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--text-2)", fontFamily: "var(--font-mono)" }}>
                           {livePrice != null ? `$${livePrice.toFixed(2)}` : "—"}
                         </div>
 
                         {/* Market value */}
-                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--cream)", fontFamily: "var(--font-mono)" }}>
+                        <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--text)", fontFamily: "var(--font-mono)" }}>
                           {mktVal != null ? formatCurrency(mktVal) : "—"}
                         </div>
 
@@ -1392,14 +1392,14 @@ export default function PortfolioPage() {
                         </div>
 
                         {/* Day change */}
-                        <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: chg == null ? "rgba(232,226,217,0.25)" : chg >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
+                        <div style={{ textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: chg == null ? "var(--text-4)" : chg >= 0 ? "var(--signal-bull)" : "var(--signal-bear)" }}>
                           {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : "—"}
                         </div>
 
                         {/* Sell button — only action on holding layer */}
                         <div style={{ textAlign: "right" }}>
                           <button onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: Number(h.quantity ?? 0) }); setTxType("sell"); }}
-                            style={{ fontSize: "0.68rem", padding: "0.25rem 0.7rem", background: "rgba(232,112,112,0.08)", border: "1px solid rgba(232,112,112,0.25)", color: "#e87070", borderRadius: 4, cursor: "pointer", fontWeight: 500 }}
+                            style={{ fontSize: "0.68rem", padding: "0.25rem 0.7rem", background: "rgba(185,28,28,0.08)", border: "1px solid rgba(185,28,28,0.25)", color: "var(--signal-bear)", borderRadius: 4, cursor: "pointer", fontWeight: 500 }}
                             title="Sell holding">
                             Sell
                           </button>
@@ -1418,7 +1418,7 @@ export default function PortfolioPage() {
                 })}
               </div>
             ) : (
-              <div style={{ color: "rgba(232,226,217,0.35)", fontSize: "0.82rem", padding: "0.5rem 0" }}>
+              <div style={{ color: "var(--text-4)", fontSize: "0.82rem", padding: "0.5rem 0" }}>
                 No holdings yet. Add a ticker above or use <strong style={{ color: "var(--gold)" }}>✦ Build portfolio</strong> to generate a data-driven allocation.
               </div>
             )}
@@ -1456,23 +1456,23 @@ export default function PortfolioPage() {
           <Panel title="AI Advisory" defaultOpen={false}
             badge={
               <button onClick={generateMemo} disabled={generating || !holdings.length}
-                style={{ fontSize: "0.62rem", background: "rgba(78,202,153,0.08)", border: "1px solid rgba(78,202,153,0.25)", color: "#4eca99", borderRadius: 4, padding: "0.15rem 0.6rem", cursor: generating || !holdings.length ? "not-allowed" : "pointer", opacity: !holdings.length ? 0.4 : 1 }}>
+                style={{ fontSize: "0.62rem", background: "rgba(21,128,61,0.08)", border: "1px solid rgba(21,128,61,0.25)", color: "var(--signal-bull)", borderRadius: 4, padding: "0.15rem 0.6rem", cursor: generating || !holdings.length ? "not-allowed" : "pointer", opacity: !holdings.length ? 0.4 : 1 }}>
                 {generating ? "Generating…" : "Generate memo"}
               </button>
             }
           >
             {!holdings.length ? (
-              <div style={{ color: "rgba(232,226,217,0.35)", fontSize: "0.82rem" }}>Add holdings first to generate an advisory memo.</div>
+              <div style={{ color: "var(--text-4)", fontSize: "0.82rem" }}>Add holdings first to generate an advisory memo.</div>
             ) : memos.length === 0 ? (
-              <div style={{ color: "rgba(232,226,217,0.35)", fontSize: "0.82rem" }}>Click "Generate memo" for an AI-powered advisory based on your holdings and recent market events.</div>
+              <div style={{ color: "var(--text-4)", fontSize: "0.82rem" }}>Click "Generate memo" for an AI-powered advisory based on your holdings and recent market events.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
                 {memos.map((m, i) => (
-                  <div key={m.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--dash-border)", borderRadius: 7, padding: "1rem 1.2rem" }}>
-                    <div style={{ fontSize: "0.62rem", color: "rgba(200,169,110,0.45)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.6rem" }}>
+                  <div key={m.id} style={{ background: "var(--bg-subtle)", border: "1px solid var(--dash-border)", borderRadius: 7, padding: "1rem 1.2rem" }}>
+                    <div style={{ fontSize: "0.62rem", color: "rgba(180,83,9,0.45)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.6rem" }}>
                       {i === 0 ? "Latest" : new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </div>
-                    <p style={{ fontSize: "0.83rem", color: "rgba(232,226,217,0.65)", lineHeight: 1.7, margin: 0 }}>{m.content}</p>
+                    <p style={{ fontSize: "0.83rem", color: "var(--text-2)", lineHeight: 1.7, margin: 0 }}>{m.content}</p>
                   </div>
                 ))}
               </div>

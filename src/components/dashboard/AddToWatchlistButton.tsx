@@ -14,13 +14,13 @@ interface Props {
 }
 
 const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: '0.65rem', color: 'rgba(232,226,217,0.45)',
+  display: 'block', fontSize: '0.65rem', color: 'var(--text-3)',
   marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.08em',
 }
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '0.45rem 0.65rem',
-  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: 5, color: 'var(--cream)', fontSize: '0.82rem', outline: 'none',
+  background: 'var(--border-subtle)', border: '1px solid var(--border)',
+  borderRadius: 5, color: 'var(--text)', fontSize: '0.82rem', outline: 'none',
   boxSizing: 'border-box',
 }
 
@@ -73,8 +73,8 @@ export default function AddToWatchlistButton({ ticker, name }: Props) {
     <>
       <button onClick={() => setOpen(true)} style={{
         padding: '0.55rem 1.1rem', borderRadius: 7,
-        border: '1px solid rgba(200,169,110,0.3)',
-        background: 'rgba(200,169,110,0.06)',
+        border: '1px solid rgba(180,83,9,0.3)',
+        background: 'rgba(180,83,9,0.06)',
         color: 'var(--gold)', fontSize: '0.82rem', fontWeight: 500, cursor: 'pointer',
         display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.15s',
       }}>
@@ -86,19 +86,19 @@ export default function AddToWatchlistButton({ ticker, name }: Props) {
           <div onClick={handleClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)' }} />
           <div style={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-            zIndex: 301, background: 'var(--navy2)', border: '1px solid var(--dash-border)',
+            zIndex: 301, background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)',
             borderRadius: 8, padding: '1.4rem', width: 340,
             boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.1rem' }}>
               <div>
-                <div style={{ fontSize: '0.6rem', color: 'rgba(232,226,217,0.40)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>
+                <div style={{ fontSize: '0.6rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>
                   Add to Watchlist
                 </div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{ticker}</div>
-                {name && <div style={{ fontSize: '0.68rem', color: 'rgba(232,226,217,0.40)', marginTop: 1 }}>{name}</div>}
+                {name && <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', marginTop: 1 }}>{name}</div>}
               </div>
-              <button onClick={handleClose} style={{ background: 'none', border: 'none', color: 'rgba(232,226,217,0.35)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+              <button onClick={handleClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
             </div>
 
             {done ? (
@@ -110,7 +110,7 @@ export default function AddToWatchlistButton({ ticker, name }: Props) {
                 <div style={{ marginBottom: '0.75rem' }}>
                   <div style={labelStyle}>Portfolio</div>
                   {portfolios.length === 0 ? (
-                    <div style={{ fontSize: '0.75rem', color: 'rgba(232,226,217,0.35)' }}>No portfolios — create one first</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-4)' }}>No portfolios — create one first</div>
                   ) : (
                     <select value={portfolioId} onChange={e => setPortfolioId(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
                       {portfolios.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -125,15 +125,15 @@ export default function AddToWatchlistButton({ ticker, name }: Props) {
                     style={inputStyle} />
                 </div>
 
-                {error && <div style={{ fontSize: '0.72rem', color: '#fc5c65', marginBottom: '0.7rem' }}>{error}</div>}
+                {error && <div style={{ fontSize: '0.72rem', color: 'var(--signal-bear)', marginBottom: '0.7rem' }}>{error}</div>}
 
                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                  <button onClick={handleClose} style={{ padding: '0.45rem 1rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,226,217,0.40)', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem' }}>
+                  <button onClick={handleClose} style={{ padding: '0.45rem 1rem', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-3)', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem' }}>
                     Cancel
                   </button>
                   <button onClick={handleAdd} disabled={saving || portfolios.length === 0} style={{
                     padding: '0.45rem 1.1rem',
-                    background: 'rgba(200,169,110,0.12)', border: '1px solid rgba(200,169,110,0.35)',
+                    background: 'rgba(180,83,9,0.12)', border: '1px solid rgba(180,83,9,0.35)',
                     color: 'var(--gold)', fontWeight: 700, borderRadius: 6,
                     cursor: saving || portfolios.length === 0 ? 'not-allowed' : 'pointer',
                     fontSize: '0.78rem', opacity: saving ? 0.6 : 1,

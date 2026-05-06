@@ -48,23 +48,23 @@ interface Props {
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
 const T = {
-  cream:  'var(--cream)',
+  cream:  'var(--text)',
   gold:   'var(--gold)',
-  navy2:  'var(--navy2)',
+  navy2:  'var(--bg-subtle)',
   border: 'var(--dash-border)',
-  dim:    'rgba(232,226,217,0.45)',
-  dimmer: 'rgba(232,226,217,0.30)',
+  dim:    'var(--text-3)',
+  dimmer: 'var(--text-4)',
 } as const
 
 const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: '0.65rem', color: 'rgba(232,226,217,0.45)',
+  display: 'block', fontSize: '0.65rem', color: 'var(--text-3)',
   marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.08em',
 }
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '0.45rem 0.65rem',
-  background: 'rgba(255,255,255,0.05)', border: '1px solid var(--dash-border)',
-  borderRadius: 5, color: 'var(--cream)', fontSize: '0.82rem', outline: 'none',
+  background: 'var(--border-subtle)', border: '1px solid var(--dash-border)',
+  borderRadius: 5, color: 'var(--text)', fontSize: '0.82rem', outline: 'none',
   boxSizing: 'border-box',
 }
 
@@ -79,7 +79,7 @@ function ScoreBar({ label, value, color }: { label: string; value: number | null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
       <span style={{ fontSize: '0.58rem', color: T.dim, width: '1rem', flexShrink: 0 }}>{label}</span>
-      <div style={{ width: 40, height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+      <div style={{ width: 40, height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: 2 }} />
       </div>
       <span style={{ fontSize: '0.62rem', color, minWidth: '1.6rem' }}>{value}</span>
@@ -152,7 +152,7 @@ function AddHoldingModal({
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)' }} />
-      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 301, background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.4rem', width: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 301, background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)', borderRadius: 8, padding: '1.4rem', width: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
           <div>
@@ -164,9 +164,9 @@ function AddHoldingModal({
         </div>
 
         {/* Recommendation context */}
-        <div style={{ background: 'rgba(200,169,110,0.06)', border: '1px solid rgba(200,169,110,0.15)', borderRadius: 6, padding: '0.6rem 0.8rem', marginBottom: '1rem', fontSize: '0.7rem', color: T.dim, lineHeight: 1.5 }}>
+        <div style={{ background: 'rgba(180,83,9,0.06)', border: '1px solid rgba(180,83,9,0.15)', borderRadius: 6, padding: '0.6rem 0.8rem', marginBottom: '1rem', fontSize: '0.7rem', color: T.dim, lineHeight: 1.5 }}>
           <div style={{ marginBottom: 3 }}><span style={{ color: 'var(--gold)', fontWeight: 600 }}>Recommended: </span>{rec.weight}% of portfolio</div>
-          <div style={{ color: 'rgba(232,226,217,0.35)', fontStyle: 'italic' }}>{rec.rationale}</div>
+          <div style={{ color: 'var(--text-4)', fontStyle: 'italic' }}>{rec.rationale}</div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.75rem' }}>
@@ -189,17 +189,17 @@ function AddHoldingModal({
         </div>
 
         {qty && price && (
-          <div style={{ fontSize: '0.72rem', color: T.dim, marginBottom: '0.8rem', padding: '0.45rem 0.7rem', background: 'rgba(255,255,255,0.03)', borderRadius: 5, border: '1px solid rgba(255,255,255,0.06)' }}>
-            Total cost: <strong style={{ color: 'var(--cream)' }}>${total.toFixed(2)}</strong>
+          <div style={{ fontSize: '0.72rem', color: T.dim, marginBottom: '0.8rem', padding: '0.45rem 0.7rem', background: 'var(--bg-subtle)', borderRadius: 5, border: '1px solid var(--border)' }}>
+            Total cost: <strong style={{ color: 'var(--text)' }}>${total.toFixed(2)}</strong>
           </div>
         )}
 
-        {error && <div style={{ fontSize: '0.72rem', color: '#e87070', marginBottom: '0.8rem' }}>{error}</div>}
+        {error && <div style={{ fontSize: '0.72rem', color: 'var(--signal-bear)', marginBottom: '0.8rem' }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '0.45rem 0.9rem', background: 'none', border: '1px solid var(--dash-border)', color: T.dim, borderRadius: 5, cursor: 'pointer', fontSize: '0.8rem' }}>Cancel</button>
           <button onClick={handleAdd} disabled={saving || !qty || !price}
-            style={{ padding: '0.45rem 1.1rem', background: 'rgba(78,255,145,0.12)', border: '1px solid rgba(78,255,145,0.3)', color: 'var(--green)', fontWeight: 700, borderRadius: 5, cursor: saving || !qty || !price ? 'not-allowed' : 'pointer', fontSize: '0.8rem', opacity: saving || !qty || !price ? 0.5 : 1 }}>
+            style={{ padding: '0.45rem 1.1rem', background: 'rgba(21,128,61,0.12)', border: '1px solid rgba(21,128,61,0.3)', color: 'var(--green)', fontWeight: 700, borderRadius: 5, cursor: saving || !qty || !price ? 'not-allowed' : 'pointer', fontSize: '0.8rem', opacity: saving || !qty || !price ? 0.5 : 1 }}>
             {saving ? 'Adding…' : 'Add Holding'}
           </button>
         </div>
@@ -295,13 +295,13 @@ export function RecommendationScreen({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
       {/* Header card */}
-      <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1rem 1.3rem' }}>
+      <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)', borderRadius: 10, padding: '1rem 1.3rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
           <div>
-            <div style={{ fontSize: '0.62rem', color: 'rgba(200,169,110,0.55)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ fontSize: '0.62rem', color: 'rgba(180,83,9,0.55)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               Portfolio Recommendations
               {mode && (
-                <span style={{ fontSize: '0.58rem', background: 'rgba(200,169,110,0.1)', color: 'rgba(200,169,110,0.65)', border: '1px solid rgba(200,169,110,0.2)', borderRadius: 3, padding: '0px 5px' }}>
+                <span style={{ fontSize: '0.58rem', background: 'rgba(180,83,9,0.1)', color: 'rgba(180,83,9,0.65)', border: '1px solid rgba(180,83,9,0.2)', borderRadius: 3, padding: '0px 5px' }}>
                   {mode === 'llm' ? '✦ LLM' : '◈ Data'}
                 </span>
               )}
@@ -311,13 +311,13 @@ export function RecommendationScreen({
               Each "Add to Holdings" opens a buy transaction with the recommended ticker pre-filled.
             </div>
             {createdAt && (
-              <div style={{ fontSize: '0.62rem', color: 'rgba(232,226,217,0.28)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: '0.62rem', color: 'var(--text-4)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
                 Generated {new Date(createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
             )}
           </div>
           {addedCount > 0 && (
-            <span style={{ fontSize: '0.72rem', background: 'rgba(78,255,145,0.1)', color: 'var(--green)', border: '1px solid rgba(78,255,145,0.25)', borderRadius: 20, padding: '0.2rem 0.75rem', whiteSpace: 'nowrap', marginLeft: 12, flexShrink: 0 }}>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(21,128,61,0.1)', color: 'var(--green)', border: '1px solid rgba(21,128,61,0.25)', borderRadius: 20, padding: '0.2rem 0.75rem', whiteSpace: 'nowrap', marginLeft: 12, flexShrink: 0 }}>
               {addedCount} added
             </span>
           )}
@@ -342,7 +342,7 @@ export function RecommendationScreen({
       {/* BUY recommendations */}
       {buys.length > 0 && (
         <div>
-          <div style={{ fontSize: '0.62rem', color: 'rgba(78,202,153,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>
+          <div style={{ fontSize: '0.62rem', color: 'rgba(21,128,61,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>
             BUY — {buys.length} positions recommended
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -353,29 +353,29 @@ export function RecommendationScreen({
                 : null
 
               return (
-                <div key={rec.id} style={{ background: isAdded ? 'rgba(78,255,145,0.03)' : 'var(--navy2)', border: `1px solid ${isAdded ? 'rgba(78,255,145,0.2)' : 'var(--dash-border)'}`, borderRadius: 8, padding: '0.9rem 1.1rem', display: 'flex', alignItems: 'flex-start', gap: '1rem', transition: 'all 0.2s' }}>
+                <div key={rec.id} style={{ background: isAdded ? 'rgba(21,128,61,0.03)' : 'var(--bg-subtle)', border: `1px solid ${isAdded ? 'rgba(21,128,61,0.2)' : 'var(--dash-border)'}`, borderRadius: 8, padding: '0.9rem 1.1rem', display: 'flex', alignItems: 'flex-start', gap: '1rem', transition: 'all 0.2s' }}>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, fontSize: '0.9rem', color: T.cream, fontFamily: 'var(--font-mono)' }}>{rec.ticker}</span>
                       <span style={{ fontSize: '0.65rem', color: T.dim }}>{rec.name}</span>
-                      <span style={{ fontSize: '0.6rem', background: 'rgba(78,202,153,0.1)', color: '#4eca99', border: '1px solid rgba(78,202,153,0.25)', borderRadius: 4, padding: '0.05rem 0.4rem', fontWeight: 700 }}>BUY</span>
+                      <span style={{ fontSize: '0.6rem', background: 'rgba(21,128,61,0.1)', color: 'var(--signal-bull)', border: '1px solid rgba(21,128,61,0.25)', borderRadius: 4, padding: '0.05rem 0.4rem', fontWeight: 700 }}>BUY</span>
                       {rec.theme_name && (
-                        <span style={{ fontSize: '0.6rem', background: 'rgba(200,169,110,0.08)', color: 'rgba(200,169,110,0.7)', border: '1px solid rgba(200,169,110,0.18)', borderRadius: 4, padding: '0.05rem 0.4rem' }}>{rec.theme_name}</span>
+                        <span style={{ fontSize: '0.6rem', background: 'rgba(180,83,9,0.08)', color: 'rgba(180,83,9,0.7)', border: '1px solid rgba(180,83,9,0.18)', borderRadius: 4, padding: '0.05rem 0.4rem' }}>{rec.theme_name}</span>
                       )}
                     </div>
                     <div style={{ fontSize: '0.72rem', color: T.dim, lineHeight: 1.5, marginBottom: '0.4rem' }}>{rec.rationale}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                       {(rec.fundamental_score != null || rec.technical_score != null) && (
                         <div style={{ display: 'flex', gap: '0.6rem' }}>
-                          <ScoreBar label="F" value={rec.fundamental_score} color="rgba(200,169,110,0.8)" />
-                          <ScoreBar label="T" value={rec.technical_score}   color="rgba(99,179,237,0.8)" />
+                          <ScoreBar label="F" value={rec.fundamental_score} color="rgba(180,83,9,0.8)" />
+                          <ScoreBar label="T" value={rec.technical_score}   color="rgba(37,99,235,0.8)" />
                         </div>
                       )}
                       {rec.price && <span style={{ fontSize: '0.7rem', color: T.dim, fontFamily: 'var(--font-mono)' }}>${rec.price.toFixed(2)}</span>}
 
                       {isAdded && rec.added_at && (
-                        <span style={{ fontSize: '0.62rem', color: 'rgba(78,202,153,0.5)', fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ fontSize: '0.62rem', color: 'rgba(21,128,61,0.5)', fontFamily: 'var(--font-mono)' }}>
                           added {new Date(rec.added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       )}
@@ -386,22 +386,22 @@ export function RecommendationScreen({
                     {/* Weight + capital */}
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '1rem', fontWeight: 700, color: T.cream, fontFamily: 'var(--font-mono)' }}>{rec.weight}%</div>
-                      {suggestedCap && <div style={{ fontSize: '0.65rem', color: 'rgba(99,179,237,0.7)' }}>{fmtCurrency(suggestedCap)}</div>}
+                      {suggestedCap && <div style={{ fontSize: '0.65rem', color: 'rgba(37,99,235,0.7)' }}>{fmtCurrency(suggestedCap)}</div>}
                       {horizon && <div style={{ fontSize: '0.58rem', color: T.dimmer, marginTop: 1 }}>{horizon} horizon</div>}
                     </div>
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '0.35rem' }}>
                       <a href={`/dashboard/tickers/${rec.ticker}`}
-                        style={{ padding: '0.3rem 0.6rem', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: T.dim, borderRadius: 5, cursor: 'pointer', fontSize: '0.68rem', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                        style={{ padding: '0.3rem 0.6rem', background: 'none', border: '1px solid var(--border)', color: T.dim, borderRadius: 5, cursor: 'pointer', fontSize: '0.68rem', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                         ↗ Check
                       </a>
                       {isAdded ? (
-                        <span style={{ fontSize: '0.72rem', color: '#4eca99', display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', border: '1px solid rgba(78,202,153,0.25)', borderRadius: 5, background: 'rgba(78,202,153,0.06)' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--signal-bull)', display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', border: '1px solid rgba(21,128,61,0.25)', borderRadius: 5, background: 'rgba(21,128,61,0.06)' }}>
                           ✓ Added
                         </span>
                       ) : (
                         <button onClick={() => setAddingRec(rec)}
-                          style={{ padding: '0.3rem 0.8rem', background: 'rgba(78,255,145,0.08)', border: '1px solid rgba(78,255,145,0.3)', color: 'var(--green)', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          style={{ padding: '0.3rem 0.8rem', background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.3)', color: 'var(--green)', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
                           + Add
                         </button>
                       )}
@@ -417,24 +417,24 @@ export function RecommendationScreen({
       {/* WATCH list */}
       {watches.length > 0 && (
         <div>
-          <div style={{ fontSize: '0.62rem', color: 'rgba(240,180,41,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>
+          <div style={{ fontSize: '0.62rem', color: 'rgba(180,83,9,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>
             WATCH — monitor these, add when signal strengthens
           </div>
-          <div style={{ background: 'var(--navy2)', border: '1px solid var(--dash-border)', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--dash-border)', borderRadius: 8, overflow: 'hidden' }}>
             {watches.map((rec, i) => (
-              <div key={rec.id} style={{ borderBottom: i < watches.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+              <div key={rec.id} style={{ borderBottom: i < watches.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 1rem' }}>
                   <span style={{ fontWeight: 700, fontSize: '0.82rem', color: T.cream, fontFamily: 'var(--font-mono)', minWidth: 60 }}>{rec.ticker}</span>
-                  <span style={{ fontSize: '0.62rem', background: 'rgba(240,180,41,0.08)', color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)', borderRadius: 4, padding: '0.05rem 0.35rem', fontWeight: 700, flexShrink: 0 }}>WATCH</span>
+                  <span style={{ fontSize: '0.62rem', background: 'rgba(180,83,9,0.08)', color: 'var(--signal-neut)', border: '1px solid rgba(180,83,9,0.2)', borderRadius: 4, padding: '0.05rem 0.35rem', fontWeight: 700, flexShrink: 0 }}>WATCH</span>
                   <span style={{ fontSize: '0.68rem', color: T.dim, flex: 1 }}>{rec.name}</span>
                   {rec.theme_name && <span style={{ fontSize: '0.65rem', color: T.dimmer, flexShrink: 0 }}>{rec.theme_name}</span>}
                   {rec.price && <span style={{ fontSize: '0.68rem', color: T.dim, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>${rec.price.toFixed(2)}</span>}
                   <a href={`/dashboard/tickers/${rec.ticker}`}
-                    style={{ padding: '0.2rem 0.5rem', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: T.dim, borderRadius: 4, cursor: 'pointer', fontSize: '0.65rem', textDecoration: 'none', flexShrink: 0 }}>
+                    style={{ padding: '0.2rem 0.5rem', background: 'none', border: '1px solid var(--border)', color: T.dim, borderRadius: 4, cursor: 'pointer', fontSize: '0.65rem', textDecoration: 'none', flexShrink: 0 }}>
                     ↗
                   </a>
                   <button onClick={() => setAddingRec(rec)}
-                    style={{ padding: '0.25rem 0.6rem', background: rec.was_confirmed ? 'rgba(78,202,153,0.06)' : 'none', border: `1px solid ${rec.was_confirmed ? 'rgba(78,202,153,0.25)' : 'rgba(240,180,41,0.2)'}`, color: rec.was_confirmed ? '#4eca99' : '#f0b429', borderRadius: 4, cursor: 'pointer', fontSize: '0.65rem', flexShrink: 0 }}>
+                    style={{ padding: '0.25rem 0.6rem', background: rec.was_confirmed ? 'rgba(21,128,61,0.06)' : 'none', border: `1px solid ${rec.was_confirmed ? 'rgba(21,128,61,0.25)' : 'rgba(180,83,9,0.2)'}`, color: rec.was_confirmed ? 'var(--signal-bull)' : 'var(--signal-neut)', borderRadius: 4, cursor: 'pointer', fontSize: '0.65rem', flexShrink: 0 }}>
                     {rec.was_confirmed ? '✓' : '+ Add'}
                   </button>
                 </div>
@@ -447,7 +447,7 @@ export function RecommendationScreen({
                     { label: 'F-score improves',       desc: 'Fundamental upgrade from analyst'  },
                   ].map(sig => (
                     <span key={sig.label} title={sig.desc}
-                      style={{ fontSize: '0.58rem', background: 'rgba(240,180,41,0.05)', color: 'rgba(240,180,41,0.5)', border: '1px solid rgba(240,180,41,0.12)', borderRadius: 3, padding: '0.1rem 0.45rem', cursor: 'help' }}>
+                      style={{ fontSize: '0.58rem', background: 'rgba(180,83,9,0.05)', color: 'rgba(180,83,9,0.5)', border: '1px solid rgba(180,83,9,0.12)', borderRadius: 3, padding: '0.1rem 0.45rem', cursor: 'help' }}>
                       {sig.label}
                     </span>
                   ))}
@@ -456,8 +456,8 @@ export function RecommendationScreen({
             ))}
           </div>
           {/* WATCH guidance */}
-          <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(240,180,41,0.04)', border: '1px solid rgba(240,180,41,0.12)', borderRadius: 6 }}>
-            <div style={{ fontSize: '0.62rem', color: 'rgba(240,180,41,0.7)', fontWeight: 600, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>When to upgrade WATCH → BUY</div>
+          <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(180,83,9,0.04)', border: '1px solid rgba(180,83,9,0.12)', borderRadius: 6 }}>
+            <div style={{ fontSize: '0.62rem', color: 'rgba(180,83,9,0.7)', fontWeight: 600, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>When to upgrade WATCH → BUY</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.3rem 1.5rem' }}>
               {[
                 ['T-score ≥ 60',        'Technical momentum confirmed — price trending with volume'],
@@ -468,7 +468,7 @@ export function RecommendationScreen({
                 ['Relative strength',   'Outperforming benchmark for 2+ consecutive weeks'],
               ].map(([signal, detail]) => (
                 <div key={signal} style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '0.62rem', color: 'rgba(240,180,41,0.6)', fontWeight: 600, flexShrink: 0, minWidth: 110 }}>{signal}</span>
+                  <span style={{ fontSize: '0.62rem', color: 'rgba(180,83,9,0.6)', fontWeight: 600, flexShrink: 0, minWidth: 110 }}>{signal}</span>
                   <span style={{ fontSize: '0.62rem', color: T.dimmer, lineHeight: 1.4 }}>{detail}</span>
                 </div>
               ))}
@@ -485,7 +485,7 @@ export function RecommendationScreen({
           </button>
         ) : <div />}
         <button onClick={onDone}
-          style={{ padding: '0.55rem 1.4rem', background: 'var(--gold)', color: 'var(--navy)', fontWeight: 700, borderRadius: 7, border: 'none', fontSize: '0.85rem', cursor: 'pointer' }}>
+          style={{ padding: '0.55rem 1.4rem', background: 'var(--gold)', color: 'var(--bg)', fontWeight: 700, borderRadius: 7, border: 'none', fontSize: '0.85rem', cursor: 'pointer' }}>
           {standalone ? 'Close' : 'Done →'}
         </button>
       </div>

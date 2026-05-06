@@ -1,30 +1,28 @@
 'use client'
 // src/app/dashboard/HomeClient.tsx
-// Client component — handles expand/collapse, hover states, navigation
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import type {
-  Regime, MacroSnapshot, HomeTheme,
-  HomeEvent, PortfolioSummary, PortfolioAlert,
-} from './page'
+import type { Regime, MacroSnapshot, HomeTheme, HomeEvent, PortfolioSummary, PortfolioAlert } from './page'
 import styles from './home.module.css'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function momentumColor(m: string | null): string {
   const map: Record<string, string> = {
-    strong_up:    '#4eff91', moderate_up:   '#7affb0',
-    neutral:      '#e09845',
-    moderate_down:'#ff8a9a', strong_down:   '#ff4e6a',
+    strong_up:     'var(--signal-bull)',
+    moderate_up:   'var(--signal-bull)',
+    neutral:       'var(--signal-neut)',
+    moderate_down: 'var(--signal-bear)',
+    strong_down:   'var(--signal-bear)',
   }
-  return map[m ?? 'neutral'] ?? '#e09845'
+  return map[m ?? 'neutral'] ?? 'var(--signal-neut)'
 }
 
 function sentimentColor(s: number | null): string {
-  if (s === null) return '#e09845'
-  if (s > 0.1)   return '#4eff91'
-  if (s < -0.1)  return '#ff4e6a'
-  return '#e09845'
+  if (s === null) return 'var(--signal-neut)'
+  if (s > 0.1)   return 'var(--signal-bull)'
+  if (s < -0.1)  return 'var(--signal-bear)'
+  return 'var(--signal-neut)'
 }
 
 function sentimentClass(s: number | null): string {
@@ -37,17 +35,10 @@ function sentimentClass(s: number | null): string {
 function relTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 60)  return `${mins}m ago`
+  if (mins < 60) return `${mins}m ago`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24)   return `${hrs}h ago`
+  if (hrs < 24)  return `${hrs}h ago`
   return `${Math.floor(hrs / 24)}d ago`
-}
-
-function fmt(n: number, prefix = ''): string {
-  if (Math.abs(n) >= 1000) {
-    return `${prefix}${(n / 1000).toFixed(1)}k`
-  }
-  return `${prefix}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
 function fmtCurrency(n: number | null): string {
@@ -55,134 +46,101 @@ function fmtCurrency(n: number | null): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
 
-
-// ── Theme detail types ────────────────────────────────────────────────────────
+// ── Theme detail ──────────────────────────────────────────────────────────────
 
 interface ThemeDetailTicker {
-  ticker:       string
-  name:         string
-  asset_type:   string | null
-  final_weight: number
-  signal:       string | null
-  score:        number | null
-  price_usd:    number | null
-  change_pct:   number | null
-  rationale:    string | null
+  ticker: string; name: string; asset_type: string | null
+  final_weight: number; signal: string | null; score: number | null
+  price_usd: number | null; change_pct: number | null; rationale: string | null
 }
-
-interface ThemeDetail {
-  theme:   any
-  tickers: ThemeDetailTicker[]
-}
-
-// ── Inline theme detail panel ─────────────────────────────────────────────────
+interface ThemeDetail { theme: any; tickers: ThemeDetailTicker[] }
 
 function ThemeDetailPanel({ themeId }: { themeId: string }) {
-  const [detail, setDetail] = useState<ThemeDetail | null>(null)
+  const [detail,  setDetail]  = useState<ThemeDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState<string | null>(null)
+  const [error,   setError]   = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null)
     fetch(`/api/themes/${themeId}`, { cache: 'no-store' })
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then(d => {
-        if (d.error) throw new Error(d.error)
-        setDetail(d)
-        setLoading(false)
-      })
-      .catch((e: Error) => {
-        console.error('[ThemeDetailPanel]', e.message)
-        setError(e.message)
-        setLoading(false)
-      })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .then(d  => { if (d.error) throw new Error(d.error); setDetail(d); setLoading(false) })
+      .catch((e: Error) => { setError(e.message); setLoading(false) })
   }, [themeId])
 
   const MOMENTUM_LABEL: Record<string, string> = {
-    strong_up: '\u21911 Strong', moderate_up: '\u2191 Moderate',
-    neutral: '\u2192 Neutral', moderate_down: '\u2193 Moderate', strong_down: '\u21932 Strong',
-  }
-  const MOMENTUM_COLOR: Record<string, string> = {
-    strong_up: '#4eff91', moderate_up: '#7affb0',
-    neutral: '#e09845', moderate_down: '#ff8a9a', strong_down: '#ff4e6a',
+    strong_up: '↑↑ Strong', moderate_up: '↑ Moderate',
+    neutral: '→ Neutral', moderate_down: '↓ Moderate', strong_down: '↓↓ Strong',
   }
 
   function sigColor(s: string | null) {
-    return s === 'buy' ? '#4eff91' : s === 'avoid' ? '#ff4e6a' : s === 'watch' ? '#e09845' : '#2a3a50'
+    if (s === 'buy')   return 'var(--signal-bull)'
+    if (s === 'avoid') return 'var(--signal-bear)'
+    if (s === 'watch') return 'var(--signal-neut)'
+    return 'var(--text-4)'
   }
   function sigBorder(s: string | null) {
-    return s === 'buy' ? 'rgba(78,255,145,0.3)' : s === 'avoid' ? 'rgba(255,78,106,0.3)' : s === 'watch' ? 'rgba(224,152,69,0.3)' : '#1a2030'
+    if (s === 'buy')   return 'rgba(var(--green-rgb), 0.3)'
+    if (s === 'avoid') return 'rgba(var(--red-rgb),   0.3)'
+    if (s === 'watch') return 'rgba(var(--amber-rgb), 0.3)'
+    return 'var(--border)'
   }
 
-  if (loading) return (
-    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "rgba(232,226,217,0.45)", padding: "8px 12px" }}>
-      Loading...
-    </div>
-  )
-  if (error || !detail) return (
-    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--red)", padding: "8px 12px" }}>
-      {error ?? "No data"}
-    </div>
-  )
+  if (loading) return <div style={{ fontSize: '0.62rem', color: 'var(--text-4)', padding: '8px 12px' }}>Loading...</div>
+  if (error || !detail) return <div style={{ fontSize: '0.62rem', color: 'var(--signal-bear)', padding: '8px 12px' }}>{error ?? 'No data'}</div>
 
-  const mColor = MOMENTUM_COLOR[detail.theme.momentum ?? "neutral"] ?? "#e09845"
+  const mColor = momentumColor(detail.theme.momentum)
 
   return (
-    <div style={{ padding: "10px 12px 12px" }}>
+    <div style={{ padding: '10px 12px 12px' }}>
       {detail.theme.brief && (
-        <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.74rem", color: "rgba(232,226,217,0.55)", lineHeight: 1.65, margin: "0 0 10px", fontWeight: 300 }}>
+        <p style={{ fontSize: '0.74rem', color: 'var(--text-3)', lineHeight: 1.65, margin: '0 0 10px', fontWeight: 300 }}>
           {detail.theme.brief}
         </p>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         {detail.theme.momentum && (
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: mColor, letterSpacing: "0.04em" }}>
-            {MOMENTUM_LABEL[detail.theme.momentum] ?? "neutral"}
+          <span style={{ fontSize: '0.65rem', color: mColor, letterSpacing: '0.04em' }}>
+            {MOMENTUM_LABEL[detail.theme.momentum] ?? 'neutral'}
           </span>
         )}
-        <div style={{ flex: 1, height: 2, background: "var(--border-default)" }}>
+        <div style={{ flex: 1, height: 2, background: 'var(--border)' }}>
           <div style={{ width: `${detail.theme.conviction ?? 0}%`, height: 2, background: mColor }} />
         </div>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: mColor }}>
-          {detail.theme.conviction ?? 0}% conviction
-        </span>
+        <span style={{ fontSize: '0.65rem', color: mColor }}>{detail.theme.conviction ?? 0}% conviction</span>
       </div>
       {detail.theme.anchor_reason && (
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "rgba(232,226,217,0.45)", marginBottom: 10, fontStyle: "italic" }}>
+        <div style={{ fontSize: '0.6rem', color: 'var(--text-4)', marginBottom: 10, fontStyle: 'italic' }}>
           anchor: {detail.theme.anchor_reason}
         </div>
       )}
       {detail.tickers.length > 0 && (
         <>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "rgba(232,226,217,0.45)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div style={{ fontSize: '0.58rem', color: 'var(--text-4)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 6 }}>
             ## Candidate assets
           </div>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
             {detail.tickers.map(t => (
-              <Link key={t.ticker} href={`/dashboard/tickers/${t.ticker}`} style={{ border: "1px solid var(--border-default)", padding: "6px 9px", background: "var(--bg-base)", minWidth: 80, display: "block", textDecoration: "none" }} onClick={e => e.stopPropagation()}>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--green)", letterSpacing: "0.05em" }}>{t.ticker}</div>
+              <Link key={t.ticker} href={`/dashboard/tickers/${t.ticker}`}
+                style={{ border: '1px solid var(--border)', padding: '6px 9px', background: 'var(--bg-subtle)', minWidth: 80, display: 'block', textDecoration: 'none' }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--signal-bull)', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)' }}>{t.ticker}</div>
                 {t.asset_type && (
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", color: "rgba(232,226,217,0.45)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>{t.asset_type}</div>
+                  <div style={{ fontSize: '0.56rem', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 1 }}>{t.asset_type}</div>
                 )}
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "rgba(232,226,217,0.55)", marginTop: 2 }}>
-                  {Math.round(t.final_weight)}%
-                </div>
+                <div style={{ fontSize: '0.6rem', color: 'var(--text-3)', marginTop: 2 }}>{Math.round(t.final_weight)}%</div>
                 {t.price_usd != null && (
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "rgba(232,226,217,0.65)", marginTop: 1 }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-2)', marginTop: 1, fontFamily: 'var(--font-mono)' }}>
                     ${t.price_usd.toFixed(2)}
                     {t.change_pct != null && (
-                      <span style={{ color: t.change_pct >= 0 ? "#4eff91" : "#ff4e6a", marginLeft: 4 }}>
-                        {t.change_pct >= 0 ? "+" : ""}{t.change_pct.toFixed(2)}%
+                      <span style={{ color: t.change_pct >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)', marginLeft: 4 }}>
+                        {t.change_pct >= 0 ? '+' : ''}{t.change_pct.toFixed(2)}%
                       </span>
                     )}
                   </div>
                 )}
                 {t.signal && (
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", padding: "1px 5px", border: `1px solid ${sigBorder(t.signal)}`, color: sigColor(t.signal), marginTop: 3, display: "inline-block", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  <div style={{ fontSize: '0.56rem', padding: '1px 5px', border: `1px solid ${sigBorder(t.signal)}`, color: sigColor(t.signal), marginTop: 3, display: 'inline-block', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                     {t.signal}
                   </div>
                 )}
@@ -191,120 +149,59 @@ function ThemeDetailPanel({ themeId }: { themeId: string }) {
           </div>
         </>
       )}
-
     </div>
   )
 }
 
-// ── Suggested actions — derived from live state ────────────────────────────────
+// ── Suggested actions ─────────────────────────────────────────────────────────
 
-function buildActions(
-  regime: Regime | null,
-  themes: HomeTheme[],
-  hasHoldings: boolean,
-): { num: string; title: string; sub: string; href: string }[] {
+function buildActions(regime: Regime | null, themes: HomeTheme[], hasHoldings: boolean) {
   const actions = []
-
-  if (themes[0]) {
-    actions.push({
-      num: '01',
-      title: `Review: ${themes[0].name}`,
-      sub: `${themes[0].conviction ?? 0}% conviction · ${themes[0].timeframe} horizon`,
-      href: '/dashboard/themes',
-    })
-  }
-
+  if (themes[0]) actions.push({ num: '01', title: `Review: ${themes[0].name}`, sub: `${themes[0].conviction ?? 0}% conviction · ${themes[0].timeframe} horizon`, href: '/dashboard/themes' })
   if (regime?.risk_bias === 'risk-off') {
-    actions.push({
-      num: '02',
-      title: 'Find safe-haven assets',
-      sub: `Regime is risk-off — defensive positioning recommended`,
-      href: '/dashboard/assets',
-    })
+    actions.push({ num: '02', title: 'Find safe-haven assets', sub: 'Regime is risk-off — defensive positioning recommended', href: '/dashboard/assets' })
   } else if (regime?.risk_bias === 'risk-on') {
-    actions.push({
-      num: '02',
-      title: 'Explore growth opportunities',
-      sub: `Regime is risk-on — consider adding growth exposure`,
-      href: '/dashboard/assets',
-    })
+    actions.push({ num: '02', title: 'Explore growth opportunities', sub: 'Regime is risk-on — consider adding growth exposure', href: '/dashboard/assets' })
   } else {
-    actions.push({
-      num: '02',
-      title: 'Screen regime-aligned assets',
-      sub: 'Find assets that match the current market environment',
-      href: '/dashboard/assets',
-    })
+    actions.push({ num: '02', title: 'Screen regime-aligned assets', sub: 'Find assets that match the current market environment', href: '/dashboard/assets' })
   }
-
-  if (!hasHoldings) {
-    actions.push({
-      num: '03',
-      title: 'Set up your portfolio',
-      sub: 'Add holdings to unlock personalised macro impact analysis',
-      href: '/dashboard/portfolio',
-    })
-  } else {
-    actions.push({
-      num: '03',
-      title: 'Review portfolio risk exposure',
-      sub: 'Check how today\'s regime affects your specific positions',
-      href: '/dashboard/portfolio',
-    })
-  }
-
+  actions.push(!hasHoldings
+    ? { num: '03', title: 'Set up your portfolio', sub: 'Add holdings to unlock personalised macro impact analysis', href: '/dashboard/portfolio' }
+    : { num: '03', title: 'Review portfolio risk exposure', sub: "Check how today's regime affects your specific positions", href: '/dashboard/portfolio' }
+  )
   return actions
 }
 
-// ── Props ──────────────────────────────────────────────────────────────────────
+// ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  regime:       Regime | null
-  macro:        MacroSnapshot
-  themes:       HomeTheme[]
-  events:       HomeEvent[]
-  portfolio:    PortfolioSummary
-  latestAlert:  PortfolioAlert | null
-  hasHoldings:  boolean
+  regime: Regime | null; macro: MacroSnapshot; themes: HomeTheme[]
+  events: HomeEvent[]; portfolio: PortfolioSummary; latestAlert: PortfolioAlert | null; hasHoldings: boolean
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 
-export default function HomeClient({
-  regime, macro, themes, events, portfolio, latestAlert, hasHoldings,
-}: Props) {
-  const bias       = regime?.risk_bias ?? 'neutral'
-  // Normalise risk_bias to bullish/bearish/neutral for styling
-  const biasCls    = bias === 'risk-on'  ? '' :
-                     bias === 'risk-off' ? styles.bearish : styles.neutral
-  const badgeCls   = bias === 'risk-on'  ? styles.badgeBull :
-                     bias === 'risk-off' ? styles.badgeBear : styles.badgeNeut
-  const badgeLabel = bias === 'risk-on'  ? 'Risk-on' :
-                     bias === 'risk-off' ? 'Risk-off' :
-                     regime?.style_bias ?? 'Neutral'
-  const actions    = buildActions(regime, themes, hasHoldings)
+export default function HomeClient({ regime, macro, themes, events, portfolio, latestAlert, hasHoldings }: Props) {
   const [expandedThemeId, setExpandedThemeId] = useState<string | null>(null)
+  const actions = buildActions(regime, themes, hasHoldings)
 
-  const sentStr = macro.avg_sentiment !== null
-    ? `${macro.avg_sentiment >= 0 ? '+' : ''}${macro.avg_sentiment.toFixed(2)}`
-    : '—'
-  const sentDir = macro.avg_sentiment !== null && macro.avg_sentiment > 0.1
-    ? 'Risk-on' : macro.avg_sentiment !== null && macro.avg_sentiment < -0.1
-    ? 'Risk-off' : 'Neutral'
-  const sentClass = macro.avg_sentiment !== null && macro.avg_sentiment > 0.1
-    ? styles.up : macro.avg_sentiment !== null && macro.avg_sentiment < -0.1
-    ? styles.down : styles.neut
+  const bias       = regime?.risk_bias ?? 'neutral'
+  const biasCls    = bias === 'risk-on' ? '' : bias === 'risk-off' ? styles.bearish : styles.neutral
+  const badgeCls   = bias === 'risk-on' ? styles.badgeBull : bias === 'risk-off' ? styles.badgeBear : styles.badgeNeut
+  const badgeLabel = bias === 'risk-on' ? 'Risk-on' : bias === 'risk-off' ? 'Risk-off' : regime?.style_bias ?? 'Neutral'
+
+  const sentStr   = macro.avg_sentiment !== null ? `${macro.avg_sentiment >= 0 ? '+' : ''}${macro.avg_sentiment.toFixed(2)}` : '—'
+  const sentDir   = macro.avg_sentiment !== null && macro.avg_sentiment > 0.1 ? 'Risk-on' : macro.avg_sentiment !== null && macro.avg_sentiment < -0.1 ? 'Risk-off' : 'Neutral'
+  const sentClass = macro.avg_sentiment !== null && macro.avg_sentiment > 0.1 ? styles.up : macro.avg_sentiment !== null && macro.avg_sentiment < -0.1 ? styles.down : styles.neut
 
   return (
     <div className={styles.page}>
 
-      {/* ── MARKET REGIME BANNER ── */}
+      {/* ── REGIME BANNER ── */}
       {regime ? (
         <div className={`${styles.regime} ${biasCls}`}>
           <div className={styles.regimeMain}>
-            <div className={styles.regimeLabel}>
-              Market regime · updated {relTime(regime.refreshed_at)}
-            </div>
+            <div className={styles.regimeLabel}>Market regime · updated {relTime(regime.refreshed_at)}</div>
             <div className={styles.regimeName}>{regime.label}</div>
             {regime.rationale && (
               <div className={styles.regimeSub}>
@@ -313,28 +210,24 @@ export default function HomeClient({
             )}
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px', alignItems: 'center' }}>
               <span className={`${styles.regimeBadge} ${badgeCls}`}>{badgeLabel}</span>
-              {regime.cycle_phase && (
-                <span className={`${styles.regimeBadge} ${styles.badgeNeut}`}>{regime.cycle_phase} cycle</span>
-              )}
-              {regime.style_bias && (
-                <span className={`${styles.regimeBadge} ${styles.badgeNeut}`}>{regime.style_bias}</span>
-              )}
+              {regime.cycle_phase  && <span className={`${styles.regimeBadge} ${styles.badgeNeut}`}>{regime.cycle_phase} cycle</span>}
+              {regime.style_bias   && <span className={`${styles.regimeBadge} ${styles.badgeNeut}`}>{regime.style_bias}</span>}
             </div>
             {(regime.favoured_sectors?.length || regime.avoid_sectors?.length) && (
               <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
-                {regime.favoured_sectors && regime.favoured_sectors.length > 0 && (
+                {!!regime.favoured_sectors?.length && (
                   <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'rgba(232,226,217,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Favour</span>
+                    <span className={styles.sectorLabel}>Favour</span>
                     {regime.favoured_sectors.slice(0, 4).map(s => (
-                      <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', padding: '1px 7px', border: '1px solid rgba(78,255,145,0.25)', color: 'var(--green)', letterSpacing: '0.06em' }}>{s}</span>
+                      <span key={s} className={styles.sectorBull}>{s}</span>
                     ))}
                   </div>
                 )}
-                {regime.avoid_sectors && regime.avoid_sectors.length > 0 && (
+                {!!regime.avoid_sectors?.length && (
                   <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'rgba(232,226,217,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Avoid</span>
+                    <span className={styles.sectorLabel}>Avoid</span>
                     {regime.avoid_sectors.slice(0, 3).map(s => (
-                      <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', padding: '1px 7px', border: '1px solid rgba(255,78,106,0.25)', color: 'var(--red)', letterSpacing: '0.06em' }}>{s}</span>
+                      <span key={s} className={styles.sectorBear}>{s}</span>
                     ))}
                   </div>
                 )}
@@ -344,10 +237,7 @@ export default function HomeClient({
           <div className={styles.regimeConv}>
             <div className={styles.regimeConvNum}>{regime.confidence}%</div>
             <div className={styles.regimeConvBar}>
-              <div
-                className={styles.regimeConvFill}
-                style={{ width: `${regime.confidence}%` }}
-              />
+              <div className={styles.regimeConvFill} style={{ width: `${regime.confidence}%` }} />
             </div>
             <div className={styles.regimeConvLabel}>Confidence</div>
           </div>
@@ -356,14 +246,12 @@ export default function HomeClient({
         <div className={styles.regime}>
           <div className={styles.regimeMain}>
             <div className={styles.regimeLabel}>Market regime</div>
-            <div className={styles.regimeName} style={{ color: 'rgba(232,226,217,0.45)' }}>
-              No regime data — run the regime cron to generate
-            </div>
+            <div className={`${styles.regimeName} ${styles.mute}`}>No regime data — run the regime cron to generate</div>
           </div>
         </div>
       )}
 
-      {/* ── MACRO SNAPSHOT STRIP ── */}
+      {/* ── MACRO STRIP ── */}
       <div className={styles.macroStrip}>
         <div className={styles.macroCell}>
           <div className={styles.macroCellLabel}>Avg sentiment</div>
@@ -380,25 +268,19 @@ export default function HomeClient({
         <div className={styles.macroCell}>
           <div className={styles.macroCellLabel}>Active themes</div>
           <div className={styles.macroCellVal}>{macro.active_themes}</div>
-          <div className={`${styles.macroCellSub} ${styles.up}`}>
-            {macro.active_themes > 0 ? `${macro.active_themes} tracked` : 'None active'}
-          </div>
+          <div className={`${styles.macroCellSub} ${styles.up}`}>{macro.active_themes > 0 ? `${macro.active_themes} tracked` : 'None active'}</div>
         </div>
         <div className={styles.macroCell}>
           <div className={styles.macroCellLabel}>Buy signals</div>
-          <div className={`${styles.macroCellVal} ${macro.buy_signals > 0 ? styles.up : styles.mute}`}>
-            {macro.buy_signals}
-          </div>
+          <div className={`${styles.macroCellVal} ${macro.buy_signals > 0 ? styles.up : styles.mute}`}>{macro.buy_signals}</div>
           <div className={`${styles.macroCellSub} ${macro.avoid_signals > 0 ? styles.down : styles.mute}`}>
             {macro.avoid_signals > 0 ? `${macro.avoid_signals} avoid` : 'None to avoid'}
           </div>
         </div>
       </div>
 
-      {/* ── TOP THEMES + TOP EVENTS ── */}
+      {/* ── THEMES + EVENTS ── */}
       <div className={styles.twoCol}>
-
-        {/* THEMES */}
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <span className={styles.panelTitle}>Top themes</span>
@@ -406,48 +288,28 @@ export default function HomeClient({
           </div>
           {themes.length === 0 ? (
             <div className={styles.empty}>No active themes — run the themes cron</div>
-          ) : (
-            themes.map(t => {
-              const isExpanded = expandedThemeId === t.id
-              return (
-                <div key={t.id}>
-                  <div
-                    className={styles.themeItem}
-                    onClick={() => setExpandedThemeId(isExpanded ? null : t.id)}
-                    style={{ cursor: 'pointer', userSelect: 'none' }}
-                  >
-                    <div
-                      className={styles.themeDot}
-                      style={{ background: momentumColor(t.momentum) }}
-                    />
-                    <div className={styles.themeName}>{t.name}</div>
-                    <div className={styles.themeTf}>{t.timeframe}</div>
-                    <div className={styles.themeConv} style={{ color: momentumColor(t.momentum) }}>
-                      {t.conviction ?? 0}%
-                    </div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'rgba(232,226,217,0.45)', marginLeft: 4 }}>
-                      {isExpanded ? '▲' : '▼'}
-                    </div>
-                  </div>
-                  {isExpanded && (
-                    <div style={{
-                      borderBottom: '1px solid rgba(26,32,48,0.7)',
-                      background: 'rgba(78,255,145,0.02)',
-                      borderLeft: `2px solid ${momentumColor(t.momentum)}`,
-                      marginLeft: 12,
-                    }}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <ThemeDetailPanel themeId={t.id} />
-                    </div>
-                  )}
+          ) : themes.map(t => {
+            const isExpanded = expandedThemeId === t.id
+            const mColor = momentumColor(t.momentum)
+            return (
+              <div key={t.id}>
+                <div className={styles.themeItem} onClick={() => setExpandedThemeId(isExpanded ? null : t.id)} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                  <div className={styles.themeDot} style={{ background: mColor }} />
+                  <div className={styles.themeName}>{t.name}</div>
+                  <div className={styles.themeTf}>{t.timeframe}</div>
+                  <div className={styles.themeConv} style={{ color: mColor }}>{t.conviction ?? 0}%</div>
+                  <span className={styles.expandIcon}>{isExpanded ? '▲' : '▼'}</span>
                 </div>
-              )
-            })
-          )}
+                {isExpanded && (
+                  <div className={styles.themeExpand} style={{ borderLeft: `2px solid ${mColor}` }} onClick={e => e.stopPropagation()}>
+                    <ThemeDetailPanel themeId={t.id} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
 
-        {/* EVENTS */}
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <span className={styles.panelTitle}>Top events</span>
@@ -455,67 +317,40 @@ export default function HomeClient({
           </div>
           {events.length === 0 ? (
             <div className={styles.empty}>No events in the last 24h</div>
-          ) : (
-            events.map(e => (
-              <div key={e.id} className={styles.eventItem}>
-                <div className={styles.eventRow}>
-                  <div
-                    className={styles.eventDot}
-                    style={{ background: sentimentColor(e.sentiment_score) }}
-                  />
-                  <div className={styles.eventHeadline}>{e.headline}</div>
-                  <div className={`${styles.eventScore} ${sentimentClass(e.sentiment_score)}`}>
-                    {e.sentiment_score !== null
-                      ? `${e.sentiment_score >= 0 ? '+' : ''}${e.sentiment_score.toFixed(2)}`
-                      : '—'}
-                  </div>
-                </div>
-                <div className={styles.eventMeta}>
-                  {e.event_type?.replace(/_/g, ' ') ?? 'general'} · {relTime(e.published_at)}
+          ) : events.map(e => (
+            <div key={e.id} className={styles.eventItem}>
+              <div className={styles.eventRow}>
+                <div className={styles.eventDot} style={{ background: sentimentColor(e.sentiment_score) }} />
+                <div className={styles.eventHeadline}>{e.headline}</div>
+                <div className={`${styles.eventScore} ${sentimentClass(e.sentiment_score)}`}>
+                  {e.sentiment_score !== null ? `${e.sentiment_score >= 0 ? '+' : ''}${e.sentiment_score.toFixed(2)}` : '—'}
                 </div>
               </div>
-            ))
-          )}
+              <div className={styles.eventMeta}>{e.event_type?.replace(/_/g, ' ') ?? 'general'} · {relTime(e.published_at)}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── PORTFOLIO + SUGGESTED ACTIONS ── */}
+      {/* ── PORTFOLIO + ACTIONS ── */}
       <div className={styles.twoCol}>
-
-        {/* PORTFOLIO */}
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <span className={styles.panelTitle}>My portfolio</span>
-            <Link href="/dashboard/portfolio" className={styles.panelLink}>
-              {hasHoldings ? 'Manage →' : 'Set up →'}
-            </Link>
+            <Link href="/dashboard/portfolio" className={styles.panelLink}>{hasHoldings ? 'Manage →' : 'Set up →'}</Link>
           </div>
-
           {!hasHoldings ? (
             <div className={styles.portfolioEmpty}>
-              <div className={styles.portfolioEmptyIcon}>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <rect x="1" y="4" width="12" height="9" rx="1" stroke="rgba(232,226,217,0.45)" strokeWidth="1"/>
-                  <path d="M4 4V3a3 3 0 016 0v1" stroke="rgba(232,226,217,0.45)" strokeWidth="1"/>
-                </svg>
-              </div>
               <div className={styles.portfolioEmptyTitle}>No holdings yet</div>
-              <div className={styles.portfolioEmptySub}>
-                Add your holdings to see how today&apos;s regime affects your positions.
-              </div>
-              <Link href="/dashboard/portfolio" className={styles.ctaBtn}>
-                + Add holdings
-              </Link>
+              <div className={styles.portfolioEmptySub}>Add your holdings to see how today's regime affects your positions.</div>
+              <Link href="/dashboard/portfolio" className={styles.ctaBtn}>+ Add holdings</Link>
             </div>
           ) : (
             <>
-              {/* Mini KPI strip */}
               <div className={styles.portfolioKpis}>
                 <div className={styles.portfolioKpiCell}>
                   <div className={styles.portfolioKpiLabel}>Value</div>
-                  <div className={styles.portfolioKpiVal}>
-                    {fmtCurrency(portfolio.total_value)}
-                  </div>
+                  <div className={styles.portfolioKpiVal}>{fmtCurrency(portfolio.total_value)}</div>
                   {portfolio.total_pnl !== null && (
                     <div className={`${styles.portfolioKpiSub} ${portfolio.total_pnl >= 0 ? styles.up : styles.down}`}>
                       {portfolio.total_pnl >= 0 ? '+' : ''}{fmtCurrency(portfolio.total_pnl)}
@@ -524,31 +359,23 @@ export default function HomeClient({
                 </div>
                 <div className={styles.portfolioKpiCell}>
                   <div className={styles.portfolioKpiLabel}>P&amp;L</div>
-                  <div className={`${styles.portfolioKpiVal} ${portfolio.total_pnl_pct !== null && portfolio.total_pnl_pct >= 0 ? styles.up : styles.down}`}>
-                    {portfolio.total_pnl_pct !== null
-                      ? `${portfolio.total_pnl_pct >= 0 ? '+' : ''}${portfolio.total_pnl_pct.toFixed(1)}%`
-                      : '—'}
+                  <div className={`${styles.portfolioKpiVal} ${(portfolio.total_pnl_pct ?? 0) >= 0 ? styles.up : styles.down}`}>
+                    {portfolio.total_pnl_pct !== null ? `${portfolio.total_pnl_pct >= 0 ? '+' : ''}${portfolio.total_pnl_pct.toFixed(1)}%` : '—'}
                   </div>
-                  <div className={styles.portfolioKpiSub} style={{ color: 'rgba(232,226,217,0.45)' }}>unrealised</div>
+                  <div className={`${styles.portfolioKpiSub} ${styles.mute}`}>unrealised</div>
                 </div>
                 <div className={styles.portfolioKpiCell}>
                   <div className={styles.portfolioKpiLabel}>Holdings</div>
-                  <div className={styles.portfolioKpiVal} style={{ color: 'rgba(232,226,217,0.55)' }}>
-                    {portfolio.holdings_count}
-                  </div>
-                  <div className={styles.portfolioKpiSub} style={{ color: 'rgba(232,226,217,0.45)' }}>positions</div>
+                  <div className={`${styles.portfolioKpiVal} ${styles.mute}`}>{portfolio.holdings_count}</div>
+                  <div className={`${styles.portfolioKpiSub} ${styles.mute}`}>positions</div>
                 </div>
               </div>
-
-              {/* Latest alert if any */}
               {latestAlert && (
                 <div className={styles.alertStrip}>
                   <div className={styles.alertIcon}>!</div>
                   <div className={styles.alertBody}>
                     <div className={styles.alertTitle}>{latestAlert.title}</div>
-                    {latestAlert.body && (
-                      <div className={styles.alertSub}>{latestAlert.body}</div>
-                    )}
+                    {latestAlert.body && <div className={styles.alertSub}>{latestAlert.body}</div>}
                   </div>
                   <div className={styles.alertTime}>{relTime(latestAlert.created_at)}</div>
                 </div>
@@ -557,11 +384,8 @@ export default function HomeClient({
           )}
         </div>
 
-        {/* SUGGESTED ACTIONS */}
         <div className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <span className={styles.panelTitle}>Suggested actions</span>
-          </div>
+          <div className={styles.panelHeader}><span className={styles.panelTitle}>Suggested actions</span></div>
           {actions.map(a => (
             <Link key={a.num} href={a.href} className={styles.actionItem}>
               <div className={styles.actionNum}>{a.num}</div>
@@ -573,7 +397,6 @@ export default function HomeClient({
             </Link>
           ))}
         </div>
-
       </div>
     </div>
   )
