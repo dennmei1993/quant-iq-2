@@ -7,6 +7,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  computeCapitalMetrics,
+  type PortfolioCapitalMetrics,
+} from '@/types/portfolio-preferences'
 import type {
   Regime,
   HomeTheme,
@@ -36,18 +40,6 @@ interface Holding {
   } | null
 }
 
-interface CapitalMetrics {
-  total_capital:   number
-  invested:        number
-  cash_available:  number
-  current_value:   number
-  unrealised_gain: number
-  unrealised_pct:  number
-  realised_gain:   number
-  total_gain:      number
-  return_pct:      number
-}
-
 interface Props {
   regime:      Regime | null
   themes:      HomeTheme[]
@@ -72,39 +64,6 @@ function fmtPct(v: number): string {
 function signCol(v: number | null): string {
   if (v == null) return 'var(--text-4)'
   return v >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)'
-}
-
-function computeMetrics(portfolio: Portfolio, holdings: Holding[]): CapitalMetrics {
-  let invested        = 0
-  let current_value   = 0
-  let realised_gain   = 0
-
-  for (const h of holdings) {
-    const qty   = h.quantity ?? 0
-    const cost  = h.avg_cost ?? 0
-    const price = h.signal?.price_usd ?? null
-    invested      += qty * cost
-    current_value += price != null ? qty * price : qty * cost
-    realised_gain += h.realised_gain ?? 0
-  }
-
-  const unrealised_gain = current_value - invested
-  const unrealised_pct  = invested > 0 ? (unrealised_gain / invested) * 100 : 0
-  const cash_available  = portfolio.total_capital - invested + realised_gain
-  const total_gain      = unrealised_gain + realised_gain
-  const return_pct      = portfolio.total_capital > 0 ? (total_gain / portfolio.total_capital) * 100 : 0
-
-  return {
-    total_capital: portfolio.total_capital,
-    invested,
-    cash_available,
-    current_value,
-    unrealised_gain,
-    unrealised_pct,
-    realised_gain,
-    total_gain,
-    return_pct,
-  }
 }
 
 const SIG_COLOR: Record<string, string> = {
@@ -134,32 +93,50 @@ export default function HomeClient({
     return (saved && initialPortfolios.find(p => p.id === saved)) ? saved : (initialPortfolios[0]?.id ?? '')
   })
   const [holdings,         setHoldings]          = useState<Holding[]>([])
+  const [transactions,     setTransactions]      = useState<Array<{ type: string; total_amount: number; fees: number }>>([])
   const [loading,          setLoading]           = useState(false)
 
   const activePortfolio = portfolios.find(p => p.id === activeId) ?? portfolios[0] ?? null
 
-  const loadHoldings = useCallback(async (portfolioId: string) => {
+  const loadPortfolioData = useCallback(async (portfolioId: string) => {
     setLoading(true)
     try {
-      const res  = await fetch(`/api/portfolio?portfolio_id=${portfolioId}`)
-      const data = await res.json()
-      setHoldings(data.holdings ?? [])
+      const [pRes, tRes] = await Promise.all([
+        fetch(`/api/portfolio?portfolio_id=${portfolioId}`),
+        fetch(`/api/portfolio/transaction?portfolio_id=${portfolioId}&limit=500`),
+      ])
+      const [pData, tData] = await Promise.all([pRes.json(), tRes.json()])
+      setHoldings(pData.holdings ?? [])
+      setTransactions(tData.transactions ?? [])
     } catch {
       setHoldings([])
+      setTransactions([])
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    if (activeId) loadHoldings(activeId)
-  }, [activeId, loadHoldings])
+    if (activeId) loadPortfolioData(activeId)
+  }, [activeId, loadPortfolioData])
 
   useEffect(() => {
     if (activeId) sessionStorage.setItem('quant_iq_selected_portfolio', activeId)
   }, [activeId])
 
-  const metrics = activePortfolio ? computeMetrics(activePortfolio, holdings) : null
+  const metrics: PortfolioCapitalMetrics | null = activePortfolio
+    ? computeCapitalMetrics(
+        activePortfolio.total_capital,
+        holdings.map(h => ({
+          ticker:        h.ticker,
+          quantity:      h.quantity ?? 0,
+          avg_cost:      h.avg_cost ?? 0,
+          price_usd:     h.signal?.price_usd ?? null,
+          realised_gain: (h as any).realised_gain ?? 0,
+        })),
+        transactions,
+      )
+    : null
 
   const investedPct = metrics && metrics.total_capital > 0
     ? (metrics.invested / metrics.total_capital) * 100
