@@ -119,18 +119,6 @@ export default function HomeClient({
     if (activeId) loadPortfolioData(activeId)
   }, [activeId, loadPortfolioData])
 
-  // Sync with shell portfolio switcher — shell writes to sessionStorage,
-  // we listen for the custom event it dispatches
-  useEffect(() => {
-    function onPortfolioChange() {
-      const saved = sessionStorage.getItem('quant_iq_selected_portfolio')
-      if (saved && saved !== activeId && portfolios.find(p => p.id === saved)) {
-        setActiveId(saved)
-      }
-    }
-    window.addEventListener('portfolio-changed', onPortfolioChange)
-    return () => window.removeEventListener('portfolio-changed', onPortfolioChange)
-  }, [activeId, portfolios])
 
   const metrics: PortfolioCapitalMetrics | null = activePortfolio
     ? computeCapitalMetrics(
@@ -171,9 +159,7 @@ export default function HomeClient({
 
         {/* ── Page header ── */}
         <div className="page-header">
-          <div>
-            <div className="page-title">{activePortfolio?.name ?? 'My portfolio'}</div>
-          </div>
+          <div className="page-title">Overview</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span className="page-date">
               {new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -188,6 +174,50 @@ export default function HomeClient({
             </div>
           </div>
         </div>
+
+        {/* ── Portfolio submenu — tab row within Overview only ── */}
+        {portfolios.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--border)' }}>
+            {portfolios.map(p => (
+              <button
+                key={p.id}
+                onClick={() => setActiveId(p.id)}
+                style={{
+                  padding:      '6px 14px',
+                  background:   'transparent',
+                  border:       'none',
+                  borderBottom: `2px solid ${p.id === activeId ? 'var(--accent)' : 'transparent'}`,
+                  color:        p.id === activeId ? 'var(--text)' : 'var(--text-4)',
+                  fontSize:     'var(--fs-sm)',
+                  fontWeight:   p.id === activeId ? 500 : 400,
+                  cursor:       'pointer',
+                  whiteSpace:   'nowrap',
+                  marginBottom: -1,
+                  transition:   'all 0.1s',
+                }}
+              >
+                {p.name}
+              </button>
+            ))}
+            <button
+              onClick={() => router.push('/dashboard/portfolio')}
+              title="New portfolio"
+              style={{
+                padding:      '6px 10px',
+                background:   'transparent',
+                border:       'none',
+                borderBottom: '2px solid transparent',
+                color:        'var(--text-4)',
+                fontSize:     'var(--fs-sm)',
+                cursor:       'pointer',
+                marginBottom: -1,
+                marginLeft:   'auto',
+              }}
+            >
+              <i className="ti ti-plus" style={{ fontSize: 11 }} aria-hidden />
+            </button>
+          </div>
+        )}
 
         {/* ── Capital metrics ── */}
         {metrics && metrics.total_capital > 0 ? (
