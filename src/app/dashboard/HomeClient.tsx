@@ -85,7 +85,6 @@ export default function HomeClient({
 
   const [alertDismissed,   setAlertDismissed]   = useState(false)
   const [panelOpen,        setPanelOpen]         = useState(false)
-  const [switcherOpen,     setSwitcherOpen]      = useState(false)
   const [portfolios,       setPortfolios]        = useState<Portfolio[]>(initialPortfolios)
   const [activeId,         setActiveId]          = useState<string>(() => {
     if (typeof window === 'undefined') return initialPortfolios[0]?.id ?? ''
@@ -120,9 +119,18 @@ export default function HomeClient({
     if (activeId) loadPortfolioData(activeId)
   }, [activeId, loadPortfolioData])
 
+  // Sync with shell portfolio switcher — shell writes to sessionStorage,
+  // we listen for the custom event it dispatches
   useEffect(() => {
-    if (activeId) sessionStorage.setItem('quant_iq_selected_portfolio', activeId)
-  }, [activeId])
+    function onPortfolioChange() {
+      const saved = sessionStorage.getItem('quant_iq_selected_portfolio')
+      if (saved && saved !== activeId && portfolios.find(p => p.id === saved)) {
+        setActiveId(saved)
+      }
+    }
+    window.addEventListener('portfolio-changed', onPortfolioChange)
+    return () => window.removeEventListener('portfolio-changed', onPortfolioChange)
+  }, [activeId, portfolios])
 
   const metrics: PortfolioCapitalMetrics | null = activePortfolio
     ? computeCapitalMetrics(
@@ -163,53 +171,9 @@ export default function HomeClient({
 
         {/* ── Page header ── */}
         <div className="page-header">
-          <div style={{ position: 'relative' }}>
-
-            {/* Portfolio switcher */}
-            <button
-              className="portfolio-switcher"
-              onClick={() => setSwitcherOpen(o => !o)}
-              aria-haspopup="listbox"
-              aria-expanded={switcherOpen}
-            >
-              <span className="portfolio-switcher-name">
-                {activePortfolio?.name ?? 'My portfolio'}
-              </span>
-              {portfolios.length > 1 && (
-                <i className={`ti ti-chevron-${switcherOpen ? 'up' : 'down'}`}
-                  style={{ fontSize: 11, color: 'var(--text-4)' }} aria-hidden />
-              )}
-            </button>
-
-            {switcherOpen && (
-              <div className="portfolio-dropdown" role="listbox">
-                {portfolios.map(p => (
-                  <button
-                    key={p.id}
-                    className={`portfolio-dropdown-item${p.id === activeId ? ' active' : ''}`}
-                    role="option"
-                    aria-selected={p.id === activeId}
-                    onClick={() => { setActiveId(p.id); setSwitcherOpen(false) }}
-                  >
-                    <i className="ti ti-briefcase" style={{ fontSize: 12 }} aria-hidden />
-                    {p.name}
-                    {p.id === activeId && (
-                      <i className="ti ti-check" style={{ fontSize: 11, marginLeft: 'auto' }} aria-hidden />
-                    )}
-                  </button>
-                ))}
-                <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0' }} />
-                <button
-                  className="portfolio-dropdown-item"
-                  onClick={() => { setSwitcherOpen(false); router.push('/dashboard/portfolio') }}
-                >
-                  <i className="ti ti-plus" style={{ fontSize: 12 }} aria-hidden />
-                  New portfolio
-                </button>
-              </div>
-            )}
+          <div>
+            <div className="page-title">{activePortfolio?.name ?? 'My portfolio'}</div>
           </div>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span className="page-date">
               {new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -220,12 +184,6 @@ export default function HomeClient({
                 onClick={() => router.push(`/dashboard/portfolio?tab=recommendations&portfolio_id=${activeId}`)}
               >
                 <i className="ti ti-adjustments-horizontal" aria-hidden /> Build ↗
-              </button>
-              <button
-                className="btn btn-dark"
-                onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${activeId}`)}
-              >
-                <i className="ti ti-briefcase" aria-hidden /> Full view ↗
               </button>
             </div>
           </div>
