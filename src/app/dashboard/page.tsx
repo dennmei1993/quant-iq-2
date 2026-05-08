@@ -68,6 +68,11 @@ export type PortfolioAlert = {
   type:       string   // 'portfolio_risk' | 'new_theme' | 'macro_shift' | 'theme_update' | 'price_move'
 }
 
+export type Portfolio = {
+  id:   string
+  name: string
+}
+
 // ── Auth helper ────────────────────────────────────────────────────────────────
 
 async function getUserId(): Promise<string | null> {
@@ -100,13 +105,14 @@ export default async function DashboardHome() {
 
   // Fetch everything in parallel — no waterfalls
   const [
-    regimeRows,
-    themes,
-    events,
-    portfolioHoldings,
-    alerts,
-    signals,
-  ] = await Promise.all([
+  regimeRows,
+  themes,
+  events,
+  portfoliosData,      // ← new
+  portfolioHoldings,
+  alerts,
+  signals,
+] = await Promise.all([
 
     // Market regime — cast needed until types are regenerated
     q<Regime[]>(
@@ -135,14 +141,20 @@ export default async function DashboardHome() {
         .limit(4)
     ),
 
-    // Portfolio holdings: portfolios → holdings (two-step join via portfolio_id)
-    // First get the user's portfolio id, then get holdings
-    q<{ id: string; ticker: string; quantity: number | null; avg_cost: number | null; name: string | null }[]>(
-      db.from('holdings')
-        .select('id, ticker, quantity, avg_cost, name, portfolios!inner(user_id)')
-        .eq('portfolios.user_id', userId)
+    q<Portfolio[]>(
+      db.from('portfolios')
+        .select('id, name')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
     ),
 
+    // Portfolio holdings: portfolios → holdings (two-step join via portfolio_id)
+    // First get the user's portfolio id, then get holdings
+    q<{ id: string; ticker: string; quantity: number | null; avg_cost: number | null; name: string | null; portfolio_id: string }[]>(
+      db.from('holdings')
+        .select('id, ticker, quantity, avg_cost, name, portfolio_id, portfolios!inner(user_id)')
+        .eq('portfolios.user_id', userId)
+    ),
     // Most recent unread alerts
     q<PortfolioAlert[]>(
       db.from('alerts')
@@ -218,16 +230,17 @@ export default async function DashboardHome() {
   const latestAlert = (alerts ?? [])[0] ?? null
 
   return (
-  <HomeClient
-    regime={regime}
-    macro={macro}
-    themes={topThemes}
-    events={recentEvents.slice(0, 3)}
-    portfolio={portfolio}
-    latestAlert={latestAlert}
-    hasHoldings={holdings.length > 0}
-    holdings={holdings} 
-    signals={allSignals}
-  />
+    <HomeClient
+      regime={regime}
+      macro={macro}
+      themes={topThemes}
+      events={recentEvents.slice(0, 3)}
+      portfolio={portfolio}
+      portfolios={portfoliosData ?? []}   // ← new
+      holdings={holdings}
+      signals={allSignals}
+      latestAlert={latestAlert}
+      hasHoldings={holdings.length > 0}
+    />
   )
 }
