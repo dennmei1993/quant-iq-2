@@ -218,16 +218,14 @@ export default async function DashboardHome() {
   const latestAlert = (alerts ?? [])[0] ?? null
 
   return (
-  <HomeClient
-    regime={regime}
-    macro={macro}
-    themes={topThemes}
-    events={recentEvents.slice(0, 3)}
-    portfolio={portfolio}
-    latestAlert={latestAlert}
-    hasHoldings={holdings.length > 0}
-    holdings={holdings} 
-    signals={allSignals}
-  />
+    <HomeClient
+      regime={regime}
+      macro={macro}
+      themes={topThemes}
+      events={recentEvents.slice(0, 3)}
+      portfolio={portfolio}
+      latestAlert={latestAlert}
+      hasHoldings={holdings.length > 0}
+    />
   )
 }

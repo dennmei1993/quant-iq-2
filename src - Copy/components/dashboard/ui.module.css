@@ -1,0 +1,80 @@
+/* src/components/dashboard/ui.module.css — Light theme */
+
+/* ── Panel ──────────────────────────────────────────────────── */
+.panel {
+  background:    var(--bg);
+  border:        1px solid var(--border);
+  border-radius: 8px;
+  padding:       1rem 1.2rem;
+}
+
+.panelTitle {
+  font-size:      0.62rem;
+  font-weight:    600;
+  color:          var(--text-3);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.panelLink {
+  font-size:      0.7rem;
+  color:          var(--text-4);
+  font-weight:    400;
+  text-transform: none;
+  letter-spacing: 0;
+  text-decoration: none;
+  transition:     color 0.1s;
+}
+.panelLink:hover { color: var(--accent); }
+
+.panelSub {
+  font-size:      0.65rem;
+  color:          var(--text-4);
+  font-weight:    400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ── KPI card ── */
+.kpiCard { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+.kpiLabel { font-size: 0.6rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.4rem; }
+.kpiVal   { font-size: 1.6rem; font-weight: 700; color: var(--text); line-height: 1; font-family: var(--font-mono); }
+.kpiSub   { font-size: 0.7rem; color: var(--text-3); margin-top: 0.25rem; }
+.kpiDelta { font-size: 0.75rem; font-weight: 500; margin-top: 0.3rem; text-decoration: none; display: inline-block; }
+
+/* ── State colours ── */
+.up      { color: var(--signal-bull) !important; }
+.down    { color: var(--signal-bear) !important; }
+.neutral { color: var(--text-4) !important; }
+
+/* ── Event rows ── */
+.eventItem { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.55rem 0; border-bottom: 1px solid var(--border-subtle); }
+.eventItem:last-child { border-bottom: none; }
+.eventRow  { display: flex; align-items: flex-start; gap: 0.6rem; }
+.eventDot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.eventHeadline { font-size: 0.78rem; color: var(--text); line-height: 1.4; flex: 1; }
+.eventScore    { font-size: 0.7rem; font-weight: 600; font-family: var(--font-mono); flex-shrink: 0; }
+.eventMeta     { font-size: 0.65rem; color: var(--text-4); padding-left: 1rem; }
+
+.scoreBull { color: var(--signal-bull); }
+.scoreBear { color: var(--signal-bear); }
+.scoreNeut { color: var(--signal-neut); }
+
+/* ── Empty ── */
+.empty { padding: 1.5rem 0; font-size: 0.78rem; color: var(--text-4); }
+
+/* ── Alert strip ── */
+.alertStrip {
+  background:  rgba(var(--amber-rgb), 0.05);
+  border-left: 2px solid var(--signal-neut);
+  padding:     0.55rem 0.75rem;
+  display:     flex; align-items: flex-start; gap: 0.6rem;
+  font-size:   0.76rem; color: var(--text-2); line-height: 1.5;
+  border-radius: 0 5px 5px 0;
+}
+
+/* ── Signal badges ── */
+.sigBuy   { color: var(--signal-bull); }
+.sigWatch { color: var(--signal-neut); }
+.sigHold  { color: var(--text-4);      }
+.sigAvoid { color: var(--signal-bear); }

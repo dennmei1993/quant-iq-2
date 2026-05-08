@@ -1,0 +1,214 @@
+/* src/app/dashboard/themes/themes.module.css — Light theme */
+
+.page { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* ── Controls ───────────────────────────────────────────────── */
+.controls {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  gap:             0.75rem;
+  flex-wrap:       wrap;
+}
+
+.controlsLeft  { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.controlsRight { font-size: 0.72rem; color: var(--text-4); font-family: var(--font-mono); margin-left: auto; }
+
+.tfToggle {
+  display:       inline-flex;
+  background:    var(--bg-subtle);
+  border:        1px solid var(--border);
+  border-radius: 5px;
+  overflow:      hidden;
+}
+
+.tfBtn {
+  padding:     0.28rem 0.65rem;
+  font-size:   0.72rem;
+  font-weight: 500;
+  color:       var(--text-3);
+  background:  transparent;
+  border:      none;
+  border-right: 1px solid var(--border-subtle);
+  cursor:      pointer;
+  transition:  all 0.12s;
+  font-family: inherit;
+}
+.tfBtn:last-child { border-right: none; }
+.tfBtn:hover      { color: var(--text); background: var(--border-subtle); }
+.tfBtnActive      { background: var(--bg) !important; color: var(--text) !important; font-weight: 600 !important; box-shadow: inset 0 0 0 1px var(--border); }
+
+.sortBtn {
+  padding:       0.28rem 0.75rem;
+  font-size:     0.72rem;
+  font-weight:   500;
+  color:         var(--text-3);
+  background:    var(--bg-subtle);
+  border:        1px solid var(--border);
+  border-radius: 5px;
+  cursor:        pointer;
+  font-family:   inherit;
+  transition:    all 0.12s;
+}
+.sortBtn:hover { color: var(--text); background: var(--border-subtle); }
+
+/* ── Regime context bar ─────────────────────────────────────── */
+.regimeCtx {
+  background:    var(--bg);
+  border:        1px solid var(--border);
+  border-radius: 8px;
+  padding:       1rem 1.2rem;
+  display:       flex;
+  gap:           1.5rem;
+  align-items:   flex-start;
+  flex-wrap:     wrap;
+}
+
+.bearish { border-left: 3px solid var(--signal-bear); }
+.neutral { border-left: 3px solid var(--signal-neut); }
+
+.regimeMain    { flex: 1; min-width: 180px; }
+.regimeLabel   { font-size: 0.6rem; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.2rem; }
+.regimeVal     { font-size: 0.9rem; font-weight: 600; color: var(--text); margin-bottom: 0.2rem; }
+.regimeBias    { font-size: 0.75rem; color: var(--text-3); }
+
+.regimeMeta       { display: flex; flex-direction: column; gap: 0.4rem; }
+.regimeMetaLabel  { font-size: 0.6rem; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.2rem; }
+
+.sectorTag    { display: inline-block; font-size: 0.65rem; padding: 0.1rem 0.45rem; border-radius: 4px; border: 1px solid var(--border); margin: 0 0.25rem 0.25rem 0; }
+.sectorFavour { color: var(--signal-bull); background: rgba(var(--green-rgb), 0.06); border-color: rgba(var(--green-rgb), 0.25); }
+.sectorAvoid  { color: var(--signal-bear); background: rgba(var(--red-rgb),   0.06); border-color: rgba(var(--red-rgb),   0.2); }
+
+.regimeConv      { text-align: right; flex-shrink: 0; }
+.regimeConvNum   { font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: var(--font-mono); line-height: 1; }
+.regimeConvBar   { height: 3px; background: var(--border); border-radius: 2px; margin: 0.35rem 0; width: 80px; }
+.regimeConvFill  { height: 100%; background: var(--accent); border-radius: 2px; }
+.regimeConvLabel { font-size: 0.6rem; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* ── Section header ─────────────────────────────────────────── */
+.sectionHdr   { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; }
+.sectionTitle { font-size: 0.68rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.12em; }
+.sectionCount { font-size: 0.65rem; color: var(--text-4); font-family: var(--font-mono); }
+
+.empty { font-size: 0.78rem; color: var(--text-4); padding: 1.5rem 0; }
+
+/* ── Theme card ─────────────────────────────────────────────── */
+.themeCard {
+  background:    var(--bg);
+  border:        1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  overflow:      hidden;
+  transition:    border-color 0.12s;
+}
+.themeCard:hover           { border-color: rgba(var(--amber-rgb), 0.3); }
+.themeCardWatchlist        { border-left: 3px solid var(--color-info); }
+.themeCardExpanded         { border-color: rgba(var(--amber-rgb), 0.35); }
+.themeCardWatchlistExpanded{ border-color: rgba(var(--blue-rgb),  0.35); }
+
+.themeCardHeader {
+  display:     flex;
+  align-items: center;
+  justify-content: space-between;
+  padding:     0.85rem 1.1rem;
+  cursor:      pointer;
+  gap:         1rem;
+  user-select: none;
+}
+.themeCardHeader:hover { background: var(--bg-subtle); }
+
+.themeCardLeft  { flex: 1; min-width: 0; }
+.themeCardRight { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
+
+/* ── Tags ── */
+.themeTags { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
+.tag {
+  font-size:   0.6rem; font-weight: 600; padding: 0.1rem 0.45rem;
+  border-radius: 3px; border: 1px solid var(--border); white-space: nowrap;
+}
+.tagTf   { color: var(--text-3);     background: var(--bg-subtle);              border-color: var(--border); }
+.tagWatch{ color: var(--color-info); background: rgba(var(--blue-rgb),  0.06); border-color: rgba(var(--blue-rgb),  0.2); }
+.tagBull { color: var(--signal-bull); background: rgba(var(--green-rgb), 0.06); border-color: rgba(var(--green-rgb), 0.2); }
+.tagBear { color: var(--signal-bear); background: rgba(var(--red-rgb),   0.06); border-color: rgba(var(--red-rgb),   0.2); }
+.tagNeut { color: var(--signal-neut); background: rgba(var(--amber-rgb), 0.06); border-color: rgba(var(--amber-rgb), 0.2); }
+
+.themeName   { font-size: 0.95rem; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.themeBrief  { font-size: 0.78rem; color: var(--text-3); line-height: 1.6; margin-top: 0.3rem; }
+.themeAnchor { font-size: 0.68rem; color: var(--text-4); margin-top: 0.3rem; font-style: italic; }
+
+/* ── Conviction ── */
+.convNum    { font-size: 1.2rem; font-weight: 700; font-family: var(--font-mono); line-height: 1; }
+.convLabel  { font-size: 0.58rem; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.1em; }
+.convBarBg  { width: 72px; height: 3px; background: var(--border); border-radius: 2px; margin-top: 0.3rem; }
+.convBarFill{ height: 100%; border-radius: 2px; transition: width 0.25s; }
+.momentumVal{ font-size: 0.68rem; color: var(--text-3); margin-top: 0.15rem; }
+
+/* ── Pipeline (expanded) ─────────────────────────────────────── */
+.pipeline {
+  border-top:   1px solid var(--border-subtle);
+  padding:      0.9rem 1.1rem;
+  background:   var(--bg-subtle);
+}
+
+.pipelineHdr {
+  font-size:      0.62rem;
+  font-weight:    600;
+  color:          var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom:  0.65rem;
+}
+
+/* ── Asset grid ─────────────────────────────────────────────── */
+.assetGrid {
+  display:   flex;
+  gap:       0.45rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.assetPill {
+  background:    var(--bg);
+  border:        1px solid var(--border);
+  border-radius: 6px;
+  padding:       0.5rem 0.7rem;
+  min-width:     80px;
+  cursor:        pointer;
+  transition:    border-color 0.1s;
+  text-decoration: none !important;
+}
+.assetPill:hover { border-color: var(--accent); }
+
+.assetPillTicker { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; color: var(--signal-bull); }
+.assetPillType   { font-size: 0.58rem; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+.assetPillWeight { font-size: 0.68rem; color: var(--text-3); margin-top: 2px; font-family: var(--font-mono); }
+
+/* ── Signal badges ──────────────────────────────────────────── */
+.sigBuy   { font-size: 0.6rem; font-weight: 700; color: var(--signal-bull); display: block; margin-top: 3px; }
+.sigWatch { font-size: 0.6rem; font-weight: 700; color: var(--signal-neut); display: block; margin-top: 3px; }
+.sigAvoid { font-size: 0.6rem; font-weight: 700; color: var(--signal-bear); display: block; margin-top: 3px; }
+.sigHold  { font-size: 0.6rem; font-weight: 700; color: var(--text-4);      display: block; margin-top: 3px; }
+
+/* ── Pipeline actions ───────────────────────────────────────── */
+.pipelineActions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.25rem; }
+
+.pipelineBtn {
+  font-size:     0.72rem;
+  font-weight:   500;
+  padding:       0.32rem 0.8rem;
+  border-radius: 5px;
+  cursor:        pointer;
+  font-family:   inherit;
+  text-decoration: none;
+  display:       inline-block;
+  transition:    all 0.12s;
+  border:        1px solid var(--border);
+}
+
+.pipeBtnPrimary  { background: rgba(var(--green-rgb), 0.08); color: var(--signal-bull); border-color: rgba(var(--green-rgb), 0.25); }
+.pipeBtnPrimary:hover { background: rgba(var(--green-rgb), 0.14); }
+
+.pipeBtnSecondary { background: var(--bg); color: var(--text-3); border-color: var(--border); }
+.pipeBtnSecondary:hover { color: var(--text); background: var(--border-subtle); }
+
+.anchorNote { font-size: 0.65rem; color: var(--text-4); font-style: italic; margin-left: 0.25rem; }
