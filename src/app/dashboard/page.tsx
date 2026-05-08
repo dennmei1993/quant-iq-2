@@ -1,37 +1,39 @@
 // src/app/dashboard/page.tsx — Home / Overview
-// Server component: fetches regime, macro, themes, events, portfolio in parallel
+// Server component: fetches regime, macro, themes, events, portfolios in parallel.
+// Holdings are fetched client-side by HomeClient via /api/portfolio.
+
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import HomeClient from './HomeClient'
 
-export const dynamic = 'force-dynamic'
+export const dynamic   = 'force-dynamic'
 export const revalidate = 0
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type Regime = {
-  id:                string
-  label:             string           // full label e.g. "Late-cycle · Sticky inflation · Risk-off"
-  risk_bias:         string           // 'risk-off' | 'risk-on' | 'neutral'
-  style_bias:        string | null    // 'defensive' | 'growth' | 'balanced'
-  confidence:        number           // 0–100
-  rationale:         string | null    // plain-English explanation
-  favoured_sectors:  string[] | null
-  avoid_sectors:     string[] | null
-  cycle_phase:       string | null    // 'early' | 'mid' | 'late' | 'recession'
-  cash_bias:         string | null    // 'elevated' | 'normal' | 'low'
-  refreshed_at:      string
+  id:               string
+  label:            string
+  risk_bias:        string
+  style_bias:       string | null
+  confidence:       number
+  rationale:        string | null
+  favoured_sectors: string[] | null
+  avoid_sectors:    string[] | null
+  cycle_phase:      string | null
+  cash_bias:        string | null
+  refreshed_at:     string
 }
 
 export type MacroSnapshot = {
-  avg_sentiment:   number | null
-  signals_today:   number
-  high_impact:     number
-  active_themes:   number
-  buy_signals:     number
-  avoid_signals:   number
+  avg_sentiment: number | null
+  signals_today: number
+  high_impact:   number
+  active_themes: number
+  buy_signals:   number
+  avoid_signals: number
 }
 
 export type HomeTheme = {
@@ -53,11 +55,11 @@ export type HomeEvent = {
 }
 
 export type PortfolioSummary = {
-  total_value:   number | null
-  total_pnl:     number | null
-  total_pnl_pct: number | null
+  total_value:    number | null
+  total_pnl:      number | null
+  total_pnl_pct:  number | null
   holdings_count: number
-  risk_score:    number | null   // 0-100, derived from macro exposure
+  risk_score:     number | null
 }
 
 export type PortfolioAlert = {
@@ -65,12 +67,14 @@ export type PortfolioAlert = {
   title:      string
   body:       string | null
   created_at: string
-  type:       string   // 'portfolio_risk' | 'new_theme' | 'macro_shift' | 'theme_update' | 'price_move'
+  type:       string
 }
 
 export type Portfolio = {
-  id:   string
-  name: string
+  id:            string
+  name:          string
+  total_capital: number
+  cash_pct:      number
 }
 
 // ── Auth helper ────────────────────────────────────────────────────────────────
@@ -103,18 +107,15 @@ export default async function DashboardHome() {
 
   const db = createServiceClient()
 
-  // Fetch everything in parallel — no waterfalls
   const [
-  regimeRows,
-  themes,
-  events,
-  portfoliosData,      // ← new
-  portfolioHoldings,
-  alerts,
-  signals,
-] = await Promise.all([
+    regimeRows,
+    themes,
+    events,
+    portfoliosData,
+    alerts,
+  ] = await Promise.all([
 
-    // Market regime — cast needed until types are regenerated
+    // Market regime
     q<Regime[]>(
       (db as any).from('market_regime')
         .select('id, label, risk_bias, style_bias, confidence, rationale, favoured_sectors, avoid_sectors, cycle_phase, cash_bias, refreshed_at')
@@ -122,7 +123,7 @@ export default async function DashboardHome() {
         .limit(1)
     ),
 
-    // Top themes by conviction, 1m first
+    // Top themes by conviction
     q<HomeTheme[]>(
       db.from('themes')
         .select('id, name, timeframe, conviction, momentum, brief')
@@ -131,7 +132,7 @@ export default async function DashboardHome() {
         .limit(5)
     ),
 
-    // Top events by impact, last 24h
+    // High-impact events in last 24h
     q<HomeEvent[]>(
       db.from('events')
         .select('id, headline, sentiment_score, impact_score, event_type, published_at')
@@ -141,21 +142,15 @@ export default async function DashboardHome() {
         .limit(4)
     ),
 
+    // All user portfolios — total_capital + cash_pct needed for client-side metrics
     q<Portfolio[]>(
       db.from('portfolios')
-        .select('id, name')
+        .select('id, name, total_capital, cash_pct')
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
     ),
 
-    // Portfolio holdings: portfolios → holdings (two-step join via portfolio_id)
-    // First get the user's portfolio id, then get holdings
-    q<{ id: string; ticker: string; quantity: number | null; avg_cost: number | null; name: string | null; portfolio_id: string }[]>(
-      db.from('holdings')
-        .select('id, ticker, quantity, avg_cost, name, portfolio_id, portfolios!inner(user_id)')
-        .eq('portfolios.user_id', userId)
-    ),
-    // Most recent unread alerts
+    // Most recent unread alert
     q<PortfolioAlert[]>(
       db.from('alerts')
         .select('id, title, body, created_at, type')
@@ -164,83 +159,18 @@ export default async function DashboardHome() {
         .order('created_at', { ascending: false })
         .limit(1)
     ),
-
-    // Asset signals for portfolio tickers (fetched after holdings, or empty)
-    // We fetch all signals and filter client-side to avoid a dependent query
-    q<{ ticker: string; signal: string | null; score: number | null; price_usd: number | null; change_pct: number | null }[]>(
-      db.from('asset_signals')
-        .select('ticker, signal, score, price_usd, change_pct')
-        .order('score', { ascending: false })
-        .limit(100)
-    ),
   ])
 
-  // ── Derive macro snapshot from events + themes ────────────────────────────
-
-  const recentEvents = events ?? []
-  const avgSentiment = recentEvents.length
-    ? recentEvents.reduce((s, e) => s + (e.sentiment_score ?? 0), 0) / recentEvents.length
-    : null
-
-  const allSignals = signals ?? []
-  const macro: MacroSnapshot = {
-    avg_sentiment:  avgSentiment !== null ? Math.round(avgSentiment * 100) / 100 : null,
-    signals_today:  recentEvents.length,
-    high_impact:    recentEvents.filter(e => (e.impact_score ?? 0) >= 7).length,
-    active_themes:  (themes ?? []).length,
-    buy_signals:    allSignals.filter(s => s.signal === 'buy').length,
-    avoid_signals:  allSignals.filter(s => s.signal === 'avoid').length,
-  }
-
-  // ── Derive portfolio summary ──────────────────────────────────────────────
-
-  const holdings = portfolioHoldings ?? []
-  const signalMap = new Map(allSignals.map(s => [s.ticker, s]))
-
-  let totalValue = 0
-  let totalCost  = 0
-  let hasValue   = false
-
-  for (const h of holdings) {
-    const sig = signalMap.get(h.ticker)
-    if (sig?.price_usd && h.quantity) {
-      totalValue += sig.price_usd * h.quantity
-      hasValue = true
-    }
-    if (h.avg_cost && h.quantity) {
-      totalCost += h.avg_cost * h.quantity
-    }
-  }
-
-  const totalPnl    = hasValue && totalCost > 0 ? totalValue - totalCost : null
-  const totalPnlPct = hasValue && totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : null
-
-  const portfolio: PortfolioSummary = {
-    total_value:    hasValue ? Math.round(totalValue * 100) / 100 : null,
-    total_pnl:      totalPnl !== null ? Math.round(totalPnl * 100) / 100 : null,
-    total_pnl_pct:  totalPnlPct !== null ? Math.round(totalPnlPct * 10) / 10 : null,
-    holdings_count: holdings.length,
-    risk_score:     null, // TODO: compute from macro exposure cross-reference
-  }
-
-  // ── Suggested actions (derived, not from DB) ──────────────────────────────
-
-  const topThemes  = (themes ?? []).slice(0, 3)
-  const regime     = regimeRows?.[0] ?? null
+  const regime      = regimeRows?.[0] ?? null
   const latestAlert = (alerts ?? [])[0] ?? null
+  const topThemes   = (themes ?? []).slice(0, 5)
 
   return (
     <HomeClient
       regime={regime}
-      macro={macro}
       themes={topThemes}
-      events={recentEvents.slice(0, 3)}
-      portfolio={portfolio}
-      portfolios={portfoliosData ?? []}   // ← new
-      holdings={holdings}
-      signals={allSignals}
+      portfolios={portfoliosData ?? []}
       latestAlert={latestAlert}
-      hasHoldings={holdings.length > 0}
     />
   )
 }
