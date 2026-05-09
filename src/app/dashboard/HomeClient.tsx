@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PortfolioPerformanceChart } from '@/components/dashboard/PortfolioPerformanceChart'
 import { PortfolioWatchlist } from '@/components/dashboard/PortfolioWatchlist'
+import { TransactionHistory } from '@/components/dashboard/TransactionHistory'
 import { useRouter } from 'next/navigation'
 import {
   computeCapitalMetrics,
@@ -97,6 +98,17 @@ export default function HomeClient({
   const [transactions,     setTransactions]      = useState<Array<{ type: string; total_amount: number; fees: number }>>([])
   const [loading,          setLoading]           = useState(false)
 
+  // Transaction modal
+  const [txModal,  setTxModal]  = useState<{ holdingId: string; ticker: string; currentQty: number } | null>(null)
+  const [txType,   setTxType]   = useState<'buy' | 'sell'>('sell')
+  const [txQty,    setTxQty]    = useState('')
+  const [txPrice,  setTxPrice]  = useState('')
+  const [txDate,   setTxDate]   = useState(new Date().toISOString().split('T')[0])
+  const [txFees,   setTxFees]   = useState('')
+  const [txNotes,  setTxNotes]  = useState('')
+  const [txSaving, setTxSaving] = useState(false)
+  const [txError,  setTxError]  = useState('')
+
   const activePortfolio = portfolios.find(p => p.id === activeId) ?? portfolios[0] ?? null
 
   const loadPortfolioData = useCallback(async (portfolioId: string) => {
@@ -132,6 +144,39 @@ export default function HomeClient({
     window.addEventListener('portfolio-changed', onPortfolioChange)
     return () => window.removeEventListener('portfolio-changed', onPortfolioChange)
   }, [activeId, portfolios])
+
+  async function handleTransaction() {
+    if (!txModal || !activeId) return
+    const qty   = parseFloat(txQty)
+    const price = parseFloat(txPrice)
+    if (isNaN(qty) || qty <= 0)    { setTxError('Enter a valid quantity'); return }
+    if (isNaN(price) || price < 0) { setTxError('Enter a valid price');    return }
+    if (txType === 'sell' && qty > txModal.currentQty) {
+      setTxError(`Cannot sell ${qty} — only ${txModal.currentQty} held`); return
+    }
+    setTxSaving(true); setTxError('')
+    const res = await fetch('/api/portfolio/transaction', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        portfolio_id: activeId,
+        ticker:       txModal.ticker,
+        type:         txType,
+        quantity:     qty,
+        price,
+        fees:         parseFloat(txFees) || 0,
+        executed_at:  new Date(txDate).toISOString(),
+        notes:        txNotes || undefined,
+      }),
+    })
+    const d = await res.json()
+    if (!res.ok) { setTxError(d.error ?? 'Failed'); setTxSaving(false); return }
+    await loadPortfolioData(activeId)
+    setTxModal(null)
+    setTxQty(''); setTxPrice(''); setTxFees(''); setTxNotes('')
+    setTxDate(new Date().toISOString().split('T')[0])
+    setTxSaving(false)
+  }
 
 
   const metrics: PortfolioCapitalMetrics | null = activePortfolio
@@ -287,6 +332,7 @@ export default function HomeClient({
                       <th>Unrealised</th>
                       <th>Day chg</th>
                       <th>Signal</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
@@ -300,48 +346,69 @@ export default function HomeClient({
                       const costBase   = qty * cost
                       const unrealised = mktVal != null ? mktVal - costBase : null
                       const sc         = sig?.signal ?? 'hold'
-                      const weight     = mktVal && metrics ? (mktVal / metrics.current_value) * 100 : 0
-                      const dotColor   = weight >= 20 ? 'var(--text)' : weight >= 12 ? 'var(--text-2)' : weight >= 6 ? 'var(--text-3)' : 'var(--text-4)'
                       return (
-                        <tr key={h.id}>
-                          <td>
-                            <div className="ticker-cell">
-                              <div className="ticker-dot" style={{ background: dotColor }} />
-                              <div>
-                                <div className="ticker-name">{h.ticker}</div>
-                                {h.name && <div className="ticker-desc">{h.name}</div>}
+                        <>
+                          <tr key={h.id}>
+                            <td>
+                              <div className="ticker-cell">
+                                <button
+                                  onClick={() => router.push(`/dashboard/tickers/${h.ticker}`)}
+                                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                >
+                                  <div className="ticker-name" style={{ color: 'var(--accent)' }}>{h.ticker}</div>
+                                  {h.name && <div className="ticker-desc">{h.name}</div>}
+                                </button>
                               </div>
-                            </div>
-                          </td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                            {qty > 0 ? qty.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '—'}
-                          </td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                            {cost > 0 ? `$${cost.toFixed(2)}` : '—'}
-                          </td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                            {livePrice != null ? `$${livePrice.toFixed(2)}` : '—'}
-                          </td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                            {mktVal != null ? fmtCurrency(mktVal) : '—'}
-                          </td>
-                          <td style={{ fontSize: 10.5, fontWeight: 500, color: signCol(unrealised) }}>
-                            {unrealised != null ? `${unrealised >= 0 ? '+' : ''}${fmtCurrency(unrealised)}` : '—'}
-                          </td>
-                          <td style={{ fontSize: 10.5, fontWeight: 500, color: signCol(chg) }}>
-                            {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}
-                          </td>
-                          <td>
-                            <span style={{
-                              fontSize: 9.5, fontWeight: 500,
-                              color: SIG_COLOR[sc] ?? 'var(--text-4)',
-                              background: `${SIG_COLOR[sc] ?? 'var(--text-4)'}18`,
-                              padding: '1px 5px', borderRadius: 3,
-                            }}>
-                              {sc}
-                            </span>
-                          </td>
-                        </tr>
+                            </td>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                              {qty > 0 ? qty.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '—'}
+                            </td>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                              {cost > 0 ? `$${cost.toFixed(2)}` : '—'}
+                            </td>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                              {livePrice != null ? `$${livePrice.toFixed(2)}` : '—'}
+                            </td>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                              {mktVal != null ? fmtCurrency(mktVal) : '—'}
+                            </td>
+                            <td style={{ fontSize: 10.5, fontWeight: 500, color: signCol(unrealised) }}>
+                              {unrealised != null ? `${unrealised >= 0 ? '+' : ''}${fmtCurrency(unrealised)}` : '—'}
+                            </td>
+                            <td style={{ fontSize: 10.5, fontWeight: 500, color: signCol(chg) }}>
+                              {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}
+                            </td>
+                            <td>
+                              <span style={{
+                                fontSize: 9.5, fontWeight: 500,
+                                color: SIG_COLOR[sc] ?? 'var(--text-4)',
+                                background: `${SIG_COLOR[sc] ?? 'var(--text-4)'}18`,
+                                padding: '1px 5px', borderRadius: 3,
+                              }}>
+                                {sc}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                                <button
+                                  onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: qty }); setTxType('buy') }}
+                                  style={{ fontSize: 9.5, padding: '1px 6px', background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.25)', color: 'var(--signal-bull)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
+                                >Buy</button>
+                                <button
+                                  onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: qty }); setTxType('sell') }}
+                                  style={{ fontSize: 9.5, padding: '1px 6px', background: 'rgba(185,28,28,0.07)', border: '1px solid rgba(185,28,28,0.2)', color: 'var(--signal-bear)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
+                                >Sell</button>
+                              </div>
+                            </td>
+                          </tr>
+                          <TransactionHistory
+                            key={`tx-${h.id}`}
+                            portfolioId={activeId}
+                            ticker={h.ticker}
+                            avgCost={h.avg_cost}
+                            onDelete={() => loadPortfolioData(activeId)}
+                          />
+                        </>
                       )
                     })}
                   </tbody>
@@ -423,6 +490,97 @@ export default function HomeClient({
         </div>
 
       </main>
+
+      {/* ── Transaction modal ── */}
+      {txModal && (
+        <>
+          <div onClick={() => setTxModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.4)' }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '1.4rem', width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div>
+                <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Record transaction</div>
+                <div style={{ fontSize: 'var(--fs-heading)', fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>{txModal.ticker}</div>
+              </div>
+              <button onClick={() => setTxModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Buy / Sell toggle */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: '1rem' }}>
+              {(['buy', 'sell'] as const).map(t => (
+                <button key={t} onClick={() => { setTxType(t); setTxError('') }} style={{
+                  flex: 1, padding: '0.4rem',
+                  border: `1px solid ${txType === t ? (t === 'buy' ? 'rgba(21,128,61,0.4)' : 'rgba(185,28,28,0.4)') : 'var(--border)'}`,
+                  background: txType === t ? (t === 'buy' ? 'rgba(21,128,61,0.08)' : 'rgba(185,28,28,0.08)') : 'none',
+                  color: txType === t ? (t === 'buy' ? 'var(--signal-bull)' : 'var(--signal-bear)') : 'var(--text-3)',
+                  borderRadius: 'var(--r-md)', cursor: 'pointer', fontSize: 'var(--fs-sm)',
+                  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em',
+                }}>{t}</button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.9rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div>
+                  <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
+                    Quantity{txType === 'sell' ? ` (max ${txModal.currentQty})` : ''}
+                  </div>
+                  <input value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="0" type="number"
+                    style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Price ($)</div>
+                  <input value={txPrice} onChange={e => setTxPrice(e.target.value)} placeholder="0.00" type="number"
+                    style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none' }} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div>
+                  <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Date</div>
+                  <input value={txDate} onChange={e => setTxDate(e.target.value)} type="date"
+                    style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Fees ($)</div>
+                  <input value={txFees} onChange={e => setTxFees(e.target.value)} placeholder="0.00" type="number"
+                    style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none' }} />
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Notes (optional)</div>
+                <input value={txNotes} onChange={e => setTxNotes(e.target.value)} placeholder="e.g. Earnings play"
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none' }} />
+              </div>
+            </div>
+
+            {txQty && txPrice && (
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', marginBottom: '0.8rem', padding: '0.4rem 0.6rem', background: 'var(--bg-subtle)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                Total: <strong style={{ color: 'var(--text)' }}>${(parseFloat(txQty || '0') * parseFloat(txPrice || '0') + parseFloat(txFees || '0')).toFixed(2)}</strong>
+                {txType === 'sell' && txQty && txModal.currentQty > 0 && (
+                  <span style={{ marginLeft: 10, color: 'var(--text-4)' }}>
+                    Remaining: {Math.max(0, txModal.currentQty - parseFloat(txQty || '0')).toFixed(2)} shares
+                  </span>
+                )}
+              </div>
+            )}
+
+            {txError && <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--signal-bear)', marginBottom: '0.8rem' }}>{txError}</div>}
+
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button onClick={() => setTxModal(null)} className="btn btn-outline">Cancel</button>
+              <button onClick={handleTransaction} disabled={txSaving} style={{
+                padding: '4px 12px',
+                background: txType === 'buy' ? 'rgba(21,128,61,0.1)' : 'rgba(185,28,28,0.1)',
+                border: `1px solid ${txType === 'buy' ? 'rgba(21,128,61,0.3)' : 'rgba(185,28,28,0.3)'}`,
+                color: txType === 'buy' ? 'var(--signal-bull)' : 'var(--signal-bear)',
+                fontWeight: 600, borderRadius: 'var(--r-md)', cursor: txSaving ? 'not-allowed' : 'pointer',
+                fontSize: 'var(--fs-sm)', opacity: txSaving ? 0.6 : 1,
+              }}>
+                {txSaving ? '…' : txType === 'buy' ? 'Record Buy' : 'Record Sell'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Market context panel ── */}
       {panelOpen && (
