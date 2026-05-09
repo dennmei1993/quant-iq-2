@@ -178,7 +178,7 @@ function InlineTransactionHistory({
                 </tbody>
               </table>
             )
-          )}
+          }
         </div>
       </td>
     </tr>
