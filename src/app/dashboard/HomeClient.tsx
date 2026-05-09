@@ -192,25 +192,42 @@ export default function HomeClient({
         </div>
 
 
-        {/* ── Two-column layout: left = metrics+holdings, right = performance ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--sp-5)', alignItems: 'start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
-
-        {/* ── Capital metrics ── */}
+        {/* ── Capital metrics — full width single row ── */}
         {metrics && metrics.total_capital > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-
-            {/* Row 1: top-level */}
-            <div className="metrics">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="metrics" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
               <div className="metric">
                 <div className="metric-label">Total capital</div>
                 <div className="metric-value">{fmtCurrency(metrics.total_capital)}</div>
               </div>
               <div className="metric">
+                <div className="metric-label">Invested</div>
+                <div className="metric-value">{fmtCurrency(metrics.invested)}</div>
+                <div className="metric-sub">{investedPct.toFixed(0)}% deployed</div>
+              </div>
+              <div className="metric">
+                <div className="metric-label">Cash available</div>
+                <div className="metric-value" style={{ color: 'var(--color-info)' }}>
+                  {fmtCurrency(metrics.cash_available)}
+                </div>
+              </div>
+              <div className="metric">
                 <div className="metric-label">Current value</div>
                 <div className="metric-value">{fmtCurrency(metrics.current_value)}</div>
+              </div>
+              <div className="metric">
+                <div className="metric-label">Unrealised P&L</div>
+                <div className="metric-value" style={{ color: signCol(metrics.unrealised_gain) }}>
+                  {metrics.unrealised_gain >= 0 ? '+' : ''}{fmtCurrency(metrics.unrealised_gain)}
+                </div>
                 <div className="metric-sub" style={{ color: signCol(metrics.unrealised_gain) }}>
-                  {metrics.unrealised_gain >= 0 ? '+' : ''}{fmtCurrency(metrics.unrealised_gain)} unrealised
+                  {fmtPct(metrics.unrealised_pct)}
+                </div>
+              </div>
+              <div className="metric">
+                <div className="metric-label">Realised P&L</div>
+                <div className="metric-value" style={{ color: signCol(metrics.realised_gain) }}>
+                  {metrics.realised_gain >= 0 ? '+' : ''}{fmtCurrency(metrics.realised_gain)}
                 </div>
               </div>
               <div className="metric">
@@ -222,53 +239,16 @@ export default function HomeClient({
                   {fmtPct(metrics.return_pct)} on capital
                 </div>
               </div>
-              <div className="metric">
-                <div className="metric-label">Cash available</div>
-                <div className="metric-value" style={{ color: 'var(--color-info)' }}>
-                  {fmtCurrency(metrics.cash_available)}
-                </div>
-                <div className="metric-sub">{(100 - investedPct).toFixed(0)}% uninvested</div>
-              </div>
             </div>
-
             {/* Invested progress bar */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ height: 3, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${Math.min(100, investedPct)}%`,
-                  background: 'var(--text)',
-                  borderRadius: 99,
-                  transition: 'width 0.4s',
-                }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 9, color: 'var(--text-4)' }}>
-                  {fmtCurrency(metrics.invested)} in positions
-                </span>
-                <span style={{ fontSize: 9, color: 'var(--text-4)' }}>
-                  {fmtCurrency(metrics.cash_available)} available
-                </span>
-              </div>
-            </div>
-
-            {/* Row 2: P&L breakdown */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
-              {[
-                { label: 'Invested', value: fmtCurrency(metrics.invested), col: 'var(--text)' },
-                { label: 'Unrealised P&L', value: `${metrics.unrealised_gain >= 0 ? '+' : ''}${fmtCurrency(metrics.unrealised_gain)}`, sub: fmtPct(metrics.unrealised_pct), col: signCol(metrics.unrealised_gain) },
-                { label: 'Realised P&L', value: `${metrics.realised_gain >= 0 ? '+' : ''}${fmtCurrency(metrics.realised_gain)}`, col: signCol(metrics.realised_gain) },
-              ].map((m, i) => (
-                <div key={i} style={{ padding: '8px 12px', borderLeft: i > 0 ? '1px solid var(--border)' : 'none', background: 'var(--bg)' }}>
-                  <div className="metric-label">{m.label}</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: m.col, marginTop: 2 }}>{m.value}</div>
-                  {m.sub && <div style={{ fontSize: 9, color: m.col, marginTop: 1 }}>{m.sub}</div>}
-                </div>
-              ))}
+            <div style={{ height: 2, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', width: `${Math.min(100, investedPct)}%`,
+                background: 'var(--text)', borderRadius: 99, transition: 'width 0.4s',
+              }} />
             </div>
           </div>
         ) : (
-          // No capital set — prompt user
           <div style={{ border: '1px solid var(--border)', borderRadius: 5, padding: '14px 16px', background: 'var(--bg-subtle)' }}>
             <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text)', marginBottom: 4 }}>
               Set your portfolio capital to get started
@@ -276,125 +256,112 @@ export default function HomeClient({
             <div style={{ fontSize: 10, color: 'var(--text-4)', marginBottom: 10 }}>
               Capital is needed to generate portfolio recommendations and track performance.
             </div>
-            <button
-              className="btn btn-outline"
-              onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${activeId}`)}
-            >
+            <button className="btn btn-outline" onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${activeId}`)}>
               Set capital ↗
             </button>
           </div>
         )}
 
-        {/* ── Holdings table ── */}
-        <div>
-          <div className="section-head">
-            <span className="section-label">Holdings {loading ? '…' : `(${holdings.length})`}</span>
-            <button
-              className="section-link"
-              onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${activeId}`)}
-            >
-              Full portfolio ↗
-            </button>
-          </div>
+        {/* ── Two-column: Holdings (left) + Performance (right) ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--sp-5)', alignItems: 'start' }}>
 
-          {holdings.length > 0 ? (
-            <table className="holdings-table" aria-label="Portfolio holdings">
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Asset</th>
-                  <th>Qty</th>
-                  <th>Avg cost</th>
-                  <th>Price</th>
-                  <th>Mkt value</th>
-                  <th>Unrealised</th>
-                  <th>Day chg</th>
-                  <th>Signal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {holdings.slice(0, 8).map(h => {
-                  const sig       = h.signal
-                  const livePrice = sig?.price_usd  ?? null
-                  const chg       = sig?.change_pct ?? null
-                  const qty       = h.quantity ?? 0
-                  const cost      = h.avg_cost  ?? 0
-                  const mktVal    = livePrice != null ? qty * livePrice : null
-                  const costBase  = qty * cost
-                  const unrealised = mktVal != null ? mktVal - costBase : null
-                  const sc        = sig?.signal ?? 'hold'
-
-                  // Weight dot shade from portfolio total
-                  const weight = mktVal && metrics ? (mktVal / metrics.current_value) * 100 : 0
-                  const dotColor = weight >= 20 ? 'var(--text)' : weight >= 12 ? 'var(--text-2)' : weight >= 6 ? 'var(--text-3)' : 'var(--text-4)'
-
-                  return (
-                    <tr key={h.id}>
-                      <td>
-                        <div className="ticker-cell">
-                          <div className="ticker-dot" style={{ background: dotColor }} />
-                          <div>
-                            <div className="ticker-name">{h.ticker}</div>
-                            {h.name && <div className="ticker-desc">{h.name}</div>}
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                        {qty > 0 ? qty.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '—'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                        {cost > 0 ? `$${cost.toFixed(2)}` : '—'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                        {livePrice != null ? `$${livePrice.toFixed(2)}` : '—'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                        {mktVal != null ? fmtCurrency(mktVal) : '—'}
-                      </td>
-                      <td style={{ fontSize: 10.5, fontWeight: 500, color: signCol(unrealised) }}>
-                        {unrealised != null
-                          ? `${unrealised >= 0 ? '+' : ''}${fmtCurrency(unrealised)}`
-                          : '—'}
-                      </td>
-                      <td style={{ fontSize: 10.5, fontWeight: 500, color: signCol(chg) }}>
-                        {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}
-                      </td>
-                      <td>
-                        <span style={{
-                          fontSize: 9.5, fontWeight: 500,
-                          color: SIG_COLOR[sc] ?? 'var(--text-4)',
-                          background: `${SIG_COLOR[sc] ?? 'var(--text-4)'}18`,
-                          padding: '1px 5px', borderRadius: 3,
-                        }}>
-                          {sc}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          ) : loading ? (
-            <div style={{ color: 'var(--text-4)', fontSize: 10.5, padding: '10px 0' }}>Loading holdings…</div>
-          ) : (
-            <div style={{ color: 'var(--text-4)', fontSize: 10.5, padding: '10px 0' }}>
-              No holdings yet.{' '}
-              <button
-                className="section-link"
-                style={{ display: 'inline', fontSize: 10.5 }}
-                onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${activeId}`)}
-              >
-                Add holdings ↗
-              </button>
-            </div>
-          )}
-        </div>
-
-        </div>{/* end left column */}
-
-        {/* ── Right column: Performance chart ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+          {/* Holdings */}
           <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
             <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span className="section-label">Holdings {loading ? '…' : `(${holdings.length})`}</span>
+              <button className="section-link" onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${activeId}`)}>
+                Full portfolio ↗
+              </button>
+            </div>
+            <div style={{ padding: '0 14px' }}>
+              {holdings.length > 0 ? (
+                <table className="holdings-table" aria-label="Portfolio holdings">
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left' }}>Asset</th>
+                      <th>Qty</th>
+                      <th>Avg cost</th>
+                      <th>Price</th>
+                      <th>Mkt value</th>
+                      <th>Unrealised</th>
+                      <th>Day chg</th>
+                      <th>Signal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {holdings.slice(0, 10).map(h => {
+                      const sig        = h.signal
+                      const livePrice  = sig?.price_usd  ?? null
+                      const chg        = sig?.change_pct ?? null
+                      const qty        = h.quantity ?? 0
+                      const cost       = h.avg_cost ?? 0
+                      const mktVal     = livePrice != null ? qty * livePrice : null
+                      const costBase   = qty * cost
+                      const unrealised = mktVal != null ? mktVal - costBase : null
+                      const sc         = sig?.signal ?? 'hold'
+                      const weight     = mktVal && metrics ? (mktVal / metrics.current_value) * 100 : 0
+                      const dotColor   = weight >= 20 ? 'var(--text)' : weight >= 12 ? 'var(--text-2)' : weight >= 6 ? 'var(--text-3)' : 'var(--text-4)'
+                      return (
+                        <tr key={h.id}>
+                          <td>
+                            <div className="ticker-cell">
+                              <div className="ticker-dot" style={{ background: dotColor }} />
+                              <div>
+                                <div className="ticker-name">{h.ticker}</div>
+                                {h.name && <div className="ticker-desc">{h.name}</div>}
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                            {qty > 0 ? qty.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '—'}
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                            {cost > 0 ? `$${cost.toFixed(2)}` : '—'}
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                            {livePrice != null ? `$${livePrice.toFixed(2)}` : '—'}
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                            {mktVal != null ? fmtCurrency(mktVal) : '—'}
+                          </td>
+                          <td style={{ fontSize: 10.5, fontWeight: 500, color: signCol(unrealised) }}>
+                            {unrealised != null ? `${unrealised >= 0 ? '+' : ''}${fmtCurrency(unrealised)}` : '—'}
+                          </td>
+                          <td style={{ fontSize: 10.5, fontWeight: 500, color: signCol(chg) }}>
+                            {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}
+                          </td>
+                          <td>
+                            <span style={{
+                              fontSize: 9.5, fontWeight: 500,
+                              color: SIG_COLOR[sc] ?? 'var(--text-4)',
+                              background: `${SIG_COLOR[sc] ?? 'var(--text-4)'}18`,
+                              padding: '1px 5px', borderRadius: 3,
+                            }}>
+                              {sc}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              ) : loading ? (
+                <div style={{ color: 'var(--text-4)', fontSize: 10.5, padding: '12px 0' }}>Loading holdings…</div>
+              ) : (
+                <div style={{ color: 'var(--text-4)', fontSize: 10.5, padding: '12px 0' }}>
+                  No holdings yet.{' '}
+                  <button className="section-link" style={{ display: 'inline', fontSize: 10.5 }}
+                    onClick={() => router.push(`/dashboard/portfolio?portfolio_id=${activeId}`)}>
+                    Add holdings ↗
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Performance */}
+          <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
               <span className="section-label">Performance</span>
             </div>
             <div style={{ padding: '12px 14px' }}>
@@ -405,12 +372,11 @@ export default function HomeClient({
                 />
               ) : (
                 <div style={{ color: 'var(--text-4)', fontSize: 'var(--fs-sm)', padding: '20px 0', textAlign: 'center' }}>
-                  Select a portfolio to view performance
+                  Select a portfolio
                 </div>
               )}
             </div>
           </div>
-        </div>{/* end right column */}
 
         </div>{/* end two-column grid */}
 
