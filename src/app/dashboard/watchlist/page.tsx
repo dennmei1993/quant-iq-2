@@ -468,43 +468,6 @@ export default function WatchlistPage() {
   const [txSaving, setTxSaving] = useState(false)
   const [txError,  setTxError]  = useState('')
 
-  // Load portfolio + themes
-  useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const saved = sessionStorage.getItem('quant_iq_selected_portfolio')
-
-      const [portRes, themeRes] = await Promise.all([
-        supabase
-          .from('portfolios')
-          .select('id, name, universe')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('themes')
-          .select('id, name, momentum, conviction')
-          .eq('is_active', true)
-          .order('conviction', { ascending: false })
-          .limit(8),
-      ])
-
-      const ports = portRes.data ?? []
-      const active = (saved && ports.find(p => p.id === saved)) ? ports.find(p => p.id === saved)! : ports[0]
-      setPortfolio(active ?? null)
-      setThemes(themeRes.data ?? [])
-      setLoading(false)
-    }
-    load()
-  }, [])
-
-  // Load watchlist entries whenever portfolio changes
-  useEffect(() => {
-    if (!portfolio) return
-    loadEntries(portfolio.id)
-  }, [portfolio?.id])
-
   async function loadEntries(portfolioId: string) {
     setListLoad(true)
     try {
@@ -540,6 +503,43 @@ export default function WatchlistPage() {
       setListLoad(false)
     }
   }
+
+  // Load portfolio + themes
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const saved = sessionStorage.getItem('quant_iq_selected_portfolio')
+
+      const [portRes, themeRes] = await Promise.all([
+        supabase
+          .from('portfolios')
+          .select('id, name, universe')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('themes')
+          .select('id, name, momentum, conviction')
+          .eq('is_active', true)
+          .order('conviction', { ascending: false })
+          .limit(8),
+      ])
+
+      const ports  = portRes.data ?? []
+      const active = (saved && ports.find(p => p.id === saved)) ? ports.find(p => p.id === saved)! : ports[0]
+      setThemes(themeRes.data ?? [])
+      setPortfolio(active ?? null)
+      setLoading(false)
+
+      // Load entries directly — don't rely on a second useEffect
+      // reacting to portfolio state change (timing unreliable)
+      if (active) {
+        loadEntries(active.id)
+      }
+    }
+    load()
+  }, [])
 
   async function handleAdd(ticker: string, name: string | null, notes: string) {
     if (!portfolio) return
