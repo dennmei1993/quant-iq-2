@@ -188,16 +188,19 @@ function InlineTransactionHistory({
 // ── Portfolio settings modal ──────────────────────────────────────────────────
 
 type PortfolioPrefs = {
-  name:               string
-  total_capital:      number
-  cash_pct:           number
-  risk_appetite:      string
-  investment_horizon: string
-  benchmark:          string
-  target_holdings:    number
-  preferred_assets:   string[]
-  universe:           string[]
-  sector_exclude:     string[]
+  name:                  string
+  total_capital:         number
+  cash_pct:              number
+  risk_appetite:         string
+  investment_horizon:    string
+  benchmark:             string
+  target_holdings:       number
+  preferred_assets:      string[]
+  universe:              string[]
+  sector_exclude:        string[]
+  options_enabled:       boolean
+  options_capital_pct:   number
+  options_strategies:    string[]
 }
 
 function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string; onClose: () => void }) {
@@ -264,26 +267,37 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
     width: '100%', fontFamily: 'inherit',
   }
 
-  const ASSET_TYPES  = ['equities', 'etf', 'crypto', 'commodities', 'bonds', 'fx']
+  const ASSET_TYPES  = ['equities', 'etf', 'crypto', 'commodities', 'bonds', 'fx', 'options']
   const UNIVERSE_IDS = [
-    { id: 'mag7',                label: 'Mag 7' },
-    { id: 'sp500',               label: 'S&P 500' },
-    { id: 'nasdaq100',           label: 'Nasdaq 100' },
-    { id: 'asx200',              label: 'ASX 200' },
-    { id: 'berkshire',           label: 'Berkshire' },
-    { id: 'dividend_aristocrats',label: 'Div. Aristocrats' },
+    { id: 'mag7',                label: 'Mag 7',            group: 'index' },
+    { id: 'sp500',               label: 'S&P 500',          group: 'index' },
+    { id: 'nasdaq100',           label: 'Nasdaq 100',       group: 'index' },
+    { id: 'asx200',              label: 'ASX 200',          group: 'index' },
+    { id: 'berkshire',           label: 'Berkshire',        group: 'institutional' },
+    { id: 'dividend_aristocrats',label: 'Div. Aristocrats', group: 'institutional' },
+    { id: '13F',                 label: '13F Filings',      group: 'institutional' },
+    { id: 'POLITICIAN',          label: 'Politician trades',group: 'institutional' },
+  ]
+  const OPTIONS_STRATEGIES = [
+    { id: 'wheel',    label: 'Wheel',     desc: 'Sell CSP → take assignment → sell CC' },
+    { id: 'pmcc',     label: 'PMCC',      desc: 'Poor Man's Covered Call' },
+    { id: 'csp',      label: 'Cash-secured put', desc: 'Sell puts on stocks you want to own' },
+    { id: 'cc',       label: 'Covered call',     desc: 'Sell calls against existing shares' },
+    { id: 'strangle', label: 'Strangle',  desc: 'Sell OTM call + OTM put' },
+    { id: 'iron_condor', label: 'Iron condor', desc: 'Defined-risk range-bound strategy' },
+    { id: 'jade_lizard', label: 'Jade lizard', desc: 'Short put + short call spread' },
   ]
   const SECTORS = ['Technology','Healthcare','Financials','Energy','Industrials','Consumer','Materials','Utilities','Real Estate','Communications','Defence']
 
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.4)' }} />
-      <div style={{
+      <div onClick={e => e.stopPropagation()} style={{
         position: 'fixed', top: '50%', left: '50%',
         transform: 'translate(-50%,-50%)',
         zIndex: 201, background: 'var(--bg)',
         border: '1px solid var(--border)', borderRadius: 8,
-        padding: '1.4rem', width: 540, maxHeight: '85vh',
+        padding: '1.4rem', width: 580, maxHeight: '85vh',
         overflowY: 'auto', boxShadow: '0 16px 48px rgba(0,0,0,0.15)',
       }}>
         {/* Header */}
@@ -387,12 +401,25 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
             {/* Universe */}
             <div>
               <label style={labelStyle}>Stock universe</label>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {UNIVERSE_IDS.map(({ id, label }) => {
-                  const active = current.universe?.includes(id)
-                  const next   = active ? current.universe.filter(x => x !== id) : [...(current.universe ?? []), id]
-                  return <button key={id} onClick={() => set('universe', next)} style={pill(!!active)}>{label}</button>
-                })}
+              <div style={{ marginBottom: 4 }}>
+                <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Index</span>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3 }}>
+                  {UNIVERSE_IDS.filter(u => u.group === 'index').map(({ id, label }) => {
+                    const active = current.universe?.includes(id)
+                    const next   = active ? current.universe.filter(x => x !== id) : [...(current.universe ?? []), id]
+                    return <button key={id} onClick={() => set('universe', next)} style={pill(!!active)}>{label}</button>
+                  })}
+                </div>
+              </div>
+              <div style={{ marginTop: 6 }}>
+                <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Institutional / smart money</span>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3 }}>
+                  {UNIVERSE_IDS.filter(u => u.group === 'institutional').map(({ id, label }) => {
+                    const active = current.universe?.includes(id)
+                    const next   = active ? current.universe.filter(x => x !== id) : [...(current.universe ?? []), id]
+                    return <button key={id} onClick={() => set('universe', next)} style={pill(!!active)}>{label}</button>
+                  })}
+                </div>
               </div>
             </div>
 
@@ -406,6 +433,91 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
                   return <button key={s} onClick={() => set('sector_exclude', next)} style={pill(!!active)}>{s}</button>
                 })}
               </div>
+            </div>
+
+            {/* Options trading */}
+            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+              {/* Options header toggle */}
+              <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: current.options_enabled ? 'var(--bg-subtle)' : 'var(--bg)' }}>
+                <div>
+                  <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 500, color: 'var(--text)' }}>Options trading</div>
+                  <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 1 }}>Allocate capital and select strategies</div>
+                </div>
+                <button
+                  onClick={() => set('options_enabled', !current.options_enabled)}
+                  style={{
+                    width: 36, height: 20, borderRadius: 99,
+                    background: current.options_enabled ? 'var(--accent)' : 'var(--border)',
+                    border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 2,
+                    left: current.options_enabled ? 18 : 2,
+                    width: 16, height: 16, borderRadius: '50%',
+                    background: 'white', transition: 'left 0.2s',
+                  }} />
+                </button>
+              </div>
+
+              {current.options_enabled && (
+                <div style={{ padding: '12px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+
+                  {/* Capital allocation */}
+                  <div>
+                    <label style={labelStyle}>Capital allocation for options</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="range" min={0} max={50} step={5}
+                        value={current.options_capital_pct ?? 10}
+                        onChange={e => set('options_capital_pct', parseInt(e.target.value))}
+                        style={{ flex: 1, accentColor: 'var(--accent)' }}
+                      />
+                      <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500, color: 'var(--text)', minWidth: 32, textAlign: 'right' }}>
+                        {current.options_capital_pct ?? 10}%
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 3 }}>
+                      {current.total_capital > 0
+                        ? `$${((current.total_capital * (current.options_capital_pct ?? 10)) / 100).toLocaleString()} of total capital`
+                        : 'Set total capital to see amount'}
+                    </div>
+                  </div>
+
+                  {/* Strategies */}
+                  <div>
+                    <label style={labelStyle}>Preferred strategies</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {OPTIONS_STRATEGIES.map(({ id, label, desc }) => {
+                        const active = current.options_strategies?.includes(id)
+                        const next   = active
+                          ? (current.options_strategies ?? []).filter(x => x !== id)
+                          : [...(current.options_strategies ?? []), id]
+                        return (
+                          <button
+                            key={id}
+                            onClick={() => set('options_strategies', next)}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              padding: '6px 10px', borderRadius: 'var(--r-md)', cursor: 'pointer',
+                              background: active ? 'var(--bg-subtle)' : 'none',
+                              border: `1px solid ${active ? 'var(--text-3)' : 'var(--border)'}`,
+                              transition: 'all 0.1s', fontFamily: 'inherit', textAlign: 'left',
+                            }}
+                          >
+                            <div>
+                              <span style={{ fontSize: 'var(--fs-sm)', fontWeight: active ? 500 : 400, color: active ? 'var(--text)' : 'var(--text-3)' }}>{label}</span>
+                              <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginLeft: 8 }}>{desc}</span>
+                            </div>
+                            {active && <span style={{ fontSize: 10, color: 'var(--accent)' }}>✓</span>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
