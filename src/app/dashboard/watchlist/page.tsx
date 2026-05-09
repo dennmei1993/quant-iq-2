@@ -550,7 +550,7 @@ export default function WatchlistPage() {
       </div>
 
       {/* Two-panel layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--sp-5)', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '30% 70%', gap: 'var(--sp-5)', alignItems: 'start' }}>
 
         {/* Left: Ticker list */}
         <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
