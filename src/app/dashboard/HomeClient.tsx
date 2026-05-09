@@ -108,6 +108,7 @@ export default function HomeClient({
   const [txNotes,  setTxNotes]  = useState('')
   const [txSaving, setTxSaving] = useState(false)
   const [txError,  setTxError]  = useState('')
+  const [histOpen, setHistOpen] = useState<string | null>(null) // ticker with history open
 
   const activePortfolio = portfolios.find(p => p.id === activeId) ?? portfolios[0] ?? null
 
@@ -346,6 +347,7 @@ export default function HomeClient({
                       const costBase   = qty * cost
                       const unrealised = mktVal != null ? mktVal - costBase : null
                       const sc         = sig?.signal ?? 'hold'
+                      const histIsOpen = histOpen === h.ticker
                       return (
                         <>
                           <tr key={h.id}>
@@ -391,6 +393,10 @@ export default function HomeClient({
                             <td>
                               <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                                 <button
+                                  onClick={() => setHistOpen(histIsOpen ? null : h.ticker)}
+                                  style={{ fontSize: 9.5, padding: '1px 6px', background: histIsOpen ? 'var(--bg-subtle)' : 'none', border: '1px solid var(--border)', color: histIsOpen ? 'var(--text)' : 'var(--text-4)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
+                                >Hist</button>
+                                <button
                                   onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: qty }); setTxType('buy') }}
                                   style={{ fontSize: 9.5, padding: '1px 6px', background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.25)', color: 'var(--signal-bull)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
                                 >Buy</button>
@@ -401,13 +407,15 @@ export default function HomeClient({
                               </div>
                             </td>
                           </tr>
-                          <TransactionHistory
-                            key={`tx-${h.id}`}
-                            portfolioId={activeId}
-                            ticker={h.ticker}
-                            avgCost={h.avg_cost}
-                            onDelete={() => loadPortfolioData(activeId)}
-                          />
+                          {histIsOpen && (
+                            <TransactionHistory
+                              key={`tx-${h.id}`}
+                              portfolioId={activeId}
+                              ticker={h.ticker}
+                              avgCost={h.avg_cost}
+                              onDelete={() => loadPortfolioData(activeId)}
+                            />
+                          )}
                         </>
                       )
                     })}
