@@ -205,9 +205,18 @@ function SelectionPanel({
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const res  = await fetch(`/api/assets/search?q=${encodeURIComponent(query)}&limit=8`)
+        const res  = await fetch(`/api/assets/search?q=${encodeURIComponent(query)}&limit=20`)
         const data = await res.json()
-        setResults(data.assets ?? [])
+        const raw  = data.assets ?? []
+        const q    = query.trim().toUpperCase()
+        // Sort: exact ticker match → starts with ticker → rest
+        const sorted = [...raw].sort((a, b) => {
+          const aExact  = a.ticker.toUpperCase() === q ? 0 : a.ticker.toUpperCase().startsWith(q) ? 1 : 2
+          const bExact  = b.ticker.toUpperCase() === q ? 0 : b.ticker.toUpperCase().startsWith(q) ? 1 : 2
+          if (aExact !== bExact) return aExact - bExact
+          return a.ticker.localeCompare(b.ticker)
+        })
+        setResults(sorted.slice(0, 8))
       } catch { setResults([]) }
       finally   { setSearching(false) }
     }, 220)
@@ -539,7 +548,12 @@ export default function WatchlistPage() {
       await fetch('/api/portfolio/watchlist', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ portfolio_id: portfolio.id, ticker, name, notes }),
+        body:    JSON.stringify({
+          portfolio_id: portfolio.id,
+          ticker,
+          name,
+          notes: notes?.trim() || null,
+        }),
       })
       await loadEntries(portfolio.id)
     } catch {}
@@ -637,7 +651,7 @@ export default function WatchlistPage() {
           <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
             <span className="section-label">Add to watchlist</span>
           </div>
-          <div style={{ padding: '14px', position: 'relative' }}>
+          <div style={{ padding: '14px', position: 'relative', maxHeight: '70vh', overflowY: 'auto' }}>
             <SelectionPanel
               universe={portfolio.universe ?? []}
               themes={themes}
