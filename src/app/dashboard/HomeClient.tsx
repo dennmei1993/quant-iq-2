@@ -8,7 +8,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PortfolioPerformanceChart } from '@/components/dashboard/PortfolioPerformanceChart'
 import { PortfolioWatchlist } from '@/components/dashboard/PortfolioWatchlist'
-import { TransactionHistory } from '@/components/dashboard/TransactionHistory'
 import { useRouter } from 'next/navigation'
 import {
   computeCapitalMetrics,
@@ -74,6 +73,119 @@ const SIG_COLOR: Record<string, string> = {
   watch: 'var(--signal-neut)',
   hold:  'var(--text-4)',
   avoid: 'var(--signal-bear)',
+}
+
+// ── Inline transaction history ────────────────────────────────────────────────
+// Renders open by default (controlled externally by Hist button).
+// Has its own − toggle to collapse without closing the whole panel.
+
+interface TxRow {
+  id:           string
+  type:         string
+  quantity:     number
+  price:        number
+  total_amount: number
+  fees:         number
+  executed_at:  string
+  notes:        string | null
+}
+
+function InlineTransactionHistory({
+  portfolioId, ticker, avgCost, onDelete,
+}: {
+  portfolioId: string
+  ticker:      string
+  avgCost:     number | null
+  onDelete:    () => void
+}) {
+  const [rows,      setRows]      = useState<TxRow[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [collapsed, setCollapsed] = useState(false)
+  const [deleting,  setDeleting]  = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/portfolio/transaction?portfolio_id=${portfolioId}&ticker=${ticker}&limit=50`)
+      .then(r => r.json())
+      .then(d => { setRows(d.transactions ?? []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [portfolioId, ticker])
+
+  async function handleDelete(txId: string) {
+    setDeleting(txId)
+    await fetch(`/api/portfolio/transaction?id=${txId}`, { method: 'DELETE' })
+    setRows(prev => prev.filter(r => r.id !== txId))
+    setDeleting(null)
+    onDelete()
+  }
+
+  const typeCol = (t: string) => t === 'buy' ? 'var(--signal-bull)' : 'var(--signal-bear)'
+
+  return (
+    <tr>
+      <td colSpan={9} style={{ padding: 0, background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ padding: '8px 14px' }}>
+
+          {/* Header row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: collapsed ? 0 : 8 }}>
+            <span style={{ fontSize: 'var(--fs-label)', fontWeight: 500, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Transaction history — {ticker}
+            </span>
+            <button
+              onClick={() => setCollapsed(c => !c)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-4)', fontSize: 14, lineHeight: 1, padding: '0 2px' }}
+              title={collapsed ? 'Expand' : 'Collapse'}
+            >
+              {collapsed ? '+' : '−'}
+            </button>
+          </div>
+
+          {!collapsed && (
+            loading ? (
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-4)', padding: '4px 0' }}>Loading…</div>
+            ) : rows.length === 0 ? (
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-4)', padding: '4px 0' }}>No transactions recorded.</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Type', 'Qty', 'Price', 'Total', 'Fees', 'Date', 'Notes', ''].map((h, i) => (
+                      <th key={i} style={{ fontSize: 'var(--fs-label)', fontWeight: 500, color: 'var(--text-4)', textAlign: i === 0 ? 'left' : 'right', padding: '2px 6px 5px', letterSpacing: '0.04em', textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', fontWeight: 600, color: typeCol(r.type), textTransform: 'uppercase' }}>{r.type}</td>
+                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{Number(r.quantity).toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
+                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>${Number(r.price).toFixed(2)}</td>
+                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>${Number(r.total_amount).toFixed(2)}</td>
+                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', color: 'var(--text-4)' }}>{r.fees > 0 ? `$${r.fees.toFixed(2)}` : '—'}</td>
+                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', color: 'var(--text-3)' }}>
+                        {new Date(r.executed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                      </td>
+                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', color: 'var(--text-4)' }}>{r.notes ?? '—'}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right' }}>
+                        <button
+                          onClick={() => handleDelete(r.id)}
+                          disabled={deleting === r.id}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-4)', fontSize: 12, opacity: deleting === r.id ? 0.4 : 1 }}
+                          title="Delete transaction"
+                        >×</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          )}
+        </div>
+      </td>
+    </tr>
+  )
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -408,7 +520,7 @@ export default function HomeClient({
                             </td>
                           </tr>
                           {histIsOpen && (
-                            <TransactionHistory
+                            <InlineTransactionHistory
                               key={`tx-${h.id}`}
                               portfolioId={activeId}
                               ticker={h.ticker}
