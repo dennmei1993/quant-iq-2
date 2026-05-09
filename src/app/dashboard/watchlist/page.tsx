@@ -473,7 +473,20 @@ export default function WatchlistPage() {
     try {
       const res  = await fetch(`/api/portfolio/watchlist?portfolio_id=${portfolioId}`)
       const data = await res.json()
-      const raw: WatchlistEntry[] = data.watchlist ?? []
+
+      // Log the raw response so we can see the actual shape
+      console.log('[Watchlist] API response:', data)
+
+      // Handle multiple possible response shapes
+      const raw: WatchlistEntry[] = (
+        data.watchlist ??
+        data.entries   ??
+        data.items     ??
+        data.data       ??
+        (Array.isArray(data) ? data : [])
+      )
+
+      console.log('[Watchlist] Parsed entries:', raw.length)
 
       // Show entries immediately — no dependency on signals API
       setEntries(raw)
