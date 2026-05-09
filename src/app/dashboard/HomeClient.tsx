@@ -240,8 +240,7 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
     setPrefs(p => p ? { ...p, ...local } : p)
     setLocal({})
     setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+    onClose()
   }
 
   const pill = (active: boolean): React.CSSProperties => ({
@@ -280,7 +279,7 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
   ]
   const OPTIONS_STRATEGIES = [
     { id: 'wheel',    label: 'Wheel',     desc: 'Sell CSP → take assignment → sell CC' },
-    { id: 'pmcc',     label: 'PMCC',      desc: 'Poor Man's Covered Call' },
+    { id: 'pmcc',     label: 'PMCC',      desc: 'Poor Mans Covered Call' },
     { id: 'csp',      label: 'Cash-secured put', desc: 'Sell puts on stocks you want to own' },
     { id: 'cc',       label: 'Covered call',     desc: 'Sell calls against existing shares' },
     { id: 'strangle', label: 'Strangle',  desc: 'Sell OTM call + OTM put' },
