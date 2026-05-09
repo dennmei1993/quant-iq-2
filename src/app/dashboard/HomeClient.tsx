@@ -185,6 +185,246 @@ function InlineTransactionHistory({
   )
 }
 
+// ── Portfolio settings modal ──────────────────────────────────────────────────
+
+type PortfolioPrefs = {
+  name:               string
+  total_capital:      number
+  cash_pct:           number
+  risk_appetite:      string
+  investment_horizon: string
+  benchmark:          string
+  target_holdings:    number
+  preferred_assets:   string[]
+  universe:           string[]
+  sector_exclude:     string[]
+}
+
+function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string; onClose: () => void }) {
+  const [prefs,   setPrefs]   = useState<PortfolioPrefs | null>(null)
+  const [local,   setLocal]   = useState<Partial<PortfolioPrefs>>({})
+  const [saving,  setSaving]  = useState(false)
+  const [saved,   setSaved]   = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/portfolio?portfolio_id=${portfolioId}`)
+      .then(r => r.json())
+      .then(d => {
+        const p = d.portfolio ?? d.portfolios?.[0]
+        if (p) setPrefs(p)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [portfolioId])
+
+  const current = prefs ? { ...prefs, ...local } : null
+  const isDirty = Object.keys(local).length > 0
+
+  function set<K extends keyof PortfolioPrefs>(key: K, value: PortfolioPrefs[K]) {
+    setLocal(prev => ({ ...prev, [key]: value }))
+    setSaved(false)
+  }
+
+  async function save() {
+    if (!isDirty) return
+    setSaving(true)
+    await fetch('/api/portfolio', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ portfolio_id: portfolioId, ...local }),
+    })
+    setPrefs(p => p ? { ...p, ...local } : p)
+    setLocal({})
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+  }
+
+  const pill = (active: boolean): React.CSSProperties => ({
+    padding: '3px 10px',
+    background: active ? 'var(--bg-subtle)' : 'none',
+    border: `1px solid ${active ? 'var(--text-3)' : 'var(--border)'}`,
+    color: active ? 'var(--text)' : 'var(--text-4)',
+    borderRadius: 'var(--r-pill)', fontSize: 'var(--fs-sm)',
+    fontWeight: active ? 500 : 400, cursor: 'pointer',
+    transition: 'all 0.1s', fontFamily: 'inherit',
+  })
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 'var(--fs-label)', color: 'var(--text-4)',
+    textTransform: 'uppercase', letterSpacing: '0.08em',
+    display: 'block', marginBottom: 5,
+  }
+
+  const inputStyle: React.CSSProperties = {
+    padding: '5px 8px', background: 'var(--bg-subtle)',
+    border: '1px solid var(--border)', borderRadius: 'var(--r-md)',
+    color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none',
+    width: '100%', fontFamily: 'inherit',
+  }
+
+  const ASSET_TYPES  = ['equities', 'etf', 'crypto', 'commodities', 'bonds', 'fx']
+  const UNIVERSE_IDS = [
+    { id: 'mag7',                label: 'Mag 7' },
+    { id: 'sp500',               label: 'S&P 500' },
+    { id: 'nasdaq100',           label: 'Nasdaq 100' },
+    { id: 'asx200',              label: 'ASX 200' },
+    { id: 'berkshire',           label: 'Berkshire' },
+    { id: 'dividend_aristocrats',label: 'Div. Aristocrats' },
+  ]
+  const SECTORS = ['Technology','Healthcare','Financials','Energy','Industrials','Consumer','Materials','Utilities','Real Estate','Communications','Defence']
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.4)' }} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%',
+        transform: 'translate(-50%,-50%)',
+        zIndex: 201, background: 'var(--bg)',
+        border: '1px solid var(--border)', borderRadius: 8,
+        padding: '1.4rem', width: 540, maxHeight: '85vh',
+        overflowY: 'auto', boxShadow: '0 16px 48px rgba(0,0,0,0.15)',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
+          <div>
+            <div style={{ ...labelStyle, marginBottom: 2 }}>Portfolio settings</div>
+            <div style={{ fontSize: 'var(--fs-heading)', fontWeight: 500, color: 'var(--text)' }}>
+              {current?.name ?? '—'}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+        </div>
+
+        {loading || !current ? (
+          <div style={{ color: 'var(--text-4)', fontSize: 'var(--fs-sm)', padding: '1rem 0' }}>Loading…</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+            {/* Name */}
+            <div>
+              <label style={labelStyle}>Portfolio name</label>
+              <input value={current.name} onChange={e => set('name', e.target.value)} style={inputStyle} />
+            </div>
+
+            {/* Capital + Cash reserve */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+              <div>
+                <label style={labelStyle}>Total capital ($)</label>
+                <input
+                  value={current.total_capital || ''}
+                  onChange={e => set('total_capital', parseFloat(e.target.value) || 0)}
+                  type="number" placeholder="50000" style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Min cash reserve</label>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {[0, 5, 10, 15, 20].map(n => (
+                    <button key={n} onClick={() => set('cash_pct', n)} style={pill(current.cash_pct === n)}>{n}%</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Risk + Horizon */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+              <div>
+                <label style={labelStyle}>Risk appetite</label>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {(['aggressive','moderate','conservative'] as const).map(a => (
+                    <button key={a} onClick={() => set('risk_appetite', a)} style={pill(current.risk_appetite === a)}>
+                      {a.charAt(0).toUpperCase() + a.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Horizon</label>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {(['short','medium','long'] as const).map(h => (
+                    <button key={h} onClick={() => set('investment_horizon', h)} style={pill(current.investment_horizon === h)}>
+                      {h.charAt(0).toUpperCase() + h.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Benchmark + Target holdings */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+              <div>
+                <label style={labelStyle}>Benchmark</label>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {['SPY','QQQ','AXJO'].map(b => (
+                    <button key={b} onClick={() => set('benchmark', b)} style={pill(current.benchmark === b)}>{b}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Target holdings</label>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {[10,15,20,30].map(n => (
+                    <button key={n} onClick={() => set('target_holdings', n)} style={pill(current.target_holdings === n)}>{n}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Asset types */}
+            <div>
+              <label style={labelStyle}>Preferred asset types</label>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {ASSET_TYPES.map(a => {
+                  const active = current.preferred_assets?.includes(a)
+                  const next   = active ? current.preferred_assets.filter(x => x !== a) : [...(current.preferred_assets ?? []), a]
+                  return <button key={a} onClick={() => set('preferred_assets', next)} style={pill(!!active)}>{a.charAt(0).toUpperCase() + a.slice(1)}</button>
+                })}
+              </div>
+            </div>
+
+            {/* Universe */}
+            <div>
+              <label style={labelStyle}>Stock universe</label>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {UNIVERSE_IDS.map(({ id, label }) => {
+                  const active = current.universe?.includes(id)
+                  const next   = active ? current.universe.filter(x => x !== id) : [...(current.universe ?? []), id]
+                  return <button key={id} onClick={() => set('universe', next)} style={pill(!!active)}>{label}</button>
+                })}
+              </div>
+            </div>
+
+            {/* Excluded sectors */}
+            <div>
+              <label style={labelStyle}>Excluded sectors</label>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {SECTORS.map(s => {
+                  const active = current.sector_exclude?.includes(s)
+                  const next   = active ? current.sector_exclude.filter(x => x !== s) : [...(current.sector_exclude ?? []), s]
+                  return <button key={s} onClick={() => set('sector_exclude', next)} style={pill(!!active)}>{s}</button>
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)', marginTop: '0.25rem' }}>
+              <button onClick={save} disabled={!isDirty || saving} className="btn btn-dark"
+                style={{ opacity: !isDirty || saving ? 0.5 : 1, cursor: !isDirty ? 'default' : 'pointer' }}>
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+              {isDirty && !saving && <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Unsaved changes</span>}
+              {saved && <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--signal-bull)' }}>✓ Saved</span>}
+              <button onClick={onClose} className="btn btn-outline" style={{ marginLeft: 'auto' }}>Close</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function HomeClient({
@@ -217,7 +457,8 @@ export default function HomeClient({
   const [txNotes,  setTxNotes]  = useState('')
   const [txSaving, setTxSaving] = useState(false)
   const [txError,  setTxError]  = useState('')
-  const [histOpen, setHistOpen] = useState<string | null>(null) // ticker with history open
+  const [histOpen,     setHistOpen]     = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const activePortfolio = portfolios.find(p => p.id === activeId) ?? portfolios[0] ?? null
 
@@ -342,6 +583,12 @@ export default function HomeClient({
                 onClick={() => router.push(`/dashboard/portfolio?tab=recommendations&portfolio_id=${activeId}`)}
               >
                 <i className="ti ti-adjustments-horizontal" aria-hidden /> Build ↗
+              </button>
+              <button
+                className="btn btn-outline"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <i className="ti ti-settings" aria-hidden /> Portfolio settings
               </button>
             </div>
           </div>
@@ -608,6 +855,14 @@ export default function HomeClient({
         </div>
 
       </main>
+
+      {/* ── Portfolio settings modal ── */}
+      {settingsOpen && activeId && (
+        <PortfolioSettingsModal
+          portfolioId={activeId}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       {/* ── Transaction modal ── */}
       {txModal && (
