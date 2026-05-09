@@ -7,7 +7,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { PortfolioPerformanceChart } from '@/components/dashboard/PortfolioPerformanceChart'
-import PortfolioWatchlistNew from '@/components/dashboard/PortfolioWatchlistNew'
 import { useRouter } from 'next/navigation'
 import {
   computeCapitalMetrics,
@@ -784,8 +783,8 @@ export default function HomeClient({
           </div>
         )}
 
-        {/* ── Three-column: Holdings · Performance · Watchlist ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px 240px', gap: 'var(--sp-4)', alignItems: 'start' }}>
+        {/* ── Two-column: Holdings · Performance ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)', alignItems: 'start' }}>
 
           {/* Col 1: Holdings */}
           <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
@@ -930,25 +929,6 @@ export default function HomeClient({
             </div>
           </div>
 
-          {/* Col 3: Watchlist */}
-          <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-            <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
-              <span className="section-label">Watchlist</span>
-            </div>
-            <div style={{ padding: '8px 14px' }}>
-              {activeId ? (
-                <PortfolioWatchlistNew
-                  portfolioId={activeId}
-                  universe={activePortfolio?.universe ?? []}
-                  themes={themes}
-                />
-              ) : (
-                <div style={{ color: 'var(--text-4)', fontSize: 'var(--fs-sm)', padding: '12px 0', textAlign: 'center' }}>
-                  Select a portfolio
-                </div>
-              )}
-            </div>
-          </div>
 
         </div>{/* end three-column grid */}
 
