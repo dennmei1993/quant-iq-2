@@ -24,6 +24,7 @@ const NAV = [
   { href: '/dashboard/themes',    label: 'Themes',         icon: '🎯', section: 'Advisory',  },
   { href: '/dashboard/assets',    label: 'Asset Screener', icon: '📊', section: null,        },
   { href: '/dashboard/portfolio', label: 'My Portfolio',   icon: '🗂️', section: 'Portfolio', },
+  { href: '/dashboard/watchlist', label: 'Watchlist',      icon: '🔖', section: null,        },
   { href: '/dashboard/alerts',    label: 'Alerts',         icon: '🔔', section: null,        },
   { href: '/dashboard/options',   label: 'Options Wheel',  icon: '⚙️', section: 'Options',   },
   { href: '/dashboard/settings',  label: 'Settings',       icon: '⚙',  section: 'Account',   },
