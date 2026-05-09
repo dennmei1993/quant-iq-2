@@ -298,14 +298,14 @@ function SelectionPanel({
           <div style={{ position: 'relative' }}>
             <input
               value={selected ? `${selected.ticker} — ${selected.name}` : query}
-              onChange={e => { setQuery(e.target.value.toUpperCase()); setSelected(null) }}
+              onChange={e => { setQuery(e.target.value); setSelected(null) }}
               placeholder="Ticker or company name…"
               autoFocus
               style={inputSt()}
             />
             {searching && <span style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>…</span>}
             {results.length > 0 && !selected && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', marginTop: 2, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}>
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', marginTop: 2, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}>
                 {results.map(r => (
                   <div key={r.ticker}
                     onClick={() => { setSelected({ ticker: r.ticker, name: r.name }); setResults([]) }}
@@ -633,11 +633,11 @@ export default function WatchlistPage() {
         </div>
 
         {/* Right: Selection panel */}
-        <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)' }}>
           <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
             <span className="section-label">Add to watchlist</span>
           </div>
-          <div style={{ padding: '14px' }}>
+          <div style={{ padding: '14px', position: 'relative' }}>
             <SelectionPanel
               universe={portfolio.universe ?? []}
               themes={themes}
