@@ -485,22 +485,33 @@ export default function WatchlistPage() {
       const data = await res.json()
       const raw: WatchlistEntry[] = data.watchlist ?? []
 
+      // Show entries immediately — no dependency on signals API
+      setEntries(raw)
+      setListLoad(false)
+
+      // Enrich with live signals if tickers exist — fail silently
       if (raw.length) {
-        const tickers = raw.map(e => e.ticker).join(',')
-        const sigRes  = await fetch(`/api/assets/signals?tickers=${tickers}`)
-        const sigData = await sigRes.json()
-        const sigMap  = Object.fromEntries((sigData.signals ?? []).map((s: any) => [s.ticker, s]))
-        setEntries(raw.map(e => ({
-          ...e,
-          price_usd:  sigMap[e.ticker]?.price_usd  ?? null,
-          change_pct: sigMap[e.ticker]?.change_pct ?? null,
-          signal:     sigMap[e.ticker]?.signal     ?? null,
-        })))
-      } else {
-        setEntries([])
+        try {
+          const tickers = raw.map(e => e.ticker).join(',')
+          const sigRes  = await fetch(`/api/assets/signals?tickers=${tickers}`)
+          if (sigRes.ok) {
+            const sigData = await sigRes.json()
+            const sigMap  = Object.fromEntries((sigData.signals ?? []).map((s: any) => [s.ticker, s]))
+            setEntries(raw.map(e => ({
+              ...e,
+              price_usd:  sigMap[e.ticker]?.price_usd  ?? null,
+              change_pct: sigMap[e.ticker]?.change_pct ?? null,
+              signal:     sigMap[e.ticker]?.signal     ?? null,
+            })))
+          }
+        } catch {
+          // Signals API unavailable — entries already shown without enrichment
+        }
       }
-    } catch { setEntries([]) }
-    finally { setListLoad(false) }
+    } catch {
+      setEntries([])
+      setListLoad(false)
+    }
   }
 
   async function handleAdd(ticker: string, name: string | null, notes: string) {
