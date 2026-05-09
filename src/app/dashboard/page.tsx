@@ -75,6 +75,7 @@ export type Portfolio = {
   name:          string
   total_capital: number
   cash_pct:      number
+  universe:      string[]
 }
 
 // ── Auth helper ────────────────────────────────────────────────────────────────
@@ -145,7 +146,7 @@ export default async function DashboardHome() {
     // All user portfolios — total_capital + cash_pct needed for client-side metrics
     q<Portfolio[]>(
       db.from('portfolios')
-        .select('id, name, total_capital, cash_pct')
+        .select('id, name, total_capital, cash_pct, universe')
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
     ),

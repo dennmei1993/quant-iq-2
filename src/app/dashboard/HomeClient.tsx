@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { PortfolioPerformanceChart } from '@/components/dashboard/PortfolioPerformanceChart'
-import { PortfolioWatchlist } from '@/components/dashboard/PortfolioWatchlist'
+import PortfolioWatchlistNew from '@/components/dashboard/PortfolioWatchlistNew'
 import { useRouter } from 'next/navigation'
 import {
   computeCapitalMetrics,
@@ -26,6 +26,7 @@ interface Portfolio {
   name:          string
   total_capital: number
   cash_pct:      number
+  universe:      string[]
 }
 
 interface Holding {
@@ -925,15 +926,16 @@ export default function HomeClient({
 
           {/* Col 3: Watchlist */}
           <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-            <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
               <span className="section-label">Watchlist</span>
-              <button className="section-link" onClick={() => router.push(`/dashboard/portfolio?tab=watchlist&portfolio_id=${activeId}`)}>
-                Manage ↗
-              </button>
             </div>
             <div style={{ padding: '8px 14px' }}>
               {activeId ? (
-                <PortfolioWatchlist portfolioId={activeId} />
+                <PortfolioWatchlistNew
+                  portfolioId={activeId}
+                  universe={activePortfolio?.universe ?? []}
+                  themes={themes}
+                />
               ) : (
                 <div style={{ color: 'var(--text-4)', fontSize: 'var(--fs-sm)', padding: '12px 0', textAlign: 'center' }}>
                   Select a portfolio
