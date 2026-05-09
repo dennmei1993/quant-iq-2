@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { PortfolioPerformanceChart } from '@/components/dashboard/PortfolioPerformanceChart'
+import { PortfolioWatchlist } from '@/components/dashboard/PortfolioWatchlist'
 import { useRouter } from 'next/navigation'
 import {
   computeCapitalMetrics,
@@ -262,10 +263,10 @@ export default function HomeClient({
           </div>
         )}
 
-        {/* ── Two-column: Holdings (left) + Performance (right) ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--sp-5)', alignItems: 'start' }}>
+        {/* ── Three-column: Holdings · Performance · Watchlist ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px 240px', gap: 'var(--sp-4)', alignItems: 'start' }}>
 
-          {/* Holdings */}
+          {/* Col 1: Holdings */}
           <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
             <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span className="section-label">Holdings {loading ? '…' : `(${holdings.length})`}</span>
@@ -359,7 +360,7 @@ export default function HomeClient({
             </div>
           </div>
 
-          {/* Performance */}
+          {/* Col 2: Performance */}
           <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
             <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
               <span className="section-label">Performance</span>
@@ -378,7 +379,26 @@ export default function HomeClient({
             </div>
           </div>
 
-        </div>{/* end two-column grid */}
+          {/* Col 3: Watchlist */}
+          <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span className="section-label">Watchlist</span>
+              <button className="section-link" onClick={() => router.push(`/dashboard/portfolio?tab=watchlist&portfolio_id=${activeId}`)}>
+                Manage ↗
+              </button>
+            </div>
+            <div style={{ padding: '8px 14px' }}>
+              {activeId ? (
+                <PortfolioWatchlist portfolioId={activeId} />
+              ) : (
+                <div style={{ color: 'var(--text-4)', fontSize: 'var(--fs-sm)', padding: '12px 0', textAlign: 'center' }}>
+                  Select a portfolio
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>{/* end three-column grid */}
 
         {/* ── Market context chips ── */}
         <div>
