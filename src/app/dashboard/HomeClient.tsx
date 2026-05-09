@@ -6,6 +6,7 @@
 // Full detail at /dashboard/portfolio.
 
 import { useState, useEffect, useCallback } from 'react'
+import { PortfolioPerformanceChart } from '@/components/dashboard/PortfolioPerformanceChart'
 import { useRouter } from 'next/navigation'
 import {
   computeCapitalMetrics,
@@ -171,7 +172,10 @@ export default function HomeClient({
 
         {/* ── Page header ── */}
         <div className="page-header">
-          <div className="page-title">Overview</div>
+          <div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Overview</div>
+            <div className="page-title">{activePortfolio?.name ?? '—'}</div>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span className="page-date">
               {new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -187,6 +191,10 @@ export default function HomeClient({
           </div>
         </div>
 
+
+        {/* ── Two-column layout: left = metrics+holdings, right = performance ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--sp-5)', alignItems: 'start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
 
         {/* ── Capital metrics ── */}
         {metrics && metrics.total_capital > 0 ? (
@@ -380,6 +388,31 @@ export default function HomeClient({
             </div>
           )}
         </div>
+
+        </div>{/* end left column */}
+
+        {/* ── Right column: Performance chart ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span className="section-label">Performance</span>
+            </div>
+            <div style={{ padding: '12px 14px' }}>
+              {activeId ? (
+                <PortfolioPerformanceChart
+                  portfolioId={activeId}
+                  totalCapital={activePortfolio?.total_capital ?? 0}
+                />
+              ) : (
+                <div style={{ color: 'var(--text-4)', fontSize: 'var(--fs-sm)', padding: '20px 0', textAlign: 'center' }}>
+                  Select a portfolio to view performance
+                </div>
+              )}
+            </div>
+          </div>
+        </div>{/* end right column */}
+
+        </div>{/* end two-column grid */}
 
         {/* ── Market context chips ── */}
         <div>
