@@ -285,6 +285,7 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
     { id: 'strangle', label: 'Strangle',  desc: 'Sell OTM call + OTM put' },
     { id: 'iron_condor', label: 'Iron condor', desc: 'Defined-risk range-bound strategy' },
     { id: 'jade_lizard', label: 'Jade lizard', desc: 'Short put + short call spread' },
+    { id: 'leaps',       label: 'LEAPs',       desc: 'Long-dated options as stock replacement' },
   ]
   const SECTORS = ['Technology','Healthcare','Financials','Energy','Industrials','Consumer','Materials','Utilities','Real Estate','Communications','Defence']
 
