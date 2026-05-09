@@ -699,6 +699,12 @@ export default function HomeClient({
               </button>
               <button
                 className="btn btn-outline"
+                onClick={() => router.push(`/dashboard/portfolio?tab=watchlist&portfolio_id=${activeId}`)}
+              >
+                <i className="ti ti-bookmark" aria-hidden /> Watchlist
+              </button>
+              <button
+                className="btn btn-outline"
                 onClick={() => setSettingsOpen(true)}
               >
                 <i className="ti ti-settings" aria-hidden /> Portfolio settings
