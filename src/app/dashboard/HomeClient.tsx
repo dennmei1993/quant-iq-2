@@ -91,17 +91,17 @@ interface TxRow {
 }
 
 function InlineTransactionHistory({
-  portfolioId, ticker, avgCost, onDelete,
+  portfolioId, ticker, avgCost, onDelete, onClose,
 }: {
   portfolioId: string
   ticker:      string
   avgCost:     number | null
   onDelete:    () => void
+  onClose:     () => void
 }) {
-  const [rows,      setRows]      = useState<TxRow[]>([])
-  const [loading,   setLoading]   = useState(true)
-  const [collapsed, setCollapsed] = useState(false)
-  const [deleting,  setDeleting]  = useState<string | null>(null)
+  const [rows,     setRows]     = useState<TxRow[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -127,21 +127,18 @@ function InlineTransactionHistory({
         <div style={{ padding: '8px 14px' }}>
 
           {/* Header row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: collapsed ? 0 : 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <span style={{ fontSize: 'var(--fs-label)', fontWeight: 500, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Transaction history — {ticker}
             </span>
             <button
-              onClick={() => setCollapsed(c => !c)}
+              onClick={onClose}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-4)', fontSize: 14, lineHeight: 1, padding: '0 2px' }}
-              title={collapsed ? 'Expand' : 'Collapse'}
-            >
-              {collapsed ? '+' : '−'}
-            </button>
+              title="Close"
+            >−</button>
           </div>
 
-          {!collapsed && (
-            loading ? (
+          {loading ? (
               <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-4)', padding: '4px 0' }}>Loading…</div>
             ) : rows.length === 0 ? (
               <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-4)', padding: '4px 0' }}>No transactions recorded.</div>
@@ -526,6 +523,7 @@ export default function HomeClient({
                               ticker={h.ticker}
                               avgCost={h.avg_cost}
                               onDelete={() => loadPortfolioData(activeId)}
+                              onClose={() => setHistOpen(null)}
                             />
                           )}
                         </>
