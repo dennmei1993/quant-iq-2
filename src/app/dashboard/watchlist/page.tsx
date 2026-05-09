@@ -158,80 +158,6 @@ function WatchlistPanel({
           ))}
         </div>
       )}
-      {/* ── Buy modal ── */}
-      {txModal && (
-        <>
-          <div onClick={() => setTxModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.4)' }} />
-          <div onClick={e => e.stopPropagation()} style={{
-            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-            zIndex: 201, background: 'var(--bg)', border: '1px solid var(--border)',
-            borderRadius: 8, padding: '1.4rem', width: 360,
-            boxShadow: '0 16px 48px rgba(0,0,0,0.15)',
-          }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div>
-                <div style={{ ...ls, marginBottom: 2 }}>Add to portfolio</div>
-                <div style={{ fontSize: 'var(--fs-heading)', fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>{txModal.ticker}</div>
-                {txModal.name && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>{txModal.name}</div>}
-              </div>
-              <button onClick={() => setTxModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
-            </div>
-
-            {/* Fields */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.9rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <div>
-                  <div style={ls}>Quantity</div>
-                  <input value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="0" type="number" style={inputSt()} />
-                </div>
-                <div>
-                  <div style={ls}>Buy price ($)</div>
-                  <input value={txPrice} onChange={e => setTxPrice(e.target.value)} placeholder="0.00" type="number" style={inputSt()} />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <div>
-                  <div style={ls}>Date</div>
-                  <input value={txDate} onChange={e => setTxDate(e.target.value)} type="date" style={inputSt()} />
-                </div>
-                <div>
-                  <div style={ls}>Fees ($)</div>
-                  <input value={txFees} onChange={e => setTxFees(e.target.value)} placeholder="0.00" type="number" style={inputSt()} />
-                </div>
-              </div>
-              <div>
-                <div style={ls}>Notes (optional)</div>
-                <input value={txNotes} onChange={e => setTxNotes(e.target.value)} placeholder="e.g. Earnings play" style={inputSt()} />
-              </div>
-            </div>
-
-            {/* Total preview */}
-            {txQty && txPrice && (
-              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', marginBottom: '0.8rem', padding: '0.4rem 0.7rem', background: 'var(--bg-subtle)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
-                Total cost: <strong style={{ color: 'var(--text)' }}>
-                  ${(parseFloat(txQty || '0') * parseFloat(txPrice || '0') + parseFloat(txFees || '0')).toFixed(2)}
-                </strong>
-              </div>
-            )}
-
-            {txError && <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--signal-bear)', marginBottom: '0.8rem' }}>{txError}</div>}
-
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button onClick={() => setTxModal(null)}
-                style={{ padding: '4px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                Cancel
-              </button>
-              <button onClick={handleBuy} disabled={txSaving}
-                style={{ padding: '4px 14px', background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.3)', color: 'var(--signal-bull)', fontWeight: 600, borderRadius: 'var(--r-md)', cursor: txSaving ? 'not-allowed' : 'pointer', fontSize: 'var(--fs-sm)', opacity: txSaving ? 0.6 : 1, fontFamily: 'inherit' }}>
-                {txSaving ? '…' : 'Record Buy'}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
     </div>
   )
 }
@@ -723,6 +649,71 @@ export default function WatchlistPage() {
         </div>
 
       </div>
+
+      {/* ── Buy modal ── */}
+      {txModal && (
+        <>
+          <div onClick={() => setTxModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.4)' }} />
+          <div onClick={e => e.stopPropagation()} style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 201, background: 'var(--bg)', border: '1px solid var(--border)',
+            borderRadius: 8, padding: '1.4rem', width: 360,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div>
+                <div style={{ ...ls, marginBottom: 2 }}>Add to portfolio</div>
+                <div style={{ fontSize: 'var(--fs-heading)', fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>{txModal.ticker}</div>
+                {txModal.name && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>{txModal.name}</div>}
+              </div>
+              <button onClick={() => setTxModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.9rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div>
+                  <div style={ls}>Quantity</div>
+                  <input value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="0" type="number" style={inputSt()} />
+                </div>
+                <div>
+                  <div style={ls}>Buy price ($)</div>
+                  <input value={txPrice} onChange={e => setTxPrice(e.target.value)} placeholder="0.00" type="number" style={inputSt()} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div>
+                  <div style={ls}>Date</div>
+                  <input value={txDate} onChange={e => setTxDate(e.target.value)} type="date" style={inputSt()} />
+                </div>
+                <div>
+                  <div style={ls}>Fees ($)</div>
+                  <input value={txFees} onChange={e => setTxFees(e.target.value)} placeholder="0.00" type="number" style={inputSt()} />
+                </div>
+              </div>
+              <div>
+                <div style={ls}>Notes (optional)</div>
+                <input value={txNotes} onChange={e => setTxNotes(e.target.value)} placeholder="e.g. Earnings play" style={inputSt()} />
+              </div>
+            </div>
+            {txQty && txPrice && (
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', marginBottom: '0.8rem', padding: '0.4rem 0.7rem', background: 'var(--bg-subtle)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                Total: <strong style={{ color: 'var(--text)' }}>${(parseFloat(txQty||'0') * parseFloat(txPrice||'0') + parseFloat(txFees||'0')).toFixed(2)}</strong>
+              </div>
+            )}
+            {txError && <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--signal-bear)', marginBottom: '0.8rem' }}>{txError}</div>}
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button onClick={() => setTxModal(null)}
+                style={{ padding: '4px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Cancel
+              </button>
+              <button onClick={handleBuy} disabled={txSaving}
+                style={{ padding: '4px 14px', background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.3)', color: 'var(--signal-bull)', fontWeight: 600, borderRadius: 'var(--r-md)', cursor: txSaving ? 'not-allowed' : 'pointer', fontSize: 'var(--fs-sm)', opacity: txSaving ? 0.6 : 1, fontFamily: 'inherit' }}>
+                {txSaving ? '…' : 'Record Buy'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
     </div>
   )
 }
