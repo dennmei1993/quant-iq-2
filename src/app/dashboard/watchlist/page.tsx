@@ -209,22 +209,29 @@ function SelectionPanel({
         const data = await res.json()
         const raw  = data.assets ?? []
         const q    = query.trim().toUpperCase()
-        const sorted = [...raw].sort((a, b) => {
+
+        // Filter to only results that actually match the query
+        const filtered = raw.filter((a: any) =>
+          a.ticker.toUpperCase().includes(q) ||
+          (a.name ?? '').toUpperCase().includes(q)
+        )
+
+        // Sort: exact ticker → ticker starts-with → ticker contains → name contains
+        // Within each group: ticker alphabetically, then name
+        const sorted = [...filtered].sort((a: any, b: any) => {
           const aT = a.ticker.toUpperCase()
           const bT = b.ticker.toUpperCase()
-          // Exact ticker match first
-          if (aT === q && bT !== q) return -1
-          if (bT === q && aT !== q) return  1
-          // Ticker starts-with before name matches
-          const aStarts = aT.startsWith(q)
-          const bStarts = bT.startsWith(q)
-          if (aStarts && !bStarts) return -1
-          if (bStarts && !aStarts) return  1
-          // Within same group: sort by ticker symbol alphabetically, then name
-          const tickerCmp = aT.localeCompare(bT)
-          if (tickerCmp !== 0) return tickerCmp
-          return (a.name ?? '').localeCompare(b.name ?? '')
+          const rank = (t: string, n: string) =>
+            t === q               ? 0 :
+            t.startsWith(q)       ? 1 :
+            t.includes(q)         ? 2 :
+            (n ?? '').toUpperCase().startsWith(q) ? 3 : 4
+          const diff = rank(aT, a.name) - rank(bT, b.name)
+          if (diff !== 0) return diff
+          const tc = aT.localeCompare(bT)
+          return tc !== 0 ? tc : (a.name ?? '').localeCompare(b.name ?? '')
         })
+
         setResults(sorted.slice(0, 8))
       } catch { setResults([]) }
       finally   { setSearching(false) }
