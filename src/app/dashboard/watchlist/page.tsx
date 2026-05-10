@@ -209,12 +209,21 @@ function SelectionPanel({
         const data = await res.json()
         const raw  = data.assets ?? []
         const q    = query.trim().toUpperCase()
-        // Sort: exact ticker match → starts with ticker → rest
         const sorted = [...raw].sort((a, b) => {
-          const aExact  = a.ticker.toUpperCase() === q ? 0 : a.ticker.toUpperCase().startsWith(q) ? 1 : 2
-          const bExact  = b.ticker.toUpperCase() === q ? 0 : b.ticker.toUpperCase().startsWith(q) ? 1 : 2
-          if (aExact !== bExact) return aExact - bExact
-          return a.ticker.localeCompare(b.ticker)
+          const aT = a.ticker.toUpperCase()
+          const bT = b.ticker.toUpperCase()
+          // Exact ticker match first
+          if (aT === q && bT !== q) return -1
+          if (bT === q && aT !== q) return  1
+          // Ticker starts-with before name matches
+          const aStarts = aT.startsWith(q)
+          const bStarts = bT.startsWith(q)
+          if (aStarts && !bStarts) return -1
+          if (bStarts && !aStarts) return  1
+          // Within same group: sort by ticker symbol alphabetically, then name
+          const tickerCmp = aT.localeCompare(bT)
+          if (tickerCmp !== 0) return tickerCmp
+          return (a.name ?? '').localeCompare(b.name ?? '')
         })
         setResults(sorted.slice(0, 8))
       } catch { setResults([]) }
