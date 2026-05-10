@@ -664,7 +664,7 @@ export default function WatchlistPage() {
           <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
             <span className="section-label">Add to watchlist</span>
           </div>
-          <div style={{ padding: '14px', position: 'relative', maxHeight: '70vh', overflowY: 'auto' }}>
+          <div style={{ padding: '14px', position: 'relative', minHeight: 320, maxHeight: '70vh', overflowY: 'auto' }}>
             <SelectionPanel
               universe={portfolio.universe ?? []}
               themes={themes}
