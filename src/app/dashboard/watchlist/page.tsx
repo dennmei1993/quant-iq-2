@@ -205,48 +205,10 @@ function SelectionPanel({
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const q = query.trim().toUpperCase()
-
-        // Two parallel searches: one by ticker, one by name
-        const [tickerRes, nameRes] = await Promise.all([
-          fetch(`/api/assets/search?q=${encodeURIComponent(query)}&by=ticker&limit=6`).then(r => r.json()),
-          fetch(`/api/assets/search?q=${encodeURIComponent(query)}&by=name&limit=6`).then(r => r.json()),
-        ])
-
-        const tickerHits: any[] = tickerRes.assets ?? []
-        const nameHits:   any[] = nameRes.assets   ?? []
-
-        // Deduplicate by ticker — ticker results take priority
-        const seen   = new Set(tickerHits.map((a: any) => a.ticker))
-        const merged = [
-          ...tickerHits,
-          ...nameHits.filter((a: any) => !seen.has(a.ticker)),
-        ]
-
-        // Filter: ticker hits must contain q in ticker; name hits must contain q in name
-        const filtered = merged.filter((a: any) =>
-          a.ticker.toUpperCase().includes(q) ||
-          (a.name ?? '').toUpperCase().includes(q)
-        )
-
-        // Sort: exact ticker → ticker starts-with → ticker contains → name match
-        const rank = (t: string, n: string) =>
-          t === q                                   ? 0 :
-          t.startsWith(q)                           ? 1 :
-          t.includes(q)                             ? 2 :
-          (n ?? '').toUpperCase().startsWith(q)     ? 3 : 4
-
-        const sorted = [...filtered].sort((a: any, b: any) => {
-          const diff = rank(a.ticker.toUpperCase(), a.name) - rank(b.ticker.toUpperCase(), b.name)
-          if (diff !== 0) return diff
-          // Within ticker group: sort by ticker alphabetically
-          const grpA = rank(a.ticker.toUpperCase(), a.name)
-          if (grpA <= 2) return a.ticker.localeCompare(b.ticker)
-          // Within name group: sort by name
-          return (a.name ?? '').localeCompare(b.name ?? '')
-        })
-
-        setResults(sorted.slice(0, 10))
+        // API returns ticker-matches first, then name-matches — already ordered correctly
+        const res  = await fetch(`/api/assets/search?q=${encodeURIComponent(query)}&limit=10`)
+        const data = await res.json()
+        setResults(data.assets ?? [])
       } catch { setResults([]) }
       finally   { setSearching(false) }
     }, 220)
