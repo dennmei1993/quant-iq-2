@@ -205,34 +205,48 @@ function SelectionPanel({
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const res  = await fetch(`/api/assets/search?q=${encodeURIComponent(query)}&limit=20`)
-        const data = await res.json()
-        const raw  = data.assets ?? []
-        const q    = query.trim().toUpperCase()
+        const q = query.trim().toUpperCase()
 
-        // Filter to only results that actually match the query
-        const filtered = raw.filter((a: any) =>
+        // Two parallel searches: one by ticker, one by name
+        const [tickerRes, nameRes] = await Promise.all([
+          fetch(`/api/assets/search?q=${encodeURIComponent(query)}&by=ticker&limit=6`).then(r => r.json()),
+          fetch(`/api/assets/search?q=${encodeURIComponent(query)}&by=name&limit=6`).then(r => r.json()),
+        ])
+
+        const tickerHits: any[] = tickerRes.assets ?? []
+        const nameHits:   any[] = nameRes.assets   ?? []
+
+        // Deduplicate by ticker — ticker results take priority
+        const seen   = new Set(tickerHits.map((a: any) => a.ticker))
+        const merged = [
+          ...tickerHits,
+          ...nameHits.filter((a: any) => !seen.has(a.ticker)),
+        ]
+
+        // Filter: ticker hits must contain q in ticker; name hits must contain q in name
+        const filtered = merged.filter((a: any) =>
           a.ticker.toUpperCase().includes(q) ||
           (a.name ?? '').toUpperCase().includes(q)
         )
 
-        // Sort: exact ticker → ticker starts-with → ticker contains → name contains
-        // Within each group: ticker alphabetically, then name
+        // Sort: exact ticker → ticker starts-with → ticker contains → name match
+        const rank = (t: string, n: string) =>
+          t === q                                   ? 0 :
+          t.startsWith(q)                           ? 1 :
+          t.includes(q)                             ? 2 :
+          (n ?? '').toUpperCase().startsWith(q)     ? 3 : 4
+
         const sorted = [...filtered].sort((a: any, b: any) => {
-          const aT = a.ticker.toUpperCase()
-          const bT = b.ticker.toUpperCase()
-          const rank = (t: string, n: string) =>
-            t === q               ? 0 :
-            t.startsWith(q)       ? 1 :
-            t.includes(q)         ? 2 :
-            (n ?? '').toUpperCase().startsWith(q) ? 3 : 4
-          const diff = rank(aT, a.name) - rank(bT, b.name)
+          const diff = rank(a.ticker.toUpperCase(), a.name) - rank(b.ticker.toUpperCase(), b.name)
           if (diff !== 0) return diff
-          const tc = aT.localeCompare(bT)
-          return tc !== 0 ? tc : (a.name ?? '').localeCompare(b.name ?? '')
+          // Within ticker group: sort by ticker alphabetically
+          const grpA = rank(a.ticker.toUpperCase(), a.name)
+          if (grpA <= 2) return a.ticker.localeCompare(b.ticker)
+          // Within name group: sort by name
+          return (a.name ?? '').localeCompare(b.name ?? '')
         })
 
-        setResults(sorted.slice(0, 8))
+        setResults(sorted.slice(0, 10))
       } catch { setResults([]) }
       finally   { setSearching(false) }
     }, 220)
@@ -331,18 +345,32 @@ function SelectionPanel({
             {searching && <span style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>…</span>}
             {results.length > 0 && !selected && (
               <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', marginTop: 2, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}>
-                {results.map(r => (
-                  <div key={r.ticker}
-                    onClick={() => { setSelected({ ticker: r.ticker, name: r.name }); setResults([]) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <span style={{ fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)', minWidth: 52 }}>{r.ticker}</span>
-                    <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                    <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase' }}>{r.asset_type}</span>
-                  </div>
-                ))}
+                {results.map((r, i) => {
+                  const q    = query.trim().toUpperCase()
+                  const isTk = r.ticker.toUpperCase().includes(q)
+                  const prev = results[i - 1]
+                  const prevIsTk = prev ? prev.ticker.toUpperCase().includes(q) : true
+                  const showLabel = i === 0 || (isTk !== prevIsTk)
+                  return (
+                    <div key={r.ticker}>
+                      {showLabel && (
+                        <div style={{ padding: '4px 10px 2px', fontSize: 'var(--fs-label)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+                          {isTk ? 'Ticker' : 'Name'}
+                        </div>
+                      )}
+                      <div
+                        onClick={() => { setSelected({ ticker: r.ticker, name: r.name }); setResults([]) }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span style={{ fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)', minWidth: 52 }}>{r.ticker}</span>
+                        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                        <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase' }}>{r.asset_type}</span>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
