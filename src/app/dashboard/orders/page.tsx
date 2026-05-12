@@ -123,7 +123,8 @@ function PlaceOrderModal({ cash, onClose, onPlaced }: {
       if (stopPrice)  body.stop_price  = parseFloat(stopPrice)
       if (notes)      body.notes       = notes
 
-      const res  = await fetch('/api/broker/orders', {
+      // Send to real Moomoo account
+      const res  = await fetch('/api/broker/orders/moomoo', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
@@ -297,6 +298,7 @@ export default function OrdersPage() {
   const [orderModal,setOrderModal] = useState(false)
   const [cancelling,setCancelling] = useState<string | null>(null)
   const [toggling,  setToggling]  = useState(false)
+  const [useMoomoo, setUseMoomoo]  = useState(true)  // true = real account, false = simulator
 
   const load = useCallback(async () => {
     try {
@@ -311,13 +313,40 @@ export default function OrdersPage() {
       if (statusData.error) { setStatus(null); setLoading(false); return }
       setStatus(statusData)
 
-      // Bridge is online — fetch orders and positions
-      const [ordersRes, posRes] = await Promise.all([
-        fetch('/api/broker/orders'),
-        fetch('/api/broker/positions'),
+      // Bridge is online — fetch from real account + simulator
+      const [moomooOrdersRes, simOrdersRes, posRes] = await Promise.all([
+        fetch('/api/broker/orders/moomoo'),   // real Moomoo account
+        fetch('/api/broker/orders'),           // simulator
+        fetch('/api/broker/account/positions'), // real positions
       ])
-      if (ordersRes.ok) { const d = await ordersRes.json(); setOrders(d.orders ?? []) }
-      if (posRes.ok)    { const d = await posRes.json();    setPositions(d.positions ?? []) }
+      if (moomooOrdersRes.ok) {
+        const d = await moomooOrdersRes.json()
+        // Normalise Moomoo order shape to match simulator shape
+        const moomooOrders = (d.orders ?? []).map((o: any) => ({
+          order_id:   o.order_id   ?? o.orderid ?? '',
+          symbol:     o.code       ?? o.symbol  ?? '',
+          side:       o.trd_side   ?? o.side     ?? '',
+          order_type: o.order_type ?? 'LIMIT',
+          qty:        parseInt(o.qty ?? o.quantity ?? 0),
+          limit_price:parseFloat(o.price ?? 0) || null,
+          stop_price: null,
+          status:     o.order_status ?? o.status ?? '',
+          fill_price: parseFloat(o.dealt_avg_price ?? 0) || null,
+          fill_time:  o.updated_time ?? null,
+          created_at: o.create_time  ?? new Date().toISOString(),
+          commission: 0,
+          slippage:   0,
+          notes:      o.remark ?? '',
+          source:     'moomoo',
+        }))
+        setOrders(moomooOrders)
+      }
+      if (simOrdersRes.ok) {
+        // Merge simulator orders (tagged with source)
+        // const d = await simOrdersRes.json()
+        // setSimOrders(d.orders ?? [])
+      }
+      if (posRes.ok) { const d = await posRes.json(); setPositions(d.positions ?? []) }
     } catch {
       setStatus(null)
     }
@@ -330,10 +359,13 @@ export default function OrdersPage() {
     return () => clearInterval(interval)
   }, [load])
 
-  async function cancelOrder(orderId: string) {
+  async function cancelOrder(orderId: string, source = 'moomoo') {
     setCancelling(orderId)
     try {
-      await fetch(`/api/broker/orders/${orderId}`, { method: 'DELETE' })
+      const endpoint = source === 'moomoo'
+        ? `/api/broker/orders/moomoo/${orderId}`
+        : `/api/broker/orders/${orderId}`
+      await fetch(endpoint, { method: 'DELETE' })
       await load()
     } catch {}
     finally { setCancelling(null) }
@@ -467,7 +499,7 @@ export default function OrdersPage() {
                     </td>
                     <td style={{ padding: '8px 12px', textAlign: 'right' }}>
                       <button
-                        onClick={() => cancelOrder(o.order_id)}
+                        onClick={() => cancelOrder(o.order_id, (o as any).source ?? 'moomoo')}
                         disabled={cancelling === o.order_id}
                         style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px', background: 'rgba(185,28,28,0.07)', border: '1px solid rgba(185,28,28,0.2)', color: 'var(--signal-bear)', borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit', opacity: cancelling === o.order_id ? 0.4 : 1 }}
                       >

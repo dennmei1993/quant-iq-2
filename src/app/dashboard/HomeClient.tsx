@@ -1,5 +1,7 @@
 'use client'
 
+import React from 'react'
+
 // src/app/dashboard/HomeClient.tsx
 // Overview page — content area only (sidebar owned by layout).
 // Fetches portfolio data client-side so it stays live.
@@ -26,7 +28,7 @@ interface Portfolio {
   total_capital:  number
   cash_pct:       number
   universe:       string[]
-  moomoo_account: string | null
+  moomoo_linked?: boolean
 }
 
 interface Holding {
@@ -204,8 +206,6 @@ type PortfolioPrefs = {
   options_enabled:       boolean
   options_capital_pct:   number
   options_strategies:    string[]
-  moomoo_account:        string | null
-  moomoo_password:       string | null
 }
 
 function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string; onClose: () => void }) {
@@ -525,68 +525,6 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
               )}
             </div>
 
-            {/* Moomoo integration */}
-            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-              <div style={{ padding: '8px 12px', background: current.moomoo_account ? 'rgba(21,128,61,0.04)' : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 500, color: 'var(--text)' }}>Moomoo account</div>
-                  <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 1 }}>
-                    {current.moomoo_account
-                      ? `Connected — account ${current.moomoo_account}`
-                      : 'Not linked — holdings managed manually'}
-                  </div>
-                </div>
-                {current.moomoo_account && (
-                  <span style={{ fontSize: 'var(--fs-xs)', padding: '1px 7px', borderRadius: 'var(--r-pill)', background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.25)', color: 'var(--signal-bull)', fontWeight: 500 }}>
-                    ● Linked
-                  </span>
-                )}
-              </div>
-              <div style={{ padding: '12px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <label style={labelStyle}>Account number</label>
-                    <input
-                      value={current.moomoo_account ?? ''}
-                      onChange={e => set('moomoo_account', e.target.value || null)}
-                      placeholder="e.g. 123456"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Password / PIN</label>
-                    <input
-                      type="password"
-                      value={current.moomoo_password ?? ''}
-                      onChange={e => set('moomoo_password', e.target.value || null)}
-                      placeholder="Trading password"
-                      style={inputStyle}
-                    />
-                  </div>
-                </div>
-                <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', lineHeight: 1.5 }}>
-                  When linked, holdings are synced from your Moomoo account automatically. Leave blank to manage holdings manually.
-                </div>
-                {current.moomoo_account && (
-                  <button
-                    onClick={async () => {
-                      if (!portfolioId) return
-                      try {
-                        const res  = await fetch(`/api/portfolio/sync?portfolio_id=${portfolioId}`, { method: 'POST' })
-                        const data = await res.json()
-                        alert(data.message ?? 'Sync complete')
-                      } catch {
-                        alert('Sync failed — check broker bridge is running')
-                      }
-                    }}
-                    style={{ padding: '5px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' }}
-                  >
-                    Sync now ↗
-                  </button>
-                )}
-              </div>
-            </div>
-
             {/* Footer */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)', marginTop: '0.25rem' }}>
               <button onClick={save} disabled={!isDirty || saving} className="btn btn-dark"
@@ -684,11 +622,11 @@ export default function HomeClient({
 
   // Poll broker bridge — only when running locally (bridge can't run on Vercel)
   useEffect(() => {
-    const account = activePortfolio?.moomoo_account
-    const isLocal = typeof window !== 'undefined' &&
+    const isLinked = activePortfolio?.moomoo_linked === true
+    const isLocal  = typeof window !== 'undefined' &&
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 
-    if (!isLocal || !account || typeof account !== 'string' || account.trim() === '') {
+    if (!isLocal || !isLinked) {
       setBroker(null)
       return
     }
@@ -1002,8 +940,8 @@ export default function HomeClient({
                       const sc         = sig?.signal ?? 'hold'
                       const histIsOpen = histOpen === h.ticker
                       return (
-                        <>
-                          <tr key={h.id}>
+                        <React.Fragment key={h.id}>
+                          <tr>
                             <td>
                               <div className="ticker-cell">
                                 <button
@@ -1070,7 +1008,7 @@ export default function HomeClient({
                               onClose={() => setHistOpen(null)}
                             />
                           )}
-                        </>
+                        </React.Fragment>
                       )
                     })}
                   </tbody>

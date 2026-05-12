@@ -17,10 +17,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'portfolio_id required' }, { status: 400 })
     }
 
-    // Fetch portfolio — verify ownership and check moomoo_account
+    // Fetch portfolio — verify ownership and check moomoo_linked
     const { data: portfolio, error: pErr } = await supabase
       .from('portfolios')
-      .select('id, name, moomoo_account, moomoo_password')
+      .select('id, name, moomoo_linked')
       .eq('id', portfolioId)
       .eq('user_id', user.id)
       .single()
@@ -29,29 +29,58 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Portfolio not found' }, { status: 404 })
     }
 
-    // No integration if account is not set
-    if (!portfolio.moomoo_account) {
+    if (!portfolio.moomoo_linked) {
       return NextResponse.json({
         ok:      false,
         synced:  0,
-        message: 'No Moomoo account linked to this portfolio — skipping sync',
+        message: 'This portfolio is not linked to Moomoo — go to Settings to link it',
       })
     }
 
-    // Call broker bridge for live positions
-    let positions: any[]
-    try {
-      const res = await fetch(`${BRIDGE_URL}/positions`, {
-        signal: AbortSignal.timeout(5000),
+    // Fetch Moomoo credentials from user profile
+    const { data: profile, error: profErr } = await supabase
+      .from('profiles')
+      .select('moomoo_account, moomoo_password')
+      .eq('id', user.id)
+      .single()
+
+    if (profErr || !profile?.moomoo_account) {
+      return NextResponse.json({
+        ok:      false,
+        synced:  0,
+        message: 'No Moomoo account configured — go to Settings to add your account',
       })
-      if (!res.ok) throw new Error(`Bridge returned ${res.status}`)
+    }
+
+    // Use profile credentials
+    const moomooAccount  = profile.moomoo_account
+    const moomooPassword = profile.moomoo_password
+
+    // Call broker bridge — real account positions
+    let positions: any[]
+    let cash: number | null = null
+    try {
+      const params = new URLSearchParams({
+        account: moomooAccount,
+        env:     'real',
+      })
+      if (moomooPassword) params.set('pwd', moomooPassword)
+
+      const res = await fetch(`${BRIDGE_URL}/account/positions?${params}`, {
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail ?? `Bridge returned ${res.status}`)
+      }
       const data = await res.json()
       positions  = data.positions ?? []
+      cash       = data.cash ?? null
     } catch (e: any) {
       return NextResponse.json({
         ok:      false,
         synced:  0,
-        message: `Broker bridge unreachable: ${e.message}. Make sure broker_service.py is running.`,
+        message: `Broker sync failed: ${e.message}`,
       }, { status: 503 })
     }
 
@@ -106,12 +135,23 @@ export async function POST(req: NextRequest) {
       .eq('portfolio_id', portfolioId)
       .not('ticker', 'in', `(${syncedTickers.map(t => `"${t}"`).join(',')})`)
 
+    // Optionally update total_capital from real account value
+    if (cash !== null) {
+      const invested = positions.reduce((s: number, p: any) => s + (p.cost_basis ?? 0), 0)
+      const total    = Math.round((cash + invested) * 100) / 100
+      await supabase
+        .from('portfolios')
+        .update({ total_capital: total })
+        .eq('id', portfolioId)
+        .eq('user_id', user.id)
+    }
+
     return NextResponse.json({
-      ok:      errors.length === 0,
+      ok:        errors.length === 0,
       synced,
-      removed: positions.length - synced,
-      errors:  errors.length ? errors : undefined,
-      message: `Synced ${synced} position${synced !== 1 ? 's' : ''} from Moomoo`,
+      errors:    errors.length ? errors : undefined,
+      cash,
+      message:   `Synced ${synced} position${synced !== 1 ? 's' : ''} from Moomoo account ${portfolio.moomoo_account}`,
       synced_at: new Date().toISOString(),
     })
 
