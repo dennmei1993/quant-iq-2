@@ -1,0 +1,7 @@
+# Quant IQ — Broker Bridge requirements
+# pip install -r broker-requirements.txt
+ 
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+moomoo-api>=9.0.0
+pydantic>=2.0.0

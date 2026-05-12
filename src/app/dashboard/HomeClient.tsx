@@ -572,6 +572,16 @@ export default function HomeClient({
   const [histOpen,     setHistOpen]     = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
+  // Broker state
+  const [broker, setBroker] = useState<{
+    connected: boolean
+    mode: string
+    auto_trading: boolean
+    cash: number | null
+    portfolio_value: number | null
+    open_orders: number | null
+  } | null>(null)
+
   const activePortfolio = portfolios.find(p => p.id === activeId) ?? portfolios[0] ?? null
 
   const loadPortfolioData = useCallback(async (portfolioId: string) => {
@@ -595,6 +605,23 @@ export default function HomeClient({
   useEffect(() => {
     if (activeId) loadPortfolioData(activeId)
   }, [activeId, loadPortfolioData])
+
+  // Poll broker bridge status every 30s
+  useEffect(() => {
+    async function fetchBroker() {
+      try {
+        const res  = await fetch('/api/broker/status')
+        const data = await res.json()
+        if (res.ok && !data.error) setBroker(data)
+        else setBroker(null)
+      } catch {
+        setBroker(null)
+      }
+    }
+    fetchBroker()
+    const interval = setInterval(fetchBroker, 30_000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Sync when shell sidebar switches portfolio
   useEffect(() => {
@@ -712,6 +739,62 @@ export default function HomeClient({
           </div>
         </div>
 
+        {/* ── Broker status bar ── */}
+        {broker !== null && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '6px 12px',
+            background: broker.connected ? 'rgba(21,128,61,0.04)' : 'var(--bg-subtle)',
+            border: `1px solid ${broker.connected ? 'rgba(21,128,61,0.15)' : 'var(--border)'}`,
+            borderRadius: 'var(--r-lg)', fontSize: 'var(--fs-sm)',
+          }}>
+            {/* Status dot */}
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+              background: broker.connected ? 'var(--signal-bull)' : 'var(--text-4)',
+              boxShadow: broker.connected ? '0 0 4px rgba(21,128,61,0.5)' : 'none',
+            }} />
+            <span style={{ color: broker.connected ? 'var(--signal-bull)' : 'var(--text-4)', fontWeight: 500 }}>
+              {broker.connected ? `Moomoo ${broker.mode}` : 'Broker offline'}
+            </span>
+            {broker.connected && (
+              <>
+                <span style={{ color: 'var(--border)', userSelect: 'none' }}>│</span>
+                <span style={{ color: 'var(--text-3)' }}>
+                  Cash <strong style={{ color: 'var(--text)' }}>{fmtCurrency(broker.cash ?? 0)}</strong>
+                </span>
+                <span style={{ color: 'var(--border)', userSelect: 'none' }}>│</span>
+                <span style={{ color: 'var(--text-3)' }}>
+                  Portfolio <strong style={{ color: 'var(--text)' }}>{fmtCurrency(broker.portfolio_value ?? 0)}</strong>
+                </span>
+                {(broker.open_orders ?? 0) > 0 && (
+                  <>
+                    <span style={{ color: 'var(--border)', userSelect: 'none' }}>│</span>
+                    <span style={{ color: 'var(--signal-neut)', fontWeight: 500 }}>
+                      {broker.open_orders} open order{broker.open_orders !== 1 ? 's' : ''}
+                    </span>
+                  </>
+                )}
+                <span style={{ color: 'var(--border)', userSelect: 'none' }}>│</span>
+                <span style={{
+                  fontSize: 'var(--fs-xs)', padding: '1px 7px', borderRadius: 'var(--r-pill)',
+                  background: broker.auto_trading ? 'rgba(21,128,61,0.1)' : 'var(--bg-subtle)',
+                  border: `1px solid ${broker.auto_trading ? 'rgba(21,128,61,0.3)' : 'var(--border)'}`,
+                  color: broker.auto_trading ? 'var(--signal-bull)' : 'var(--text-4)',
+                  fontWeight: 500,
+                }}>
+                  {broker.auto_trading ? '⚡ Auto-trading ON' : 'Manual'}
+                </span>
+              </>
+            )}
+            <button
+              onClick={() => router.push('/dashboard/orders')}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-4)', fontSize: 'var(--fs-xs)', cursor: 'pointer', padding: 0 }}
+            >
+              Orders ↗
+            </button>
+          </div>
+        )}
 
         {/* ── Capital metrics — full width single row ── */}
         {metrics && metrics.total_capital > 0 ? (
