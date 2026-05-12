@@ -623,37 +623,38 @@ export default function HomeClient({
     }
   }, [])
 
-  // Poll broker bridge — only when running locally (bridge can't run on Vercel)
+  // Poll broker bridge — ONLY on localhost, ONLY when portfolio is moomoo_linked
   useEffect(() => {
-    // Hard block on Vercel — never call broker from deployed site
-    if (typeof window === 'undefined') return
+    if (!mounted) return  // don't run until after hydration
     const hostname = window.location.hostname
-    const isLocal  = hostname === 'localhost' || hostname === '127.0.0.1'
-    const isLinked = activePortfolio?.moomoo_linked === true
-
-    if (!isLocal || !isLinked) {
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      setBroker(null)
+      return  // never poll on Vercel/production
+    }
+    if (!activePortfolio?.moomoo_linked) {
       setBroker(null)
       return
     }
-    let stopped = false
+    let active = true
+    let attempts = 0
     async function fetchBroker() {
+      if (!active || attempts >= 3) return
+      attempts++
       try {
         const res = await fetch('/api/broker/status', { signal: AbortSignal.timeout(3000) })
-        if (!res.ok) { stopped = true; setBroker(null); return }
+        if (!res.ok) { active = false; setBroker(null); return }
+        attempts = 0  // reset on success
         const data = await res.json()
         if (!data.error) setBroker(data)
-        else { stopped = true; setBroker(null) }
+        else { active = false; setBroker(null) }
       } catch {
-        stopped = true; setBroker(null)
+        active = false; setBroker(null)
       }
     }
     fetchBroker()
-    const interval = setInterval(() => {
-      if (stopped) return
-      fetchBroker()
-    }, 30_000)
-    return () => clearInterval(interval)
-  }, [activePortfolio?.moomoo_linked])
+    const interval = setInterval(fetchBroker, 30_000)
+    return () => { active = false; clearInterval(interval) }
+  }, [mounted, activePortfolio?.moomoo_linked])
 
   // Sync when shell sidebar switches portfolio
   useEffect(() => {

@@ -301,6 +301,15 @@ export default function OrdersPage() {
   const [useMoomoo, setUseMoomoo]  = useState(true)  // true = real account, false = simulator
 
   const load = useCallback(async () => {
+    // Never call broker on Vercel — bridge only runs locally
+    if (typeof window !== 'undefined') {
+      const h = window.location.hostname
+      if (h !== 'localhost' && h !== '127.0.0.1') {
+        setStatus(null)
+        setLoading(false)
+        return
+      }
+    }
     try {
       // Check status first — if bridge is offline (503) skip other calls
       const statusRes = await fetch('/api/broker/status', { signal: AbortSignal.timeout(4000) })
