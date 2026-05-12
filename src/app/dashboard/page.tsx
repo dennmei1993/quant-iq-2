@@ -6,7 +6,9 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import HomeClient from './HomeClient'
+import dynamicImport from 'next/dynamic'
+
+const HomeClient = dynamicImport(() => import('./HomeClient'), { ssr: false })
 
 export const dynamic   = 'force-dynamic'
 export const revalidate = 0
