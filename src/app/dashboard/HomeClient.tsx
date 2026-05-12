@@ -670,15 +670,18 @@ export default function HomeClient({
     if (activeId) loadPortfolioData(activeId)
   }, [activeId, loadPortfolioData])
 
-  // Poll broker bridge status every 30s
+  // Poll broker bridge status every 30s — only when bridge is reachable
   useEffect(() => {
     async function fetchBroker() {
       try {
-        const res  = await fetch('/api/broker/status')
+        const res  = await fetch('/api/broker/status', { signal: AbortSignal.timeout(3000) })
         const data = await res.json()
+        // 503 = bridge offline (expected when not running) — show nothing
+        // 500 = Vercel can't reach localhost — show nothing
         if (res.ok && !data.error) setBroker(data)
         else setBroker(null)
       } catch {
+        // Bridge not running or unreachable — silently hide the status bar
         setBroker(null)
       }
     }

@@ -33,19 +33,21 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
       if (body) init.body = body
     }
 
-    const res  = await fetch(url, init)
+    const res  = await fetch(url, { ...init, signal: AbortSignal.timeout(4000) })
     const data = await res.json()
 
     return NextResponse.json(data, { status: res.status })
   } catch (err: any) {
-    // Bridge not running
-    if (err.cause?.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
+    // Bridge not running or unreachable (ECONNREFUSED or timeout)
+    const isOffline =
+      err.cause?.code === 'ECONNREFUSED' ||
+      err.message?.includes('ECONNREFUSED') ||
+      err.name === 'TimeoutError' ||
+      err.name === 'AbortError'
+
+    if (isOffline) {
       return NextResponse.json(
-        {
-          error:   'Broker bridge offline',
-          detail:  'Start the bridge with: python broker_service.py',
-          bridge:  BRIDGE_URL,
-        },
+        { error: 'Broker bridge offline', detail: 'Start with: python broker_service.py' },
         { status: 503 }
       )
     }
