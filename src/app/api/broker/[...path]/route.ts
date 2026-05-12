@@ -38,20 +38,24 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
 
     return NextResponse.json(data, { status: res.status })
   } catch (err: any) {
-    // Bridge not running or unreachable (ECONNREFUSED or timeout)
+    // Any fetch failure = bridge unreachable (ECONNREFUSED, timeout, DNS, etc.)
+    // On Vercel, localhost:8765 is never reachable — always returns 503
+    const msg = err?.message ?? String(err)
     const isOffline =
-      err.cause?.code === 'ECONNREFUSED' ||
-      err.message?.includes('ECONNREFUSED') ||
-      err.name === 'TimeoutError' ||
-      err.name === 'AbortError'
+      err?.cause?.code === 'ECONNREFUSED' ||
+      msg.includes('ECONNREFUSED')        ||
+      msg.includes('ETIMEDOUT')           ||
+      msg.includes('fetch failed')        ||
+      err?.name === 'TimeoutError'        ||
+      err?.name === 'AbortError'
 
-    if (isOffline) {
+    if (isOffline || true) {  // treat ALL errors as offline — bridge is local-only
       return NextResponse.json(
         { error: 'Broker bridge offline', detail: 'Start with: python broker_service.py' },
         { status: 503 }
       )
     }
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 

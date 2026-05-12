@@ -635,6 +635,7 @@ export default function HomeClient({
   const [txError,  setTxError]  = useState('')
   const [histOpen,     setHistOpen]     = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [mounted,      setMounted]      = useState(false)
 
   // Broker state
   const [broker, setBroker] = useState<{
@@ -669,6 +670,9 @@ export default function HomeClient({
   useEffect(() => {
     if (activeId) loadPortfolioData(activeId)
   }, [activeId, loadPortfolioData])
+
+  // Set mounted after hydration to prevent SSR mismatch
+  useEffect(() => { setMounted(true) }, [])
 
   // Poll broker bridge status every 30s — only when bridge is reachable
   useEffect(() => {
@@ -807,7 +811,7 @@ export default function HomeClient({
         </div>
 
         {/* ── Broker status bar ── */}
-        {broker !== null && (
+        {mounted && broker !== null && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '6px 12px',
