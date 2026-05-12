@@ -684,14 +684,16 @@ export default function HomeClient({
 
   // Poll broker bridge only when active portfolio has a moomoo_account linked
   useEffect(() => {
-    if (!activePortfolio?.moomoo_account) {
+    const account = activePortfolio?.moomoo_account
+    // Only poll if account is a non-empty string
+    if (!account || typeof account !== 'string' || account.trim() === '') {
       setBroker(null)
       return
     }
     async function fetchBroker() {
       try {
         const res = await fetch('/api/broker/status', { signal: AbortSignal.timeout(3000) })
-        if (!res.ok) { setBroker(null); return }  // 503 = bridge offline
+        if (!res.ok) { setBroker(null); return }
         const data = await res.json()
         if (!data.error) setBroker(data)
         else setBroker(null)

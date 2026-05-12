@@ -147,7 +147,7 @@ export default async function DashboardHome() {
     // All user portfolios — total_capital + cash_pct needed for client-side metrics
     q<Portfolio[]>(
       db.from('portfolios')
-        .select('id, name, total_capital, cash_pct, universe, moomoo_account')
+        .select('id, name, total_capital, cash_pct, universe, moomoo_account').throwOnError()
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
     ),
@@ -171,7 +171,7 @@ export default async function DashboardHome() {
     <HomeClient
       regime={regime}
       themes={topThemes}
-      portfolios={portfoliosData ?? []}
+      portfolios={(portfoliosData ?? []).map(p => ({ ...p, moomoo_account: p.moomoo_account ?? null }))}
       latestAlert={latestAlert}
     />
   )
