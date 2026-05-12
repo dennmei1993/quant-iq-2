@@ -617,11 +617,7 @@ export default function HomeClient({
   const [alertDismissed,   setAlertDismissed]   = useState(false)
   const [panelOpen,        setPanelOpen]         = useState(false)
   const [portfolios,       setPortfolios]        = useState<Portfolio[]>(initialPortfolios)
-  const [activeId,         setActiveId]          = useState<string>(() => {
-    if (typeof window === 'undefined') return initialPortfolios[0]?.id ?? ''
-    const saved = sessionStorage.getItem('quant_iq_selected_portfolio')
-    return (saved && initialPortfolios.find(p => p.id === saved)) ? saved : (initialPortfolios[0]?.id ?? '')
-  })
+  const [activeId,         setActiveId]          = useState<string>(initialPortfolios[0]?.id ?? '')
   const [holdings,         setHoldings]          = useState<Holding[]>([])
   const [transactions,     setTransactions]      = useState<Array<{ type: string; total_amount: number; fees: number }>>([])
   const [loading,          setLoading]           = useState(false)
@@ -678,6 +674,12 @@ export default function HomeClient({
   useEffect(() => {
     setMounted(true)
     setTxDate(new Date().toISOString().split('T')[0])
+    // Restore selected portfolio from session — done here not in useState
+    // to avoid server/client mismatch (sessionStorage unavailable on server)
+    const saved = sessionStorage.getItem('quant_iq_selected_portfolio')
+    if (saved && initialPortfolios.find(p => p.id === saved)) {
+      setActiveId(saved)
+    }
   }, [])
 
   // Poll broker bridge only when active portfolio has a moomoo_account linked
