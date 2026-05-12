@@ -785,7 +785,7 @@ export default function HomeClient({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span className="page-date">
-              {new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+              {mounted ? new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
             </span>
             <div className="actions">
               <button
