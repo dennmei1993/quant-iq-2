@@ -21,11 +21,12 @@ import type {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Portfolio {
-  id:            string
-  name:          string
-  total_capital: number
-  cash_pct:      number
-  universe:      string[]
+  id:             string
+  name:           string
+  total_capital:  number
+  cash_pct:       number
+  universe:       string[]
+  moomoo_account: string | null
 }
 
 interface Holding {
@@ -674,25 +675,26 @@ export default function HomeClient({
   // Set mounted after hydration to prevent SSR mismatch
   useEffect(() => { setMounted(true) }, [])
 
-  // Poll broker bridge status every 30s — only when bridge is reachable
+  // Poll broker bridge only when active portfolio has a moomoo_account linked
   useEffect(() => {
+    if (!activePortfolio?.moomoo_account) {
+      setBroker(null)
+      return
+    }
     async function fetchBroker() {
       try {
         const res  = await fetch('/api/broker/status', { signal: AbortSignal.timeout(3000) })
         const data = await res.json()
-        // 503 = bridge offline (expected when not running) — show nothing
-        // 500 = Vercel can't reach localhost — show nothing
         if (res.ok && !data.error) setBroker(data)
         else setBroker(null)
       } catch {
-        // Bridge not running or unreachable — silently hide the status bar
         setBroker(null)
       }
     }
     fetchBroker()
     const interval = setInterval(fetchBroker, 30_000)
     return () => clearInterval(interval)
-  }, [])
+  }, [activePortfolio?.moomoo_account])
 
   // Sync when shell sidebar switches portfolio
   useEffect(() => {
