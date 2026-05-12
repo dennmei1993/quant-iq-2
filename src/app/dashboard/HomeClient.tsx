@@ -682,11 +682,13 @@ export default function HomeClient({
     }
   }, [])
 
-  // Poll broker bridge only when active portfolio has a moomoo_account linked
+  // Poll broker bridge — only when running locally (bridge can't run on Vercel)
   useEffect(() => {
     const account = activePortfolio?.moomoo_account
-    // Only poll if account is a non-empty string
-    if (!account || typeof account !== 'string' || account.trim() === '') {
+    const isLocal = typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+
+    if (!isLocal || !account || typeof account !== 'string' || account.trim() === '') {
       setBroker(null)
       return
     }
