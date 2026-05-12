@@ -45,12 +45,15 @@ interface Holding {
   } | null
 }
 
-interface Props {
+export interface HomeClientProps {
   regime:      Regime | null
   themes:      HomeTheme[]
   portfolios:  Portfolio[]
   latestAlert: PortfolioAlert | null
 }
+
+// Keep internal alias
+type Props = HomeClientProps
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

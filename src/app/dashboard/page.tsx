@@ -6,9 +6,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import dynamicImport from 'next/dynamic'
-
-const HomeClient = dynamicImport(() => import('./HomeClient'), { ssr: false })
+import HomeClientWrapper from './HomeClientWrapper'
 
 export const dynamic   = 'force-dynamic'
 export const revalidate = 0
@@ -169,7 +167,7 @@ export default async function DashboardHome() {
   const topThemes   = (themes ?? []).slice(0, 5)
 
   return (
-    <HomeClient
+    <HomeClientWrapper
       regime={regime}
       themes={topThemes}
       portfolios={(portfoliosData ?? [])}
