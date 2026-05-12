@@ -160,7 +160,7 @@ function InlineTransactionHistory({
                   {rows.map(r => (
                     <tr key={r.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', fontWeight: 600, color: typeCol(r.type), textTransform: 'uppercase' }}>{r.type}</td>
-                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{Number(r.quantity).toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
+                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{Number(r.quantity).toFixed(Number(r.quantity) % 1 === 0 ? 0 : 4).replace(/\.?0+$/, '')}</td>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>${Number(r.price).toFixed(2)}</td>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>${Number(r.total_amount).toFixed(2)}</td>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', color: 'var(--text-4)' }}>{r.fees > 0 ? `$${r.fees.toFixed(2)}` : '—'}</td>
@@ -485,7 +485,7 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
                     </div>
                     <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 3 }}>
                       {current.total_capital > 0
-                        ? `$${((current.total_capital * (current.options_capital_pct ?? 10)) / 100).toLocaleString()} of total capital`
+                        ? `$${Math.round((current.total_capital * (current.options_capital_pct ?? 10)) / 100).toLocaleString('en-US')} of total capital`
                         : 'Set total capital to see amount'}
                     </div>
                   </div>
@@ -623,35 +623,28 @@ export default function HomeClient({
   // Poll broker bridge — only when running locally (bridge can't run on Vercel)
   useEffect(() => {
     const isLinked = activePortfolio?.moomoo_linked === true
-    const isLocal  = typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
+    const isLocal  = hostname === 'localhost' || hostname === '127.0.0.1'
 
     if (!isLocal || !isLinked) {
       setBroker(null)
       return
     }
-    let failCount = 0
+    let stopped = false
     async function fetchBroker() {
       try {
         const res = await fetch('/api/broker/status', { signal: AbortSignal.timeout(3000) })
-        if (!res.ok) {
-          failCount++
-          setBroker(null)
-          return
-        }
-        failCount = 0
+        if (!res.ok) { stopped = true; setBroker(null); return }
         const data = await res.json()
         if (!data.error) setBroker(data)
-        else setBroker(null)
+        else { stopped = true; setBroker(null) }
       } catch {
-        failCount++
-        setBroker(null)
+        stopped = true; setBroker(null)
       }
     }
     fetchBroker()
-    // Poll every 30s but stop after 3 consecutive failures (bridge not running)
     const interval = setInterval(() => {
-      if (failCount >= 3) return  // bridge is offline — stop polling silently
+      if (stopped) return
       fetchBroker()
     }, 30_000)
     return () => clearInterval(interval)
@@ -954,7 +947,7 @@ export default function HomeClient({
                               </div>
                             </td>
                             <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                              {qty > 0 ? qty.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '—'}
+                              {qty > 0 ? qty.toFixed(qty % 1 === 0 ? 0 : 4).replace(/\.?0+$/, '') : '—'}
                             </td>
                             <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
                               {cost > 0 ? `$${cost.toFixed(2)}` : '—'}
