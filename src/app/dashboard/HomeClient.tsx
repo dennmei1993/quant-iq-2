@@ -685,6 +685,7 @@ export default function HomeClient({
   // Poll broker bridge only when active portfolio has a moomoo_account linked
   useEffect(() => {
     const account = activePortfolio?.moomoo_account
+    console.log('[Broker] moomoo_account:', JSON.stringify(account), typeof account)
     // Only poll if account is a non-empty string
     if (!account || typeof account !== 'string' || account.trim() === '') {
       setBroker(null)
