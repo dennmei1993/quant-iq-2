@@ -655,7 +655,7 @@ export default function HomeClient({
       fetchBroker()
     }, 30_000)
     return () => clearInterval(interval)
-  }, [activePortfolio?.moomoo_account])
+  }, [activePortfolio?.moomoo_linked])
 
   // Sync when shell sidebar switches portfolio
   useEffect(() => {

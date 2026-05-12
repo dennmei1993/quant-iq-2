@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
       synced,
       errors:    errors.length ? errors : undefined,
       cash,
-      message:   `Synced ${synced} position${synced !== 1 ? 's' : ''} from Moomoo account ${portfolio.moomoo_account}`,
+      message:   `Synced ${synced} position${synced !== 1 ? 's' : ''} from Moomoo account ${moomooAccount}`,
       synced_at: new Date().toISOString(),
     })
 

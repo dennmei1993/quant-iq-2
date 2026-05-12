@@ -76,7 +76,6 @@ export type Portfolio = {
   total_capital:  number
   cash_pct:       number
   universe:       string[]
-  moomoo_account: string | null
 }
 
 // ── Auth helper ────────────────────────────────────────────────────────────────
@@ -147,7 +146,7 @@ export default async function DashboardHome() {
     // All user portfolios — total_capital + cash_pct needed for client-side metrics
     q<Portfolio[]>(
       db.from('portfolios')
-        .select('id, name, total_capital, cash_pct, universe, moomoo_account').throwOnError()
+        .select('id, name, total_capital, cash_pct, universe')
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
     ),
@@ -171,7 +170,7 @@ export default async function DashboardHome() {
     <HomeClient
       regime={regime}
       themes={topThemes}
-      portfolios={(portfoliosData ?? []).map(p => ({ ...p, moomoo_account: p.moomoo_account ?? null }))}
+      portfolios={(portfoliosData ?? [])}
       latestAlert={latestAlert}
     />
   )
