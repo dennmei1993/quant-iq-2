@@ -685,25 +685,35 @@ export default function HomeClient({
   // Poll broker bridge only when active portfolio has a moomoo_account linked
   useEffect(() => {
     const account = activePortfolio?.moomoo_account
-    console.log('[Broker] moomoo_account:', JSON.stringify(account), typeof account)
     // Only poll if account is a non-empty string
     if (!account || typeof account !== 'string' || account.trim() === '') {
       setBroker(null)
       return
     }
+    let failCount = 0
     async function fetchBroker() {
       try {
         const res = await fetch('/api/broker/status', { signal: AbortSignal.timeout(3000) })
-        if (!res.ok) { setBroker(null); return }
+        if (!res.ok) {
+          failCount++
+          setBroker(null)
+          return
+        }
+        failCount = 0
         const data = await res.json()
         if (!data.error) setBroker(data)
         else setBroker(null)
       } catch {
+        failCount++
         setBroker(null)
       }
     }
     fetchBroker()
-    const interval = setInterval(fetchBroker, 30_000)
+    // Poll every 30s but stop after 3 consecutive failures (bridge not running)
+    const interval = setInterval(() => {
+      if (failCount >= 3) return  // bridge is offline — stop polling silently
+      fetchBroker()
+    }, 30_000)
     return () => clearInterval(interval)
   }, [activePortfolio?.moomoo_account])
 
