@@ -163,7 +163,9 @@ function InlineTransactionHistory({
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>${Number(r.total_amount).toFixed(2)}</td>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', color: 'var(--text-4)' }}>{r.fees > 0 ? `$${r.fees.toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', color: 'var(--text-3)' }}>
-                        {new Date(r.executed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                        <span suppressHydrationWarning>
+                          {typeof window !== 'undefined' ? new Date(r.executed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : r.executed_at.slice(0, 10)}
+                        </span>
                       </td>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', color: 'var(--text-4)' }}>{r.notes ?? '—'}</td>
                       <td style={{ padding: '5px 6px', textAlign: 'right' }}>
@@ -629,7 +631,7 @@ export default function HomeClient({
   const [txType,   setTxType]   = useState<'buy' | 'sell'>('sell')
   const [txQty,    setTxQty]    = useState('')
   const [txPrice,  setTxPrice]  = useState('')
-  const [txDate,   setTxDate]   = useState(new Date().toISOString().split('T')[0])
+  const [txDate,   setTxDate]   = useState('')
   const [txFees,   setTxFees]   = useState('')
   const [txNotes,  setTxNotes]  = useState('')
   const [txSaving, setTxSaving] = useState(false)
@@ -673,7 +675,10 @@ export default function HomeClient({
   }, [activeId, loadPortfolioData])
 
   // Set mounted after hydration to prevent SSR mismatch
-  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => {
+    setMounted(true)
+    setTxDate(new Date().toISOString().split('T')[0])
+  }, [])
 
   // Poll broker bridge only when active portfolio has a moomoo_account linked
   useEffect(() => {
@@ -786,7 +791,7 @@ export default function HomeClient({
             <div className="page-title">{activePortfolio?.name ?? '—'}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span className="page-date">
+            <span className="page-date" suppressHydrationWarning>
               {mounted ? new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
             </span>
             <div className="actions">
