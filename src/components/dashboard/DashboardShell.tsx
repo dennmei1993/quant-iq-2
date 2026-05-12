@@ -37,6 +37,9 @@ export default function DashboardShell({ user, children }: Props) {
   const [mobileOpen,      setMobileOpen]      = useState(false)
   const [portfolios,      setPortfolios]      = useState<Portfolio[]>([])
   const [activePortfolio, setActivePortfolio] = useState<string>('')
+  const [mounted,         setMounted]         = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   const pathname = usePathname()
   const router   = useRouter()
@@ -175,8 +178,8 @@ export default function DashboardShell({ user, children }: Props) {
           <h1 className="shell-page-title">{pageTitle}</h1>
           <div className="shell-topbar-right">
             <span className="shell-live-badge">⚡ Live</span>
-            <span className="shell-topbar-time">
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            <span className="shell-topbar-time" suppressHydrationWarning>
+              {mounted ? new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
             </span>
           </div>
         </header>
