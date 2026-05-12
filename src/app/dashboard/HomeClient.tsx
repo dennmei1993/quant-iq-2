@@ -622,9 +622,11 @@ export default function HomeClient({
 
   // Poll broker bridge — only when running locally (bridge can't run on Vercel)
   useEffect(() => {
-    const isLinked = activePortfolio?.moomoo_linked === true
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
+    // Hard block on Vercel — never call broker from deployed site
+    if (typeof window === 'undefined') return
+    const hostname = window.location.hostname
     const isLocal  = hostname === 'localhost' || hostname === '127.0.0.1'
+    const isLinked = activePortfolio?.moomoo_linked === true
 
     if (!isLocal || !isLinked) {
       setBroker(null)
@@ -717,7 +719,7 @@ export default function HomeClient({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }} suppressHydrationWarning>
 
       {/* Alert bar */}
       {latestAlert && !alertDismissed && (
@@ -737,7 +739,7 @@ export default function HomeClient({
         <div className="page-header">
           <div>
             <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Overview</div>
-            <div className="page-title">{activePortfolio?.name ?? '—'}</div>
+            <div className="page-title" suppressHydrationWarning>{activePortfolio?.name ?? '—'}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span className="page-date" suppressHydrationWarning>
@@ -824,7 +826,7 @@ export default function HomeClient({
         )}
 
         {/* ── Capital metrics — full width single row ── */}
-        {metrics && metrics.total_capital > 0 ? (
+        {mounted && metrics && metrics.total_capital > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div className="metrics" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
               <div className="metric">
