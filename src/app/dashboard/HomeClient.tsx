@@ -688,9 +688,10 @@ export default function HomeClient({
     }
     async function fetchBroker() {
       try {
-        const res  = await fetch('/api/broker/status', { signal: AbortSignal.timeout(3000) })
+        const res = await fetch('/api/broker/status', { signal: AbortSignal.timeout(3000) })
+        if (!res.ok) { setBroker(null); return }  // 503 = bridge offline
         const data = await res.json()
-        if (res.ok && !data.error) setBroker(data)
+        if (!data.error) setBroker(data)
         else setBroker(null)
       } catch {
         setBroker(null)

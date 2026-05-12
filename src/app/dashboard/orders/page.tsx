@@ -300,25 +300,27 @@ export default function OrdersPage() {
 
   const load = useCallback(async () => {
     try {
-      const [statusRes, ordersRes, posRes] = await Promise.all([
-        fetch('/api/broker/status'),
+      // Check status first — if bridge is offline (503) skip other calls
+      const statusRes = await fetch('/api/broker/status', { signal: AbortSignal.timeout(4000) })
+      if (!statusRes.ok) {
+        setStatus(null)
+        setLoading(false)
+        return
+      }
+      const statusData = await statusRes.json()
+      if (statusData.error) { setStatus(null); setLoading(false); return }
+      setStatus(statusData)
+
+      // Bridge is online — fetch orders and positions
+      const [ordersRes, posRes] = await Promise.all([
         fetch('/api/broker/orders'),
         fetch('/api/broker/positions'),
       ])
-      if (statusRes.ok) {
-        const d = await statusRes.json()
-        if (!d.error) setStatus(d)
-        else setStatus(null)
-      }
-      if (ordersRes.ok) {
-        const d = await ordersRes.json()
-        setOrders(d.orders ?? [])
-      }
-      if (posRes.ok) {
-        const d = await posRes.json()
-        setPositions(d.positions ?? [])
-      }
-    } catch {}
+      if (ordersRes.ok) { const d = await ordersRes.json(); setOrders(d.orders ?? []) }
+      if (posRes.ok)    { const d = await posRes.json();    setPositions(d.positions ?? []) }
+    } catch {
+      setStatus(null)
+    }
     finally { setLoading(false) }
   }, [])
 
