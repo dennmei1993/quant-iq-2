@@ -152,6 +152,8 @@ export async function PATCH(req: NextRequest) {
       "universe", "sector_exclude",
       // Options trading
       "options_enabled", "options_capital_pct", "options_strategies",
+      // Moomoo integration
+      "moomoo_account", "moomoo_password",
     ]);
 
     const update = Object.fromEntries(Object.entries(prefs).filter(([k]) => ALLOWED.has(k)));
