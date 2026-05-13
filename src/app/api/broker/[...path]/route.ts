@@ -56,7 +56,7 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
     if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
       let bodyText = await req.text()
 
-      // For order placement — inject trade PIN from user profile
+      // For order placement and cancellation — inject trade PIN from user profile
       const isOrderEndpoint = pathStr === 'orders/moomoo' || pathStr === 'account/unlock'
       if (isOrderEndpoint && bodyText) {
         try {
@@ -74,7 +74,17 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
       if (bodyText) init.body = bodyText
     }
 
-    const res  = await fetch(url, { ...init, signal: AbortSignal.timeout(10000) })
+    // For DELETE on orders/moomoo — append trade PIN as query param
+    let finalUrl = url
+    if (req.method === 'DELETE' && pathStr.startsWith('orders/moomoo/')) {
+      const tradePwd = await getTradePwd(user.id)
+      if (tradePwd) {
+        const sep = finalUrl.includes('?') ? '&' : '?'
+        finalUrl = `${finalUrl}${sep}trade_pwd=${encodeURIComponent(tradePwd)}`
+      }
+    }
+
+    const res  = await fetch(finalUrl, { ...init, signal: AbortSignal.timeout(10000) })
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })
 

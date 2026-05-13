@@ -317,22 +317,36 @@ def list_accounts():
 
 @app.get("/account/positions")
 def get_positions_real(env: str = "read"):
-    """
-    Pull positions directly from OpenD TradeContext.
-    env=read    → uses resolved trd_acc_id (real account in dev)
-    env=simulate → queries with SIMULATE trd_env
-    """
-    require_trd()
+    """Pull positions from real Moomoo account via FUTUAU."""
+    ctx = None
     try:
-        use_env  = trd_env  # use whatever was resolved at startup
-        use_acc  = trd_acc_id
+        ctx = ft.OpenSecTradeContext(
+            host=OPEND_HOST, port=OPEND_PORT,
+            security_firm=ft.SecurityFirm.FUTUAU,
+        )
+        ret, acc_data = ctx.get_acc_list()
+        if ret != ft.RET_OK or len(acc_data) == 0:
+            raise HTTPException(500, f"Cannot get account list: {acc_data}")
 
-        ret, pos_data = trd_ctx.position_list_query(trd_env=use_env, acc_id=use_acc)
+        # Prefer REAL account
+        use_acc = None
+        use_env = None
+        for _, row in acc_data.iterrows():
+            if str(row.get('trd_env', '')) == 'REAL':
+                use_acc = row['acc_id']
+                use_env = row['trd_env']
+                break
+        if use_acc is None:
+            use_acc = acc_data.iloc[0]['acc_id']
+            use_env = acc_data.iloc[0]['trd_env']
+
+        logger.info(f"Querying positions for account {use_acc} ({use_env})")
+
+        ret, pos_data = ctx.position_list_query(trd_env=use_env, acc_id=use_acc)
         if ret != ft.RET_OK:
             raise HTTPException(500, f"position_list_query failed: {pos_data}")
 
         logger.info(f"Positions columns: {list(pos_data.columns)}")
-        logger.info(f"Positions data:\n{pos_data.to_string()}")
 
         positions = []
         for _, row in pos_data.iterrows():
@@ -361,11 +375,9 @@ def get_positions_real(env: str = "read"):
             })
 
         # Cash / account summary
-        ret2, funds = trd_ctx.accinfo_query(trd_env=use_env, acc_id=use_acc)
+        ret2, funds = ctx.accinfo_query(trd_env=use_env, acc_id=use_acc)
         cash = total_value = None
         if ret2 == ft.RET_OK and len(funds) > 0:
-            logger.info(f"accinfo columns: {list(funds.columns)}")
-            logger.info(f"accinfo data:\n{funds.to_string()}")
             cash        = round(float(funds.iloc[0].get("cash",         0) or 0), 2)
             total_value = round(float(funds.iloc[0].get("total_assets", 0) or 0), 2)
 
@@ -381,6 +393,10 @@ def get_positions_real(env: str = "read"):
         raise
     except Exception as e:
         raise HTTPException(500, str(e))
+    finally:
+        if ctx:
+            try: ctx.close()
+            except: pass
 
 
 # ── Moomoo real account order endpoints ──────────────────────────────────────────
@@ -476,7 +492,7 @@ def place_order_moomoo(req: PlaceOrderRequest):
 
 
 @app.delete("/orders/moomoo/{order_id}")
-def cancel_order_moomoo(order_id: str):
+def cancel_order_moomoo(order_id: str, trade_pwd: str = ""):
     """Cancel a pending order in the real Moomoo account."""
     ctx = None
     try:
@@ -502,9 +518,10 @@ def cancel_order_moomoo(order_id: str):
             raise HTTPException(503, "No account found")
 
         # Must unlock on this context instance before modifying orders
-        if not TRADE_PWD:
-            raise HTTPException(401, "Trade PIN not configured. Set TRADE_PWD in broker-start.ps1")
-        ret_u, msg_u = ctx.unlock_trade(TRADE_PWD)
+        pwd = trade_pwd or TRADE_PWD
+        if not pwd:
+            raise HTTPException(401, "Trade PIN not configured")
+        ret_u, msg_u = ctx.unlock_trade(pwd)
         if ret_u != ft.RET_OK:
             raise HTTPException(401, f"Trade unlock failed: {msg_u}")
 
@@ -534,10 +551,32 @@ def cancel_order_moomoo(order_id: str):
 
 @app.get("/orders/moomoo")
 def get_orders_moomoo(status: str = ""):
-    """Get orders from Moomoo account directly (not SimulatedBroker)."""
-    require_trd()
+    """Get orders from real Moomoo account via FUTUAU firm."""
+    ctx = None
     try:
-        ret, data = trd_ctx.order_list_query(trd_env=trd_env, acc_id=trd_acc_id)
+        ctx = ft.OpenSecTradeContext(
+            host=OPEND_HOST, port=OPEND_PORT,
+            security_firm=ft.SecurityFirm.FUTUAU,
+        )
+        ret, acc_data = ctx.get_acc_list()
+        if ret != ft.RET_OK or len(acc_data) == 0:
+            raise HTTPException(500, f"Cannot get account list: {acc_data}")
+
+        # Prefer REAL account
+        acc_id = None
+        env    = None
+        for _, row in acc_data.iterrows():
+            if str(row.get('trd_env', '')) == 'REAL':
+                acc_id = row['acc_id']
+                env    = row['trd_env']
+                break
+        if acc_id is None:
+            acc_id = acc_data.iloc[0]['acc_id']
+            env    = acc_data.iloc[0]['trd_env']
+
+        logger.info(f"Querying orders for account {acc_id} ({env})")
+
+        ret, data = ctx.order_list_query(trd_env=env, acc_id=acc_id)
         if ret != ft.RET_OK:
             raise HTTPException(500, f"order_list_query failed: {data}")
 
@@ -548,11 +587,16 @@ def get_orders_moomoo(status: str = ""):
         orders = []
         for _, row in data.iterrows():
             orders.append({k: str(v) for k, v in row.items()})
-        return {"orders": orders, "account": str(trd_acc_id), "trd_env": str(trd_env)}
+        return {"orders": orders, "account": str(acc_id), "trd_env": str(env)}
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(500, str(e))
+    finally:
+        if ctx:
+            try: ctx.close()
+            except: pass
 
 # ── Auto-trading ──────────────────────────────────────────────────────────────
 
