@@ -579,7 +579,8 @@ export default function HomeClient({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [syncing,      setSyncing]      = useState(false)
   const [syncMsg,      setSyncMsg]      = useState('')
-  const [hasMoomoo,    setHasMoomoo]    = useState(false)
+  const [hasMoomoo,       setHasMoomoo]       = useState(false)
+  const [linkedPortfolioId, setLinkedPortfolioId] = useState<string | null>(null)
   const [mounted,      setMounted]      = useState(false)
 
   // Broker state
@@ -616,11 +617,14 @@ export default function HomeClient({
     if (activeId) loadPortfolioData(activeId)
   }, [activeId, loadPortfolioData])
 
-  // Check if user has Moomoo configured
+  // Check if user has Moomoo configured + which portfolio is linked
   useEffect(() => {
     fetch('/api/user/settings')
       .then(r => r.ok ? r.json() : null)
-      .then(d => setHasMoomoo(!!d?.profile?.moomoo_account))
+      .then(d => {
+        setHasMoomoo(!!d?.profile?.moomoo_account)
+        setLinkedPortfolioId(d?.moomoo_linked_portfolio?.id ?? null)
+      })
       .catch(() => {})
   }, [])
 
@@ -668,8 +672,9 @@ export default function HomeClient({
   // Auto-sync from Moomoo when portfolio loads and user has Moomoo configured
   useEffect(() => {
     if (!activeId || !hasMoomoo || !mounted) return
+    if (linkedPortfolioId && activeId !== linkedPortfolioId) return
     syncFromMoomoo()
-  }, [activeId, hasMoomoo, mounted])
+  }, [activeId, hasMoomoo, mounted, linkedPortfolioId])
 
   // Sync when shell sidebar switches portfolio
   useEffect(() => {
@@ -793,7 +798,7 @@ export default function HomeClient({
               >
                 <i className="ti ti-bookmark" aria-hidden /> Watchlist
               </button>
-              {hasMoomoo && (
+              {hasMoomoo && (!linkedPortfolioId || activeId === linkedPortfolioId) && (
                 <button
                   className="btn btn-outline"
                   onClick={syncFromMoomoo}
@@ -958,7 +963,7 @@ export default function HomeClient({
                 Full portfolio ↗
               </button>
             </div>
-            <div style={{ padding: '0 14px' }}>
+            <div style={{ padding: '0 14px', maxHeight: 480, overflowY: 'auto' }}>
               {holdings.length > 0 ? (
                 <table className="holdings-table" aria-label="Portfolio holdings">
                   <thead>
@@ -975,7 +980,7 @@ export default function HomeClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {holdings.slice(0, 10).map(h => {
+                    {holdings.map(h => {
                       const sig        = h.signal
                       const livePrice  = sig?.price_usd  ?? null
                       const chg        = sig?.change_pct ?? null
