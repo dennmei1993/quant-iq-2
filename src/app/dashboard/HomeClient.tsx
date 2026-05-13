@@ -548,6 +548,135 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+// ── Trade Order Modal ─────────────────────────────────────────────────────────
+
+function TradeOrderModal({ ticker, currentQty, avgCost, onClose, onPlaced }: {
+  ticker:     string
+  currentQty: number
+  avgCost:    number
+  onClose:    () => void
+  onPlaced:   () => void
+}) {
+  const [side,       setSide]       = useState<'BUY' | 'SELL'>('BUY')
+  const [qty,        setQty]        = useState('')
+  const [orderType,  setOrderType]  = useState<'MARKET' | 'LIMIT'>('LIMIT')
+  const [limitPrice, setLimitPrice] = useState('')
+  const [placing,    setPlacing]    = useState(false)
+  const [error,      setError]      = useState('')
+  const [preview,    setPreview]    = useState<any>(null)
+  const [done,       setDone]       = useState(false)
+
+  async function fetchPreview() {
+    if (!qty) return
+    try {
+      const params = new URLSearchParams({ symbol: `US.${ticker}`, side, qty, order_type: orderType })
+      if (limitPrice) params.set('limit_price', limitPrice)
+      const res = await fetch(`/api/broker/auto/execute-recommendation?${params}`)
+      if (res.ok) setPreview(await res.json())
+    } catch {}
+  }
+
+  async function placeOrder() {
+    if (!qty) { setError('Enter quantity'); return }
+    setPlacing(true); setError('')
+    try {
+      const body: any = { symbol: `US.${ticker}`, side, qty: parseInt(qty), order_type: orderType }
+      if (limitPrice) body.limit_price = parseFloat(limitPrice)
+      const res  = await fetch('/api/broker/orders/moomoo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.detail ?? 'Order failed'); setPlacing(false); return }
+      setDone(true)
+      setTimeout(() => { onPlaced() }, 1500)
+    } catch (e: any) { setError(e.message); setPlacing(false) }
+  }
+
+  const labelSt: React.CSSProperties = { fontSize: 9, fontWeight: 500, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 3 }
+  const inputSt: React.CSSProperties = { padding: '5px 8px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' as const }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.45)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 301, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '1.25rem', width: 380, boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Trade via Moomoo</div>
+            <div style={{ fontSize: 'var(--fs-heading)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{ticker}</div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Holding: {currentQty} shares @ ${avgCost.toFixed(2)}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+        </div>
+
+        {done ? (
+          <div style={{ textAlign: 'center', padding: '1rem 0', color: 'var(--signal-bull)', fontWeight: 500 }}>✓ Order placed in Moomoo</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(['BUY', 'SELL'] as const).map(s => (
+                <button key={s} onClick={() => setSide(s)} style={{
+                  flex: 1, padding: '5px 0', borderRadius: 'var(--r-md)', cursor: 'pointer',
+                  fontFamily: 'inherit', fontWeight: 600, fontSize: 'var(--fs-sm)',
+                  background: side === s ? (s === 'BUY' ? 'rgba(21,128,61,0.1)' : 'rgba(185,28,28,0.1)') : 'none',
+                  border: `1px solid ${side === s ? (s === 'BUY' ? 'rgba(21,128,61,0.4)' : 'rgba(185,28,28,0.4)') : 'var(--border)'}`,
+                  color: side === s ? (s === 'BUY' ? 'var(--signal-bull)' : 'var(--signal-bear)') : 'var(--text-4)',
+                }}>{s}</button>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <label style={labelSt}>Order type</label>
+                <select value={orderType} onChange={e => setOrderType(e.target.value as any)} style={inputSt}>
+                  <option value="LIMIT">Limit</option>
+                  <option value="MARKET">Market</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelSt}>Quantity</label>
+                <input value={qty} onChange={e => setQty(e.target.value)} type="number" placeholder="0" style={inputSt} onBlur={fetchPreview} />
+              </div>
+            </div>
+            {orderType === 'LIMIT' && (
+              <div>
+                <label style={labelSt}>Limit price ($)</label>
+                <input value={limitPrice} onChange={e => setLimitPrice(e.target.value)} type="number" placeholder="0.00" style={inputSt} onBlur={fetchPreview} />
+              </div>
+            )}
+            {preview && (
+              <div style={{ padding: '8px 10px', background: preview.allowed ? 'var(--bg-subtle)' : 'rgba(185,28,28,0.05)', border: `1px solid ${preview.allowed ? 'var(--border)' : 'rgba(185,28,28,0.2)'}`, borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)' }}>
+                {preview.allowed ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {preview.estimated_fill_price && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-4)' }}>Est. fill</span><span>${preview.estimated_fill_price.toFixed(2)}</span></div>}
+                    {preview.estimated_total && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-4)' }}>Est. total</span><strong>${preview.estimated_total.toLocaleString()}</strong></div>}
+                    {!preview.market_open && <div style={{ color: 'var(--signal-neut)' }}>⚠ Market closed — order will queue</div>}
+                  </div>
+                ) : (
+                  <div style={{ color: 'var(--signal-bear)' }}>🛡 {preview.blocked_reason}</div>
+                )}
+              </div>
+            )}
+            {error && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--signal-bear)' }}>{error}</div>}
+            <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+              <button onClick={fetchPreview} style={{ padding: '5px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>Preview</button>
+              <button onClick={placeOrder} disabled={placing || !qty} style={{
+                flex: 1, padding: '5px 0', fontWeight: 600, fontFamily: 'inherit', fontSize: 'var(--fs-sm)',
+                borderRadius: 'var(--r-md)', cursor: placing || !qty ? 'not-allowed' : 'pointer',
+                opacity: placing || !qty ? 0.5 : 1,
+                background: side === 'BUY' ? 'rgba(21,128,61,0.1)' : 'rgba(185,28,28,0.1)',
+                border: `1px solid ${side === 'BUY' ? 'rgba(21,128,61,0.35)' : 'rgba(185,28,28,0.35)'}`,
+                color: side === 'BUY' ? 'var(--signal-bull)' : 'var(--signal-bear)',
+              }}>
+                {placing ? 'Placing…' : `Place ${side} order`}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 export default function HomeClient({
   regime,
   themes,
@@ -567,7 +696,8 @@ export default function HomeClient({
 
   // Transaction modal
   const [txModal,  setTxModal]  = useState<{ holdingId: string; ticker: string; currentQty: number } | null>(null)
-  const [txType,   setTxType]   = useState<'buy' | 'sell'>('sell')
+  const [txType,      setTxType]      = useState<'buy' | 'sell'>('sell')
+  const [tradeModal,  setTradeModal]  = useState<{ ticker: string; qty: number; avgCost: number } | null>(null)
   const [txQty,    setTxQty]    = useState('')
   const [txPrice,  setTxPrice]  = useState('')
   const [txDate,   setTxDate]   = useState('')
@@ -826,7 +956,22 @@ export default function HomeClient({
           </div>
         )}
 
-        {/* ── Broker status bar ── */}
+  
+      {/* ── Trade modal (Moomoo order) ── */}
+      {tradeModal && (
+        <TradeOrderModal
+          ticker={tradeModal.ticker}
+          currentQty={tradeModal.qty}
+          avgCost={tradeModal.avgCost}
+          onClose={() => setTradeModal(null)}
+          onPlaced={() => {
+            setTradeModal(null)
+            loadPortfolioData(activeId)
+          }}
+        />
+      )}
+
+      {/* ── Broker status bar ── */}
         {mounted && broker !== null && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
@@ -964,9 +1109,9 @@ export default function HomeClient({
                 Full portfolio ↗
               </button>
             </div>
-            <div style={{ padding: '0 14px', maxHeight: 480, overflowY: 'auto' }}>
+            <div style={{ maxHeight: 480, overflowY: 'auto' }}>
               {holdings.length > 0 ? (
-                <table className="holdings-table" aria-label="Portfolio holdings">
+                <table className="holdings-table" aria-label="Portfolio holdings" style={{ width: '100%' }}>
                   <thead>
                     <tr>
                       <th style={{ textAlign: 'left' }}>Asset</th>
@@ -1051,12 +1196,14 @@ export default function HomeClient({
                                 >Hist</button>
                                 <button
                                   onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: qty }); setTxType('buy') }}
-                                  style={{ fontSize: 9.5, padding: '1px 6px', background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.25)', color: 'var(--signal-bull)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
-                                >Buy</button>
-                                <button
-                                  onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: qty }); setTxType('sell') }}
-                                  style={{ fontSize: 9.5, padding: '1px 6px', background: 'rgba(185,28,28,0.07)', border: '1px solid rgba(185,28,28,0.2)', color: 'var(--signal-bear)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
-                                >Sell</button>
+                                  style={{ fontSize: 9.5, padding: '1px 6px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-3)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
+                                >Change</button>
+                                {hasMoomoo && (
+                                  <button
+                                    onClick={() => setTradeModal({ ticker: h.ticker, qty, avgCost: cost })}
+                                    style={{ fontSize: 9.5, padding: '1px 6px', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.25)', color: 'var(--color-info)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
+                                  >Trade</button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1227,7 +1374,7 @@ export default function HomeClient({
                 fontWeight: 600, borderRadius: 'var(--r-md)', cursor: txSaving ? 'not-allowed' : 'pointer',
                 fontSize: 'var(--fs-sm)', opacity: txSaving ? 0.6 : 1,
               }}>
-                {txSaving ? '…' : txType === 'buy' ? 'Record Buy' : 'Record Sell'}
+                {txSaving ? '…' : 'Save'}
               </button>
             </div>
           </div>
