@@ -52,6 +52,7 @@ export default function SettingsPage() {
         const d = await settingsRes.json()
         setProfile(d.profile)
         setMoomooAccount(d.profile?.moomoo_account ?? '')
+        setMoomooPassword(d.profile?.moomoo_password ?? '')
         setLinkedPortId(d.moomoo_linked_portfolio?.id ?? '')
       }
       if (portfoliosRes.ok) {

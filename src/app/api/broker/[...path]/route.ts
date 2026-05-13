@@ -1,25 +1,51 @@
 // src/app/api/broker/[...path]/route.ts
-// Proxy all /api/broker/* requests to the broker bridge.
-// In dev: bridge runs on localhost:8765
-// In prod: bridge is exposed via Cloudflare Tunnel
-// Set BROKER_BRIDGE_URL in Vercel env vars to the tunnel URL.
+// Proxy all /api/broker/* to the broker bridge.
+// For order placement endpoints, injects the user's trade PIN from their profile.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/supabase'
+import { requireUser, createServiceClient } from '@/lib/supabase'
 
-const BRIDGE_URL = process.env.BROKER_BRIDGE_URL ?? 'http://127.0.0.1:8765'
+const DEFAULT_URL = process.env.BROKER_BRIDGE_URL ?? 'http://127.0.0.1:8765'
+
+async function getBridgeUrl(): Promise<string> {
+  try {
+    const supabase = createServiceClient()
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'broker_bridge_url')
+      .single()
+    if (data?.value) return data.value
+  } catch {}
+  return DEFAULT_URL
+}
+
+async function getTradePwd(userId: string): Promise<string> {
+  try {
+    const supabase = createServiceClient()
+    const { data } = await supabase
+      .from('profiles')
+      .select('moomoo_password')
+      .eq('id', userId)
+      .single()
+    return data?.moomoo_password ?? ''
+  } catch {}
+  return ''
+}
 
 async function handler(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  let user: any
   try {
-    await requireUser()
+    const auth = await requireUser()
+    user = auth.user
   } catch {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
   const { path } = await params
-  const pathStr = path.join('/')
-  const search  = req.nextUrl.search ?? ''
-  const url     = `${BRIDGE_URL}/${pathStr}${search}`
+  const pathStr  = path.join('/')
+  const BRIDGE_URL = await getBridgeUrl()
+  const url = `${BRIDGE_URL}/${pathStr}${req.nextUrl.search ?? ''}`
 
   try {
     const init: RequestInit = {
@@ -28,8 +54,24 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
     }
 
     if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-      const body = await req.text()
-      if (body) init.body = body
+      let bodyText = await req.text()
+
+      // For order placement — inject trade PIN from user profile
+      const isOrderEndpoint = pathStr === 'orders/moomoo' || pathStr === 'account/unlock'
+      if (isOrderEndpoint && bodyText) {
+        try {
+          const bodyObj = JSON.parse(bodyText)
+          if (!bodyObj.trade_pwd) {
+            const tradePwd = await getTradePwd(user.id)
+            if (tradePwd) bodyObj.trade_pwd = tradePwd
+          }
+          bodyText = JSON.stringify(bodyObj)
+        } catch {}
+      } else if (isOrderEndpoint && req.method === 'POST' && pathStr === 'account/unlock') {
+        // unlock endpoint uses query param — handled via URL
+      }
+
+      if (bodyText) init.body = bodyText
     }
 
     const res  = await fetch(url, { ...init, signal: AbortSignal.timeout(10000) })
@@ -38,7 +80,7 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
 
   } catch {
     return NextResponse.json(
-      { error: 'Broker bridge offline', detail: 'Start broker_service.py and ensure BROKER_BRIDGE_URL is set' },
+      { error: 'Broker bridge offline', detail: 'Start broker_service.py and tunnel' },
       { status: 503 }
     )
   }

@@ -24,7 +24,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, display_name, plan, tier, risk_appetite, investment_horizon, preferred_assets, benchmark, target_holdings, cash_pct, moomoo_account, created_at')
+      .select('id, email, full_name, display_name, plan, tier, risk_appetite, investment_horizon, preferred_assets, benchmark, target_holdings, cash_pct, moomoo_account, moomoo_password, created_at')
       .eq('id', user.id)
       .single()
 

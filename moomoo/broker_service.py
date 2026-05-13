@@ -163,21 +163,9 @@ async def lifespan(app: FastAPI):
         logger.error(f"TradeContext failed: {e}")
         trd_ctx = None
 
-    # Auto-unlock on startup if TRADE_PWD is set
-    if TRADE_PWD:
-        try:
-            ul_ctx = ft.OpenSecTradeContext(
-                host=OPEND_HOST, port=OPEND_PORT,
-                security_firm=ft.SecurityFirm.FUTUAU,
-            )
-            ret, msg = ul_ctx.unlock_trade(TRADE_PWD)
-            if ret == ft.RET_OK:
-                logger.info("Auto-unlock: OK")
-            else:
-                logger.warning(f"Auto-unlock failed: {msg}")
-            ul_ctx.close()
-        except Exception as e:
-            logger.warning(f"Auto-unlock error: {e}")
+    # Trade PIN is now injected per-request from user profile via Next.js proxy
+    # No auto-unlock needed on startup
+    logger.info("Trade PIN: injected per-request from user profile")
 
     logger.info(f"READ_ACCOUNT={READ_ACCOUNT or 'auto'} | WRITE_ACCOUNT={WRITE_ACCOUNT or 'auto'} | IS_PROD={IS_PROD}")
     yield
