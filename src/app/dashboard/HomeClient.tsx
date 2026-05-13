@@ -1012,11 +1012,11 @@ export default function HomeClient({
         activePortfolio.total_capital,
         holdings.map(h => ({
           ticker:          h.ticker,
-          quantity:        h.quantity ?? 0,
-          avg_cost:        h.avg_cost ?? 0,
+          quantity:        parseFloat(String(h.quantity ?? 0)) || 0,
+          avg_cost:        parseFloat(String(h.avg_cost ?? 0)) || 0,
           price_usd:       h.signal?.price_usd ?? null,
-          realised_gain:   (h as any).realised_gain   ?? 0,
-          unrealised_gain: (h as any).unrealised_gain ?? 0,
+          realised_gain:   parseFloat(String((h as any).realised_gain   ?? 0)) || 0,
+          unrealised_gain: parseFloat(String((h as any).unrealised_gain ?? 0)) || 0,
         })),
         transactions,
       )
@@ -1269,10 +1269,10 @@ export default function HomeClient({
                       const sig        = h.signal
                       const livePrice  = sig?.price_usd  ?? null
                       const chg        = sig?.change_pct ?? null
-                      const qty        = h.quantity ?? 0
-                      const cost       = h.avg_cost ?? 0
+                      const qty        = parseFloat(String(h.quantity ?? 0)) || 0
+                      const cost       = parseFloat(String(h.avg_cost ?? 0)) || 0
                       const costBase   = qty * cost
-                      const storedUnreal = (h as any).unrealised_gain ?? null
+                      const storedUnreal = h.unrealised_gain != null ? parseFloat(String(h.unrealised_gain)) : null
                       const mktVal     = livePrice != null
                         ? qty * livePrice
                         : storedUnreal != null ? costBase + storedUnreal : null

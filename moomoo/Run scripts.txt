@@ -1,0 +1,5 @@
+$env:TRADE_PWD = "210195"
+python broker_service.py
+
+
+cloudflared tunnel --url http://localhost:8765
