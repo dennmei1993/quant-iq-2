@@ -548,7 +548,8 @@ function PortfolioSettingsModal({ portfolioId, onClose }: { portfolioId: string;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-// ── Trade Order Modal ─────────────────────────────────────────────────────────
+// ── Trade Order Modal ────────────────────────────────────────────────────────
+// Places real orders via Moomoo broker bridge, saves to orders table in DB
 
 function TradeOrderModal({ ticker, currentQty, avgCost, onClose, onPlaced }: {
   ticker:     string
@@ -558,65 +559,184 @@ function TradeOrderModal({ ticker, currentQty, avgCost, onClose, onPlaced }: {
   onPlaced:   () => void
 }) {
   const [side,       setSide]       = useState<'BUY' | 'SELL'>('BUY')
-  const [qty,        setQty]        = useState('')
-  const [orderType,  setOrderType]  = useState<'MARKET' | 'LIMIT'>('LIMIT')
-  const [limitPrice, setLimitPrice] = useState('')
+  const [volume,     setVolume]     = useState('')
+  const [tradeType,  setTradeType]  = useState<'LIMIT' | 'MARKET' | 'STOP'>('LIMIT')
+  const [price,      setPrice]      = useState('')
+  const [stopPrice,  setStopPrice]  = useState('')
+  const [livePrice,  setLivePrice]  = useState<number | null>(null)
+  const [loadingPrice, setLoadingPrice] = useState(true)
   const [placing,    setPlacing]    = useState(false)
   const [error,      setError]      = useState('')
-  const [preview,    setPreview]    = useState<any>(null)
-  const [done,       setDone]       = useState(false)
+  const [orderResult, setOrderResult] = useState<{
+    order_id: string
+    status:   string
+    side:     string
+    qty:      number
+    price:    number
+    account:  string
+    trd_env:  string
+  } | null>(null)
 
-  async function fetchPreview() {
-    if (!qty) return
-    try {
-      const params = new URLSearchParams({ symbol: `US.${ticker}`, side, qty, order_type: orderType })
-      if (limitPrice) params.set('limit_price', limitPrice)
-      const res = await fetch(`/api/broker/auto/execute-recommendation?${params}`)
-      if (res.ok) setPreview(await res.json())
-    } catch {}
-  }
+  // Fetch live price on mount
+  useEffect(() => {
+    async function fetchPrice() {
+      try {
+        const res  = await fetch(`/api/broker/auto/execute-recommendation?symbol=US.${ticker}&side=BUY&qty=1&order_type=MARKET`)
+        const data = await res.json()
+        if (data.estimated_fill_price) setPrice(data.estimated_fill_price.toFixed(2))
+        setLivePrice(data.estimated_fill_price ?? null)
+      } catch {}
+      finally { setLoadingPrice(false) }
+    }
+    fetchPrice()
+  }, [ticker])
 
   async function placeOrder() {
-    if (!qty) { setError('Enter quantity'); return }
+    if (!volume) { setError('Enter volume'); return }
+    if (tradeType !== 'MARKET' && !price) { setError('Enter price'); return }
     setPlacing(true); setError('')
     try {
-      const body: any = { symbol: `US.${ticker}`, side, qty: parseInt(qty), order_type: orderType }
-      if (limitPrice) body.limit_price = parseFloat(limitPrice)
+      const body: any = {
+        symbol:     `US.${ticker}`,
+        side,
+        qty:        parseInt(volume),
+        order_type: tradeType,
+      }
+      if (tradeType === 'LIMIT' || tradeType === 'STOP_LIMIT') body.limit_price = parseFloat(price)
+      if (tradeType === 'STOP' || tradeType === 'STOP_LIMIT')  body.stop_price  = parseFloat(stopPrice || price)
+
       const res  = await fetch('/api/broker/orders/moomoo', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.detail ?? 'Order failed'); setPlacing(false); return }
-      setDone(true)
-      setTimeout(() => { onPlaced() }, 1500)
-    } catch (e: any) { setError(e.message); setPlacing(false) }
+
+      const result = {
+        order_id: data.order_id,
+        status:   'PLACED',
+        side,
+        qty:      parseInt(volume),
+        price:    parseFloat(price) || data.price,
+        account:  data.account,
+        trd_env:  data.trd_env,
+      }
+      setOrderResult(result)
+
+      // Save order to DB
+      try {
+        await fetch('/api/broker/orders/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id:   result.order_id,
+            ticker,
+            side:       result.side,
+            qty:        result.qty,
+            price:      result.price,
+            order_type: tradeType,
+            status:     result.status,
+            account:    result.account,
+            trd_env:    result.trd_env,
+          }),
+        })
+      } catch {}
+    } catch (e: any) {
+      setError(e.message)
+      setPlacing(false)
+    }
   }
 
-  const labelSt: React.CSSProperties = { fontSize: 9, fontWeight: 500, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 3 }
-  const inputSt: React.CSSProperties = { padding: '5px 8px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' as const }
+  const labelSt: React.CSSProperties = {
+    fontSize: 9, fontWeight: 500, color: 'var(--text-4)',
+    textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 3,
+  }
+  const inputSt: React.CSSProperties = {
+    padding: '6px 9px', background: 'var(--bg-subtle)',
+    border: '1px solid var(--border)', borderRadius: 'var(--r-md)',
+    color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none',
+    fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' as const,
+  }
+
+  const estimatedTotal = volume && price ? parseInt(volume) * parseFloat(price) : null
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.45)' }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 301, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '1.25rem', width: 380, boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.5)' }} />
+      <div onClick={e => e.stopPropagation()} style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+        zIndex: 301, background: 'var(--bg)', border: '1px solid var(--border)',
+        borderRadius: 10, padding: '1.4rem', width: 400,
+        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+      }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Trade via Moomoo</div>
-            <div style={{ fontSize: 'var(--fs-heading)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{ticker}</div>
-            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Holding: {currentQty} shares @ ${avgCost.toFixed(2)}</div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>
+              Trade via Moomoo
+            </div>
+            <div style={{ fontSize: '1.15rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+              {ticker}
+            </div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 2 }}>
+              Holding: {currentQty} shares · Avg cost ${avgCost.toFixed(2)}
+              {livePrice && (
+                <span style={{ marginLeft: 8, color: 'var(--color-info)' }}>
+                  Live: ${livePrice.toFixed(2)}
+                </span>
+              )}
+              {loadingPrice && <span style={{ marginLeft: 8 }}>Loading price…</span>}
+            </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.3rem', lineHeight: 1 }}>×</button>
         </div>
 
-        {done ? (
-          <div style={{ textAlign: 'center', padding: '1rem 0', color: 'var(--signal-bull)', fontWeight: 500 }}>✓ Order placed in Moomoo</div>
-        ) : (
+        {orderResult ? (
+          /* ── Order placed — show status ── */
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{
+              padding: '12px 14px', borderRadius: 'var(--r-lg)',
+              background: 'rgba(21,128,61,0.05)', border: '1px solid rgba(21,128,61,0.2)',
+            }}>
+              <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--signal-bull)', marginBottom: 8 }}>
+                ✓ Order placed successfully
+              </div>
+              {[
+                ['Order ID',  orderResult.order_id],
+                ['Status',    orderResult.status],
+                ['Side',      orderResult.side],
+                ['Volume',    String(orderResult.qty)],
+                ['Price',     `$${orderResult.price.toFixed(2)}`],
+                ['Account',   orderResult.account],
+                ['Env',       orderResult.trd_env],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--fs-xs)', padding: '2px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ color: 'var(--text-4)' }}>{label}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{val}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => { setOrderResult(null); setVolume(''); setError('') }}
+                style={{ flex: 1, padding: '6px 0', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Place another
+              </button>
+              <button onClick={() => { onPlaced(); onClose() }}
+                style={{ flex: 1, padding: '6px 0', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* ── Order form ── */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+            {/* BUY / SELL */}
             <div style={{ display: 'flex', gap: 4 }}>
               {(['BUY', 'SELL'] as const).map(s => (
                 <button key={s} onClick={() => setSide(s)} style={{
-                  flex: 1, padding: '5px 0', borderRadius: 'var(--r-md)', cursor: 'pointer',
+                  flex: 1, padding: '6px 0', borderRadius: 'var(--r-md)', cursor: 'pointer',
                   fontFamily: 'inherit', fontWeight: 600, fontSize: 'var(--fs-sm)',
                   background: side === s ? (s === 'BUY' ? 'rgba(21,128,61,0.1)' : 'rgba(185,28,28,0.1)') : 'none',
                   border: `1px solid ${side === s ? (s === 'BUY' ? 'rgba(21,128,61,0.4)' : 'rgba(185,28,28,0.4)') : 'var(--border)'}`,
@@ -624,52 +744,71 @@ function TradeOrderModal({ ticker, currentQty, avgCost, onClose, onPlaced }: {
                 }}>{s}</button>
               ))}
             </div>
+
+            {/* Trade type */}
+            <div>
+              <label style={labelSt}>Trade type</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['LIMIT', 'MARKET', 'STOP'] as const).map(t => (
+                  <button key={t} onClick={() => setTradeType(t)} style={{
+                    flex: 1, padding: '5px 0', borderRadius: 'var(--r-md)', cursor: 'pointer',
+                    fontFamily: 'inherit', fontSize: 'var(--fs-xs)', fontWeight: tradeType === t ? 600 : 400,
+                    background: tradeType === t ? 'var(--bg-subtle)' : 'none',
+                    border: `1px solid ${tradeType === t ? 'var(--text-3)' : 'var(--border)'}`,
+                    color: tradeType === t ? 'var(--text)' : 'var(--text-4)',
+                  }}>{t}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Volume + Price */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div>
-                <label style={labelSt}>Order type</label>
-                <select value={orderType} onChange={e => setOrderType(e.target.value as any)} style={inputSt}>
-                  <option value="LIMIT">Limit</option>
-                  <option value="MARKET">Market</option>
-                </select>
+                <label style={labelSt}>Volume (shares)</label>
+                <input value={volume} onChange={e => setVolume(e.target.value)} type="number"
+                  placeholder="0" style={inputSt} />
               </div>
-              <div>
-                <label style={labelSt}>Quantity</label>
-                <input value={qty} onChange={e => setQty(e.target.value)} type="number" placeholder="0" style={inputSt} onBlur={fetchPreview} />
-              </div>
+              {tradeType !== 'MARKET' && (
+                <div>
+                  <label style={labelSt}>Price ($)</label>
+                  <input value={price} onChange={e => setPrice(e.target.value)} type="number"
+                    placeholder={livePrice ? livePrice.toFixed(2) : '0.00'} style={inputSt} />
+                </div>
+              )}
+              {tradeType === 'STOP' && (
+                <div>
+                  <label style={labelSt}>Stop price ($)</label>
+                  <input value={stopPrice} onChange={e => setStopPrice(e.target.value)} type="number"
+                    placeholder="0.00" style={inputSt} />
+                </div>
+              )}
             </div>
-            {orderType === 'LIMIT' && (
-              <div>
-                <label style={labelSt}>Limit price ($)</label>
-                <input value={limitPrice} onChange={e => setLimitPrice(e.target.value)} type="number" placeholder="0.00" style={inputSt} onBlur={fetchPreview} />
+
+            {/* Summary */}
+            {estimatedTotal && (
+              <div style={{ padding: '8px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-4)' }}>Estimated total</span>
+                <strong>${estimatedTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
               </div>
             )}
-            {preview && (
-              <div style={{ padding: '8px 10px', background: preview.allowed ? 'var(--bg-subtle)' : 'rgba(185,28,28,0.05)', border: `1px solid ${preview.allowed ? 'var(--border)' : 'rgba(185,28,28,0.2)'}`, borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)' }}>
-                {preview.allowed ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {preview.estimated_fill_price && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-4)' }}>Est. fill</span><span>${preview.estimated_fill_price.toFixed(2)}</span></div>}
-                    {preview.estimated_total && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-4)' }}>Est. total</span><strong>${preview.estimated_total.toLocaleString()}</strong></div>}
-                    {!preview.market_open && <div style={{ color: 'var(--signal-neut)' }}>⚠ Market closed — order will queue</div>}
-                  </div>
-                ) : (
-                  <div style={{ color: 'var(--signal-bear)' }}>🛡 {preview.blocked_reason}</div>
-                )}
+
+            {error && (
+              <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--signal-bear)', padding: '6px 8px', background: 'rgba(185,28,28,0.05)', border: '1px solid rgba(185,28,28,0.2)', borderRadius: 'var(--r-md)' }}>
+                {error}
               </div>
             )}
-            {error && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--signal-bear)' }}>{error}</div>}
-            <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-              <button onClick={fetchPreview} style={{ padding: '5px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>Preview</button>
-              <button onClick={placeOrder} disabled={placing || !qty} style={{
-                flex: 1, padding: '5px 0', fontWeight: 600, fontFamily: 'inherit', fontSize: 'var(--fs-sm)',
-                borderRadius: 'var(--r-md)', cursor: placing || !qty ? 'not-allowed' : 'pointer',
-                opacity: placing || !qty ? 0.5 : 1,
-                background: side === 'BUY' ? 'rgba(21,128,61,0.1)' : 'rgba(185,28,28,0.1)',
-                border: `1px solid ${side === 'BUY' ? 'rgba(21,128,61,0.35)' : 'rgba(185,28,28,0.35)'}`,
-                color: side === 'BUY' ? 'var(--signal-bull)' : 'var(--signal-bear)',
-              }}>
-                {placing ? 'Placing…' : `Place ${side} order`}
-              </button>
-            </div>
+
+            {/* Place order button */}
+            <button onClick={placeOrder} disabled={placing || !volume} style={{
+              padding: '7px 0', fontWeight: 600, fontFamily: 'inherit', fontSize: 'var(--fs-sm)',
+              borderRadius: 'var(--r-md)', cursor: placing || !volume ? 'not-allowed' : 'pointer',
+              opacity: placing || !volume ? 0.5 : 1,
+              background: side === 'BUY' ? 'rgba(21,128,61,0.1)' : 'rgba(185,28,28,0.1)',
+              border: `1px solid ${side === 'BUY' ? 'rgba(21,128,61,0.35)' : 'rgba(185,28,28,0.35)'}`,
+              color: side === 'BUY' ? 'var(--signal-bull)' : 'var(--signal-bear)',
+            }}>
+              {placing ? 'Placing order…' : `Place ${side} order`}
+            </button>
           </div>
         )}
       </div>
@@ -1297,7 +1436,7 @@ export default function HomeClient({
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '1.4rem', width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <div>
-                <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Record transaction</div>
+                <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Change holdings</div>
                 <div style={{ fontSize: 'var(--fs-heading)', fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>{txModal.ticker}</div>
               </div>
               <button onClick={() => setTxModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
@@ -1321,7 +1460,7 @@ export default function HomeClient({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <div>
                   <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
-                    Quantity{txType === 'sell' ? ` (max ${txModal.currentQty})` : ''}
+                    Volume{txType === 'sell' ? ` (max ${txModal.currentQty})` : ''}
                   </div>
                   <input value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="0" type="number"
                     style={{ width: '100%', padding: '0.4rem 0.6rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', outline: 'none' }} />
@@ -1374,7 +1513,7 @@ export default function HomeClient({
                 fontWeight: 600, borderRadius: 'var(--r-md)', cursor: txSaving ? 'not-allowed' : 'pointer',
                 fontSize: 'var(--fs-sm)', opacity: txSaving ? 0.6 : 1,
               }}>
-                {txSaving ? '…' : 'Save'}
+                {txSaving ? 'Saving…' : 'Save'}
               </button>
             </div>
           </div>
