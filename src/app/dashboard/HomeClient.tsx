@@ -579,6 +579,7 @@ export default function HomeClient({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [syncing,      setSyncing]      = useState(false)
   const [syncMsg,      setSyncMsg]      = useState('')
+  const [hasMoomoo,    setHasMoomoo]    = useState(false)
   const [mounted,      setMounted]      = useState(false)
 
   // Broker state
@@ -614,6 +615,14 @@ export default function HomeClient({
   useEffect(() => {
     if (activeId) loadPortfolioData(activeId)
   }, [activeId, loadPortfolioData])
+
+  // Check if user has Moomoo configured
+  useEffect(() => {
+    fetch('/api/user/settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setHasMoomoo(!!d?.profile?.moomoo_account))
+      .catch(() => {})
+  }, [])
 
   // Set mounted after hydration to prevent SSR mismatch
   useEffect(() => {
@@ -655,6 +664,13 @@ export default function HomeClient({
     const interval = setInterval(fetchBroker, 30_000)
     return () => { active = false; clearInterval(interval) }
   }, [mounted, activePortfolio?.moomoo_linked])
+
+  // Auto-sync from Moomoo when linked portfolio loads and broker is connected
+  useEffect(() => {
+    if (!activeId || !broker?.connected || !hasMoomoo) return
+    // Only auto-sync once per portfolio load, not on every render
+    syncFromMoomoo()
+  }, [activeId, broker?.connected, activePortfolio?.moomoo_linked])
 
   // Sync when shell sidebar switches portfolio
   useEffect(() => {
@@ -778,7 +794,7 @@ export default function HomeClient({
               >
                 <i className="ti ti-bookmark" aria-hidden /> Watchlist
               </button>
-              {broker?.connected && activePortfolio?.moomoo_linked && (
+              {hasMoomoo && broker?.connected && (
                 <button
                   className="btn btn-outline"
                   onClick={syncFromMoomoo}

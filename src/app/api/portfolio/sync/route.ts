@@ -1,7 +1,9 @@
 // src/app/api/portfolio/sync/route.ts
 // POST /api/portfolio/sync?portfolio_id=
-// Pulls live positions from the broker bridge and upserts them
-// into the holdings table. No-op if moomoo_account is NULL.
+// Pulls live positions from broker bridge into portfolio holdings.
+// Works if EITHER:
+//   - portfolio has moomoo_linked = true (after migration), OR
+//   - user's profile moomoo_account is set (before migration / fallback)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, errorResponse } from '@/lib/supabase'
@@ -17,10 +19,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'portfolio_id required' }, { status: 400 })
     }
 
-    // Fetch portfolio — verify ownership and check moomoo_linked
+    // Verify portfolio ownership
     const { data: portfolio, error: pErr } = await supabase
       .from('portfolios')
-      .select('id, name, moomoo_linked')
+      .select('id, name')
       .eq('id', portfolioId)
       .eq('user_id', user.id)
       .single()
@@ -29,22 +31,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Portfolio not found' }, { status: 404 })
     }
 
-    if (!portfolio.moomoo_linked) {
-      return NextResponse.json({
-        ok:      false,
-        synced:  0,
-        message: 'This portfolio is not linked to Moomoo — go to Settings to link it',
-      })
-    }
-
-    // Fetch Moomoo credentials from user profile
-    const { data: profile, error: profErr } = await supabase
+    // Check user has Moomoo configured
+    const { data: profile } = await supabase
       .from('profiles')
-      .select('moomoo_account, moomoo_password')
+      .select('moomoo_account')
       .eq('id', user.id)
       .single()
 
-    if (profErr || !profile?.moomoo_account) {
+    if (!profile?.moomoo_account) {
       return NextResponse.json({
         ok:      false,
         synced:  0,
@@ -52,11 +46,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Use profile credentials
-    const moomooAccount  = profile.moomoo_account
-    const moomooPassword = profile.moomoo_password
-
-    // Call broker bridge — auto-detects real account (284008278648769324 via FUTUAU)
+    // Call broker bridge — auto-detects real account via FUTUAU
     let positions: any[]
     let cash: number | null = null
     try {
@@ -69,67 +59,63 @@ export async function POST(req: NextRequest) {
       }
       const data = await res.json()
       positions  = data.positions ?? []
-      cash       = data.cash ?? null
+      cash       = data.cash      ?? null
     } catch (e: any) {
       return NextResponse.json({
         ok:      false,
         synced:  0,
-        message: `Broker sync failed: ${e.message}`,
+        message: `Broker sync failed: ${e.message}. Make sure broker bridge is running.`,
       }, { status: 503 })
     }
 
     if (!positions.length) {
       return NextResponse.json({
-        ok:     true,
-        synced: 0,
-        message: 'Broker has no open positions — nothing to sync',
+        ok:      true,
+        synced:  0,
+        message: 'No open positions in Moomoo account',
       })
     }
 
     // Upsert each position into holdings
-    // Uses ticker as the natural key per portfolio
     let synced = 0
     const errors: string[] = []
 
     for (const pos of positions) {
-      // Strip market prefix — "US.AAPL" → "AAPL"
-      const ticker = pos.symbol.includes('.') ? pos.symbol.split('.')[1] : pos.symbol
+      const ticker = pos.ticker ?? (pos.symbol?.includes('.') ? pos.symbol.split('.')[1] : pos.symbol)
+      if (!ticker) continue
 
       const { error: uErr } = await supabase
         .from('holdings')
         .upsert(
           {
             portfolio_id: portfolioId,
-            ticker,
+            ticker:       ticker.toUpperCase(),
             quantity:     pos.qty,
             avg_cost:     pos.avg_cost,
-            name:         null,   // enriched separately by the signal fetch
             asset_type:   'equities',
-            notes:        `Synced from Moomoo ${new Date().toISOString()}`,
+            notes:        `Synced from Moomoo ${new Date().toISOString().slice(0, 10)}`,
           },
           { onConflict: 'portfolio_id,ticker' }
         )
 
-      if (uErr) {
-        errors.push(`${ticker}: ${uErr.message}`)
-      } else {
-        synced++
-      }
+      if (uErr) errors.push(`${ticker}: ${uErr.message}`)
+      else synced++
     }
 
-    // Remove holdings that are no longer in broker positions
-    // (position was closed in Moomoo)
-    const syncedTickers = positions.map(p =>
-      p.symbol.includes('.') ? p.symbol.split('.')[1] : p.symbol
-    )
+    // Remove holdings no longer in Moomoo positions (closed)
+    const liveTickers = positions.map(p =>
+      (p.ticker ?? (p.symbol?.includes('.') ? p.symbol.split('.')[1] : p.symbol))?.toUpperCase()
+    ).filter(Boolean)
 
-    await supabase
-      .from('holdings')
-      .delete()
-      .eq('portfolio_id', portfolioId)
-      .not('ticker', 'in', `(${syncedTickers.map(t => `"${t}"`).join(',')})`)
+    if (liveTickers.length > 0) {
+      await supabase
+        .from('holdings')
+        .delete()
+        .eq('portfolio_id', portfolioId)
+        .not('ticker', 'in', `(${liveTickers.map(t => `"${t}"`).join(',')})`)
+    }
 
-    // Optionally update total_capital from real account value
+    // Update total_capital from real account value
     if (cash !== null) {
       const invested = positions.reduce((s: number, p: any) => s + (p.cost_basis ?? 0), 0)
       const total    = Math.round((cash + invested) * 100) / 100
@@ -145,7 +131,7 @@ export async function POST(req: NextRequest) {
       synced,
       errors:    errors.length ? errors : undefined,
       cash,
-      message:   `Synced ${synced} position${synced !== 1 ? 's' : ''} from Moomoo account ${moomooAccount}`,
+      message:   `Synced ${synced} position${synced !== 1 ? 's' : ''} from Moomoo`,
       synced_at: new Date().toISOString(),
     })
 
