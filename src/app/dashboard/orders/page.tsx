@@ -647,7 +647,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      </>{/* end isLocal tab content */}
+      </>}
 
       {/* Place order modal */}
       {orderModal && status?.connected && (
