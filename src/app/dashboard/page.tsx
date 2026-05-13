@@ -166,12 +166,18 @@ export default async function DashboardHome() {
   const latestAlert = (alerts ?? [])[0] ?? null
   const topThemes   = (themes ?? []).slice(0, 5)
 
+  // Enable broker polling when:
+  // - BROKER_BRIDGE_URL is explicitly set (Vercel + tunnel), OR
+  // - running in development (localhost uses default http://127.0.0.1:8765)
+  const brokerEnabled = !!process.env.BROKER_BRIDGE_URL || process.env.NODE_ENV === 'development'
+
   return (
     <HomeClientWrapper
       regime={regime}
       themes={topThemes}
       portfolios={(portfoliosData ?? [])}
       latestAlert={latestAlert}
+      brokerEnabled={brokerEnabled}
     />
   )
 }
