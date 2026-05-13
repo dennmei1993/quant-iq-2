@@ -46,10 +46,11 @@ interface Holding {
 }
 
 export interface HomeClientProps {
-  regime:      Regime | null
-  themes:      HomeTheme[]
-  portfolios:  Portfolio[]
-  latestAlert: PortfolioAlert | null
+  regime:        Regime | null
+  themes:        HomeTheme[]
+  portfolios:    Portfolio[]
+  latestAlert:   PortfolioAlert | null
+  brokerEnabled: boolean
 }
 
 // Keep internal alias
@@ -552,6 +553,7 @@ export default function HomeClient({
   themes,
   portfolios: initialPortfolios,
   latestAlert,
+  brokerEnabled = false,
 }: Props) {
   const router = useRouter()
 
@@ -575,6 +577,8 @@ export default function HomeClient({
   const [txError,  setTxError]  = useState('')
   const [histOpen,     setHistOpen]     = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [syncing,      setSyncing]      = useState(false)
+  const [syncMsg,      setSyncMsg]      = useState('')
   const [mounted,      setMounted]      = useState(false)
 
   // Broker state
@@ -627,7 +631,7 @@ export default function HomeClient({
   // Bridge accessible via Cloudflare Tunnel from anywhere
   useEffect(() => {
     if (!mounted) return
-    if (!activePortfolio?.moomoo_linked) {
+    if (!brokerEnabled || !activePortfolio?.moomoo_linked) {
       setBroker(null)
       return
     }
@@ -663,6 +667,22 @@ export default function HomeClient({
     window.addEventListener('portfolio-changed', onPortfolioChange)
     return () => window.removeEventListener('portfolio-changed', onPortfolioChange)
   }, [activeId, portfolios])
+
+  async function syncFromMoomoo() {
+    if (!activeId) return
+    setSyncing(true); setSyncMsg('')
+    try {
+      const res  = await fetch(`/api/portfolio/sync?portfolio_id=${activeId}`, { method: 'POST' })
+      const data = await res.json()
+      setSyncMsg(data.message ?? 'Sync complete')
+      if (data.ok) await loadPortfolioData(activeId)
+      setTimeout(() => setSyncMsg(''), 4000)
+    } catch {
+      setSyncMsg('Sync failed')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   async function handleTransaction() {
     if (!txModal || !activeId) return
@@ -758,6 +778,16 @@ export default function HomeClient({
               >
                 <i className="ti ti-bookmark" aria-hidden /> Watchlist
               </button>
+              {broker?.connected && activePortfolio?.moomoo_linked && (
+                <button
+                  className="btn btn-outline"
+                  onClick={syncFromMoomoo}
+                  disabled={syncing}
+                  style={{ opacity: syncing ? 0.5 : 1 }}
+                >
+                  <i className="ti ti-refresh" aria-hidden /> {syncing ? 'Syncing…' : 'Sync Moomoo'}
+                </button>
+              )}
               <button
                 className="btn btn-outline"
                 onClick={() => setSettingsOpen(true)}
@@ -767,6 +797,13 @@ export default function HomeClient({
             </div>
           </div>
         </div>
+
+        {/* ── Sync message ── */}
+        {syncMsg && (
+          <div style={{ fontSize: 'var(--fs-xs)', color: syncMsg.includes('fail') ? 'var(--signal-bear)' : 'var(--signal-bull)', padding: '4px 0' }}>
+            {syncMsg}
+          </div>
+        )}
 
         {/* ── Broker status bar ── */}
         {mounted && broker !== null && (

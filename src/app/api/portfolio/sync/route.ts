@@ -56,17 +56,11 @@ export async function POST(req: NextRequest) {
     const moomooAccount  = profile.moomoo_account
     const moomooPassword = profile.moomoo_password
 
-    // Call broker bridge — real account positions
+    // Call broker bridge — auto-detects real account (284008278648769324 via FUTUAU)
     let positions: any[]
     let cash: number | null = null
     try {
-      const params = new URLSearchParams({
-        account: moomooAccount,
-        env:     'real',
-      })
-      if (moomooPassword) params.set('pwd', moomooPassword)
-
-      const res = await fetch(`${BRIDGE_URL}/account/positions?${params}`, {
+      const res = await fetch(`${BRIDGE_URL}/account/positions`, {
         signal: AbortSignal.timeout(10000),
       })
       if (!res.ok) {
