@@ -625,7 +625,7 @@ function TradeOrderModal({ ticker, currentQty, avgCost, onClose, onPlaced }: {
 
       // Save order to DB
       try {
-        await fetch('/api/broker/orders/record', {
+        await fetch('/api/orders/record', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

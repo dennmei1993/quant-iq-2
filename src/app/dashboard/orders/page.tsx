@@ -328,12 +328,12 @@ export default function OrdersPage() {
         const d = await moomooOrdersRes.json()
         // Normalise Moomoo order shape to match simulator shape
         const moomooOrders = (d.orders ?? []).map((o: any) => ({
-          order_id:   o.order_id   ?? o.orderid ?? '',
+          order_id:   o.order_id   ?? o.orderID ?? o.orderId ?? '',
           symbol:     o.code       ?? o.symbol  ?? '',
-          side:       o.trd_side   ?? o.side     ?? '',
-          order_type: o.order_type ?? 'LIMIT',
+          side:       (o.trd_side  ?? o.side     ?? '').replace('LONG', 'BUY').replace('SHORT', 'SELL'),
+          order_type: o.order_type ?? o.order_type_str ?? 'LIMIT',
           qty:        parseInt(o.qty ?? o.quantity ?? 0),
-          limit_price:parseFloat(o.price ?? 0) || null,
+          limit_price: parseFloat(o.price ?? o.limit_price ?? 0) || null,
           stop_price: null,
           // Normalise Moomoo order statuses to PENDING/FILLED/CANCELLED/REJECTED
           status: (() => {
