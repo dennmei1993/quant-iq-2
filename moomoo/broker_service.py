@@ -355,8 +355,10 @@ def get_positions_real(env: str = "read"):
                 continue
             cost    = float(row.get("cost_price",    0) or 0)
             mkt_val = float(row.get("market_val",    0) or 0)
-            unreal  = float(row.get("unrealised_pl", 0) or 0)
-            price   = mkt_val / qty if qty else 0
+            price   = float(row.get("nominal_price", 0) or 0) or (mkt_val / qty if qty else 0)
+            unreal  = float(row.get("unrealized_pl", 0) or 0)
+            real    = float(row.get("realized_pl",   0) or 0)
+            logger.debug(f"Position {ticker}: cost={cost} mkt_val={mkt_val} unreal={unreal} real={real} row_keys={list(row.index)}")
             positions.append({
                 "symbol":          f"US.{ticker}",
                 "ticker":          ticker,
@@ -367,6 +369,7 @@ def get_positions_real(env: str = "read"):
                 "cost_basis":      round(cost * qty, 2),
                 "unrealised_pnl":  round(unreal, 2),
                 "unrealised_pnl%": round(unreal / (cost * qty) * 100 if cost * qty else 0, 2),
+                "realised_pnl":    round(real,   2),
             })
 
         # Cash / account summary

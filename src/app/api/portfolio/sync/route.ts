@@ -88,12 +88,14 @@ export async function POST(req: NextRequest) {
         .from('holdings')
         .upsert(
           {
-            portfolio_id: portfolioId,
-            ticker:       ticker.toUpperCase(),
-            quantity:     pos.qty,
-            avg_cost:     pos.avg_cost,
-            asset_type:   'equities',
-            notes:        `Synced from Moomoo ${new Date().toISOString().slice(0, 10)}`,
+            portfolio_id:    portfolioId,
+            ticker:          ticker.toUpperCase(),
+            quantity:        pos.qty,
+            avg_cost:        pos.avg_cost,
+            unrealised_gain: pos.unrealised_pnl ?? 0,
+            realised_gain:   pos.realised_pnl   ?? 0,
+            asset_type:      'equities',
+            notes:           `Synced from Moomoo ${new Date().toISOString().slice(0, 10)}`,
           },
           { onConflict: 'portfolio_id,ticker' }
         )
