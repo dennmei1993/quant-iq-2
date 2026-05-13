@@ -519,7 +519,10 @@ export default function OrdersPage() {
             cursor: 'pointer', marginBottom: -1, fontFamily: 'inherit',
           }}>{label}</button>
         ))}
-      </div>
+      </div>}
+
+      {/* ── Tab content (local only) ── */}
+      {isLocal && <>
 
       {/* ── Open orders ── */}
       {tab === 'open' && (
@@ -643,6 +646,8 @@ export default function OrdersPage() {
           )}
         </div>
       )}
+
+      </>{/* end isLocal tab content */}
 
       {/* Place order modal */}
       {orderModal && status?.connected && (
