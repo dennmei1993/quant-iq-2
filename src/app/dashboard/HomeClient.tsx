@@ -1198,7 +1198,7 @@ export default function HomeClient({
                                   onClick={() => { setTxModal({ holdingId: h.id, ticker: h.ticker, currentQty: qty }); setTxType('buy') }}
                                   style={{ fontSize: 9.5, padding: '1px 6px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-3)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
                                 >Change</button>
-                                {hasMoomoo && (
+                                {hasMoomoo && (!linkedPortfolioId || activeId === linkedPortfolioId) && (
                                   <button
                                     onClick={() => setTradeModal({ ticker: h.ticker, qty, avgCost: cost })}
                                     style={{ fontSize: 9.5, padding: '1px 6px', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.25)', color: 'var(--color-info)', borderRadius: 3, cursor: 'pointer', fontWeight: 500 }}
