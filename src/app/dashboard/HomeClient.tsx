@@ -623,14 +623,10 @@ export default function HomeClient({
     }
   }, [])
 
-  // Poll broker bridge — ONLY on localhost, ONLY when portfolio is moomoo_linked
+  // Poll broker bridge when portfolio is moomoo_linked
+  // Bridge accessible via Cloudflare Tunnel from anywhere
   useEffect(() => {
-    if (!mounted) return  // don't run until after hydration
-    const hostname = window.location.hostname
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      setBroker(null)
-      return  // never poll on Vercel/production
-    }
+    if (!mounted) return
     if (!activePortfolio?.moomoo_linked) {
       setBroker(null)
       return
@@ -641,9 +637,9 @@ export default function HomeClient({
       if (!active || attempts >= 3) return
       attempts++
       try {
-        const res = await fetch('/api/broker/status', { signal: AbortSignal.timeout(3000) })
+        const res = await fetch('/api/broker/status', { signal: AbortSignal.timeout(5000) })
         if (!res.ok) { active = false; setBroker(null); return }
-        attempts = 0  // reset on success
+        attempts = 0
         const data = await res.json()
         if (!data.error) setBroker(data)
         else { active = false; setBroker(null) }

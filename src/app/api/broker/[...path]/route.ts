@@ -1,24 +1,25 @@
 // src/app/api/broker/[...path]/route.ts
-// Proxy all /api/broker/* requests to the local broker bridge (port 8765).
-// This keeps the bridge internal — never exposed to the internet.
-// The bridge must be running: python broker_service.py
+// Proxy all /api/broker/* requests to the broker bridge.
+// In dev: bridge runs on localhost:8765
+// In prod: bridge is exposed via Cloudflare Tunnel
+// Set BROKER_BRIDGE_URL in Vercel env vars to the tunnel URL.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/supabase'
 
 const BRIDGE_URL = process.env.BROKER_BRIDGE_URL ?? 'http://127.0.0.1:8765'
 
-// All HTTP methods forwarded
-async function handler(req: NextRequest, { params }: { params: { path: string[] } }) {
+async function handler(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   try {
     await requireUser()
   } catch {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
-  const path   = (await params).path.join('/')
-  const search = req.nextUrl.search ?? ''
-  const url    = `${BRIDGE_URL}/${path}${search}`
+  const { path } = await params
+  const pathStr = path.join('/')
+  const search  = req.nextUrl.search ?? ''
+  const url     = `${BRIDGE_URL}/${pathStr}${search}`
 
   try {
     const init: RequestInit = {
@@ -31,14 +32,13 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
       if (body) init.body = body
     }
 
-    const res  = await fetch(url, { ...init, signal: AbortSignal.timeout(4000) })
+    const res  = await fetch(url, { ...init, signal: AbortSignal.timeout(10000) })
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })
 
   } catch {
-    // Bridge unreachable — always 503 so client hides the status bar silently
     return NextResponse.json(
-      { error: 'Broker bridge offline', detail: 'Start with: python broker_service.py' },
+      { error: 'Broker bridge offline', detail: 'Start broker_service.py and ensure BROKER_BRIDGE_URL is set' },
       { status: 503 }
     )
   }
