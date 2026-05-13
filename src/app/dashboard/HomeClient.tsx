@@ -987,14 +987,14 @@ export default function HomeClient({
                       const chg        = sig?.change_pct ?? null
                       const qty        = h.quantity ?? 0
                       const cost       = h.avg_cost ?? 0
+                      const costBase   = qty * cost
+                      const storedUnreal = (h as any).unrealised_gain ?? null
                       const mktVal     = livePrice != null
                         ? qty * livePrice
-                        : ((h as any).market_value ?? null)
-                      const costBase   = qty * cost
-                      // Use live calc if available, fall back to Moomoo-synced value
-                      const unrealised = mktVal != null
-                        ? mktVal - costBase
-                        : ((h as any).unrealised_gain ?? null)
+                        : storedUnreal != null ? costBase + storedUnreal : null
+                      const unrealised = livePrice != null
+                        ? (mktVal! - costBase)
+                        : storedUnreal
                       const sc         = sig?.signal ?? 'hold'
                       const histIsOpen = histOpen === h.ticker
                       return (
@@ -1018,7 +1018,11 @@ export default function HomeClient({
                               {cost > 0 ? `$${cost.toFixed(2)}` : '—'}
                             </td>
                             <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                              {livePrice != null ? `$${livePrice.toFixed(2)}` : '—'}
+                              {livePrice != null
+                                ? `$${livePrice.toFixed(2)}`
+                                : mktVal != null && qty > 0
+                                  ? `$${(mktVal / qty).toFixed(2)}`
+                                  : '—'}
                             </td>
                             <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
                               {mktVal != null ? fmtCurrency(mktVal) : '—'}
