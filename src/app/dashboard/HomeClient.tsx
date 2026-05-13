@@ -872,13 +872,17 @@ export default function HomeClient({
         fetch(`/api/portfolio/transaction?portfolio_id=${portfolioId}&limit=500`),
       ])
       const [pData, tData] = await Promise.all([pRes.json(), tRes.json()])
-      setHoldings((pData.holdings ?? []).map((h: any) => ({
-        ...h,
-        quantity:        parseFloat(h.quantity)  || 0,
-        avg_cost:        parseFloat(h.avg_cost)  || 0,
-        unrealised_gain: parseFloat(h.unrealised_gain) || 0,
-        realised_gain:   parseFloat(h.realised_gain)   || 0,
-      })))
+      setHoldings((pData.holdings ?? []).map((h: any) => {
+        const q = parseFloat(h.quantity)
+        if (h.ticker === 'GOOG') console.log('[GOOG] raw quantity:', h.quantity, '→ parsed:', q)
+        return {
+          ...h,
+          quantity:        parseFloat(h.quantity)  || 0,
+          avg_cost:        parseFloat(h.avg_cost)  || 0,
+          unrealised_gain: parseFloat(h.unrealised_gain) || 0,
+          realised_gain:   parseFloat(h.realised_gain)   || 0,
+        }
+      }))
       setTransactions(tData.transactions ?? [])
     } catch {
       setHoldings([])
