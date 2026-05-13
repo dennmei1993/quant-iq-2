@@ -665,12 +665,11 @@ export default function HomeClient({
     return () => { active = false; clearInterval(interval) }
   }, [mounted, activePortfolio?.moomoo_linked])
 
-  // Auto-sync from Moomoo when linked portfolio loads and broker is connected
+  // Auto-sync from Moomoo when portfolio loads and user has Moomoo configured
   useEffect(() => {
-    if (!activeId || !broker?.connected || !hasMoomoo) return
-    // Only auto-sync once per portfolio load, not on every render
+    if (!activeId || !hasMoomoo || !mounted) return
     syncFromMoomoo()
-  }, [activeId, broker?.connected, activePortfolio?.moomoo_linked])
+  }, [activeId, hasMoomoo, mounted])
 
   // Sync when shell sidebar switches portfolio
   useEffect(() => {
@@ -794,7 +793,7 @@ export default function HomeClient({
               >
                 <i className="ti ti-bookmark" aria-hidden /> Watchlist
               </button>
-              {hasMoomoo && broker?.connected && (
+              {hasMoomoo && (
                 <button
                   className="btn btn-outline"
                   onClick={syncFromMoomoo}
