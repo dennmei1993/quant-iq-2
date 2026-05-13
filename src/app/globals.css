@@ -493,12 +493,12 @@ code, pre {
 /* ─── Holdings table ────────────────────────────────────────── */
 .holdings-table thead th {
   font-size: var(--fs-label); font-weight: 500; color: var(--text-4);
-  text-align: left; padding: 0 0 6px;
+  text-align: left; padding: 0 6px 6px;
   letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 1px solid var(--border);
 }
 .holdings-table thead th:not(:first-child) { text-align: right; }
 .holdings-table tbody td {
-  padding: 7px 0; font-size: var(--fs-base); color: var(--text);
+  padding: 7px 6px; font-size: var(--fs-base); color: var(--text);
   border-bottom: 1px solid var(--border-subtle); vertical-align: middle;
 }
 .holdings-table tbody td:not(:first-child) { text-align: right; }
