@@ -164,7 +164,7 @@ function InlineTransactionHistory({
                   {rows.map(r => (
                     <tr key={r.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', fontWeight: 600, color: typeCol(r.type), textTransform: 'uppercase' }}>{r.type}</td>
-                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{Number(r.quantity).toFixed(Number(r.quantity) % 1 === 0 ? 0 : 4).replace(/\.?0+$/, '')}</td>
+                      <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{Number(r.quantity) % 1 === 0 ? Math.round(Number(r.quantity)).toString() : Number(r.quantity).toFixed(4).replace(/\.?0+$/, '')}</td>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>${Number(r.price).toFixed(2)}</td>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>${Number(r.total_amount).toFixed(2)}</td>
                       <td style={{ padding: '5px 6px', fontSize: 'var(--fs-sm)', textAlign: 'right', color: 'var(--text-4)' }}>{r.fees > 0 ? `$${r.fees.toFixed(2)}` : '—'}</td>
@@ -872,17 +872,13 @@ export default function HomeClient({
         fetch(`/api/portfolio/transaction?portfolio_id=${portfolioId}&limit=500`),
       ])
       const [pData, tData] = await Promise.all([pRes.json(), tRes.json()])
-      setHoldings((pData.holdings ?? []).map((h: any) => {
-        const q = parseFloat(h.quantity)
-        if (h.ticker === 'GOOG') console.log('[GOOG] raw quantity:', h.quantity, '→ parsed:', q)
-        return {
-          ...h,
-          quantity:        parseFloat(h.quantity)  || 0,
-          avg_cost:        parseFloat(h.avg_cost)  || 0,
-          unrealised_gain: parseFloat(h.unrealised_gain) || 0,
-          realised_gain:   parseFloat(h.realised_gain)   || 0,
-        }
-      }))
+      setHoldings((pData.holdings ?? []).map((h: any) => ({
+        ...h,
+        quantity:        parseFloat(h.quantity)        || 0,
+        avg_cost:        parseFloat(h.avg_cost)        || 0,
+        unrealised_gain: parseFloat(h.unrealised_gain) || 0,
+        realised_gain:   parseFloat(h.realised_gain)   || 0,
+      })))
       setTransactions(tData.transactions ?? [])
     } catch {
       setHoldings([])
@@ -1260,17 +1256,17 @@ export default function HomeClient({
             </div>
             <div style={{ maxHeight: 480, overflowY: 'auto' }}>
               {holdings.length > 0 ? (
-                <table className="holdings-table" aria-label="Portfolio holdings" style={{ width: '100%' }}>
+                <table className="holdings-table" aria-label="Portfolio holdings" style={{ width: '100%', tableLayout: 'auto' }}>
                   <thead>
                     <tr>
                       <th style={{ textAlign: 'left' }}>Asset</th>
-                      <th>Qty</th>
-                      <th>Avg cost</th>
-                      <th>Price</th>
-                      <th>Mkt value</th>
-                      <th>Unrealised</th>
-                      <th>Day chg</th>
-                      <th>Signal</th>
+                      <th style={{ minWidth: 50 }}>Qty</th>
+                      <th style={{ minWidth: 80 }}>Avg cost</th>
+                      <th style={{ minWidth: 70 }}>Price</th>
+                      <th style={{ minWidth: 80 }}>Mkt value</th>
+                      <th style={{ minWidth: 90 }}>Unrealised</th>
+                      <th style={{ minWidth: 70 }}>Day chg</th>
+                      <th style={{ minWidth: 50 }}>Signal</th>
                       <th />
                     </tr>
                   </thead>
@@ -1305,10 +1301,10 @@ export default function HomeClient({
                                 </button>
                               </div>
                             </td>
-                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                              {qty > 0 ? qty.toFixed(qty % 1 === 0 ? 0 : 4).replace(/\.?0+$/, '') : '—'}
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, overflow: 'visible', whiteSpace: 'nowrap', minWidth: 40 }}>
+                              {qty > 0 ? (qty % 1 === 0 ? Math.round(qty).toString() : qty.toFixed(4).replace(/\.?0+$/, '')) : '—'}
                             </td>
-                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, overflow: 'visible', whiteSpace: 'nowrap', minWidth: 70 }}>
                               {cost > 0 ? `$${cost.toFixed(2)}` : '—'}
                             </td>
                             <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
