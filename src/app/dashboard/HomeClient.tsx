@@ -742,11 +742,12 @@ export default function HomeClient({
     ? computeCapitalMetrics(
         activePortfolio.total_capital,
         holdings.map(h => ({
-          ticker:        h.ticker,
-          quantity:      h.quantity ?? 0,
-          avg_cost:      h.avg_cost ?? 0,
-          price_usd:     h.signal?.price_usd ?? null,
-          realised_gain: (h as any).realised_gain ?? 0,
+          ticker:          h.ticker,
+          quantity:        h.quantity ?? 0,
+          avg_cost:        h.avg_cost ?? 0,
+          price_usd:       h.signal?.price_usd ?? null,
+          realised_gain:   (h as any).realised_gain   ?? 0,
+          unrealised_gain: (h as any).unrealised_gain ?? 0,
         })),
         transactions,
       )
@@ -986,9 +987,14 @@ export default function HomeClient({
                       const chg        = sig?.change_pct ?? null
                       const qty        = h.quantity ?? 0
                       const cost       = h.avg_cost ?? 0
-                      const mktVal     = livePrice != null ? qty * livePrice : null
+                      const mktVal     = livePrice != null
+                        ? qty * livePrice
+                        : ((h as any).market_value ?? null)
                       const costBase   = qty * cost
-                      const unrealised = mktVal != null ? mktVal - costBase : null
+                      // Use live calc if available, fall back to Moomoo-synced value
+                      const unrealised = mktVal != null
+                        ? mktVal - costBase
+                        : ((h as any).unrealised_gain ?? null)
                       const sc         = sig?.signal ?? 'hold'
                       const histIsOpen = histOpen === h.ticker
                       return (
