@@ -298,13 +298,16 @@ export default function OrdersPage() {
   const [orderModal,setOrderModal] = useState(false)
   const [cancelling,setCancelling] = useState<string | null>(null)
   const [toggling,  setToggling]  = useState(false)
+  const [isLocal,   setIsLocal]   = useState(false)
   const [useMoomoo, setUseMoomoo]  = useState(true)  // true = real account, false = simulator
 
   const load = useCallback(async () => {
     // Never call broker on Vercel — bridge only runs locally
     if (typeof window !== 'undefined') {
       const h = window.location.hostname
-      if (h !== 'localhost' && h !== '127.0.0.1') {
+      const local = h === 'localhost' || h === '127.0.0.1'
+      setIsLocal(local)
+      if (!local) {
         setStatus(null)
         setLoading(false)
         return
@@ -398,6 +401,33 @@ export default function OrdersPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  if (!isLocal && !loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
+        <div className="page-header">
+          <div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Broker</div>
+            <div className="page-title">Orders</div>
+          </div>
+        </div>
+        <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--bg-subtle)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 500, color: 'var(--text)' }}>Broker bridge not available on this device</div>
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.6 }}>
+            The broker bridge runs locally alongside OpenD on your trading machine.
+          </div>
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.6 }}>
+            To access Orders:
+          </div>
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 'var(--fs-sm)', color: 'var(--text-3)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <li>Start OpenD on your Windows machine</li>
+            <li>Run <code style={{ background: 'var(--bg)', padding: '1px 5px', borderRadius: 3, fontSize: 'var(--fs-xs)', border: '1px solid var(--border)' }}>python broker_service.py</code></li>
+            <li>Visit <strong>localhost:3000/dashboard/orders</strong></li>
+          </ol>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return <div style={{ color: 'var(--text-4)', fontSize: 'var(--fs-sm)', padding: '2rem 0' }}>Loading…</div>
   }
@@ -461,8 +491,21 @@ export default function OrdersPage() {
         </div>
       )}
 
+      {/* Offline notice — shown on Vercel */}
+      {!isLocal && !loading && (
+        <div style={{ padding: '20px 16px', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--bg-subtle)', fontSize: 'var(--fs-sm)', color: 'var(--text-3)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontWeight: 500, color: 'var(--text)' }}>Broker bridge not available</div>
+          <div>The broker bridge only runs on your local machine alongside OpenD. To use the Orders page:</div>
+          <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <li>Start OpenD on your machine</li>
+            <li>Run <code style={{ background: 'var(--bg)', padding: '1px 5px', borderRadius: 3, fontSize: 'var(--fs-xs)' }}>python broker_service.py</code></li>
+            <li>Open <strong>localhost:3000/dashboard/orders</strong></li>
+          </ol>
+        </div>
+      )}
+
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+      {isLocal && <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
         {([
           ['open',      `Open orders (${openOrders.length})`],
           ['history',   `History (${filledOrders.length + otherOrders.length})`],
