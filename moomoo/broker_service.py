@@ -430,14 +430,15 @@ def place_order_moomoo(req: PlaceOrderRequest):
         raise HTTPException(503, "No trading account found.")
 
     try:
-        # Unlock trade
+        # Unlock trade — required for every new TradeContext instance
         trade_pwd = req.trade_pwd or TRADE_PWD
-        if trade_pwd:
-            ret_u, msg_u = us_ctx.unlock_trade(trade_pwd)
-            if ret_u != ft.RET_OK:
-                logger.warning(f"Unlock failed: {msg_u}")
-            else:
-                logger.info("Trade unlocked")
+        if not trade_pwd:
+            raise HTTPException(401, "Trade PIN not configured. Set TRADE_PWD env var in broker-start.ps1 or pass trade_pwd in request.")
+
+        ret_u, msg_u = us_ctx.unlock_trade(trade_pwd)
+        if ret_u != ft.RET_OK:
+            raise HTTPException(401, f"Trade unlock failed: {msg_u}. Check your trade PIN in broker-start.ps1 (TRADE_PWD).")
+        logger.info("Trade unlocked for order placement")
 
         side       = ft.TrdSide.BUY if req.side.upper() == "BUY" else ft.TrdSide.SELL
         order_type = ft.OrderType.MARKET if req.order_type.upper() == "MARKET" else ft.OrderType.NORMAL
@@ -513,12 +514,11 @@ def cancel_order_moomoo(order_id: str):
             raise HTTPException(503, "No account found")
 
         # Must unlock on this context instance before modifying orders
-        if TRADE_PWD:
-            ret_u, msg_u = ctx.unlock_trade(TRADE_PWD)
-            if ret_u != ft.RET_OK:
-                logger.warning(f"Unlock in cancel: {msg_u}")
-            else:
-                logger.info("Unlocked for cancel")
+        if not TRADE_PWD:
+            raise HTTPException(401, "Trade PIN not configured. Set TRADE_PWD in broker-start.ps1")
+        ret_u, msg_u = ctx.unlock_trade(TRADE_PWD)
+        if ret_u != ft.RET_OK:
+            raise HTTPException(401, f"Trade unlock failed: {msg_u}")
 
         ret, data = ctx.modify_order(
             modify_order_op=ft.ModifyOrderOp.CANCEL,
@@ -549,10 +549,13 @@ def get_orders_moomoo(status: str = ""):
     """Get orders from Moomoo account directly (not SimulatedBroker)."""
     require_trd()
     try:
-        filter_status = ft.OrderStatus.NONE
         ret, data = trd_ctx.order_list_query(trd_env=trd_env, acc_id=trd_acc_id)
         if ret != ft.RET_OK:
             raise HTTPException(500, f"order_list_query failed: {data}")
+
+        if len(data) > 0:
+            logger.info(f"Order columns: {list(data.columns)}")
+            logger.info(f"First order: {data.iloc[0].to_dict()}")
 
         orders = []
         for _, row in data.iterrows():

@@ -335,9 +335,23 @@ export default function OrdersPage() {
           qty:        parseInt(o.qty ?? o.quantity ?? 0),
           limit_price:parseFloat(o.price ?? 0) || null,
           stop_price: null,
-          status:     o.order_status ?? o.status ?? '',
-          fill_price: parseFloat(o.dealt_avg_price ?? 0) || null,
-          fill_time:  o.updated_time ?? null,
+          // Normalise Moomoo order statuses to PENDING/FILLED/CANCELLED/REJECTED
+          status: (() => {
+            const s = (o.order_status ?? o.status ?? '').toUpperCase()
+            if (['SUBMITTED', 'WAITING_SUBMIT', 'SUBMITTING', 'PENDING_SUBMIT',
+                 'TIMEOUT', 'NONE', ''].includes(s)) return 'PENDING'
+            if (['FILLED_ALL', 'DEALT'].includes(s)) return 'FILLED'
+            if (['FILLED_PART'].includes(s)) return 'FILLING'
+            if (['CANCELLED_ALL', 'CANCELLED_PART', 'CANCEL_FAILED'].includes(s)) return 'CANCELLED'
+            if (['FAILED', 'DISABLED', 'DELETED'].includes(s)) return 'REJECTED'
+            if (s === 'PENDING') return 'PENDING'
+            if (s === 'FILLED') return 'FILLED'
+            if (s === 'CANCELLED') return 'CANCELLED'
+            if (s === 'REJECTED') return 'REJECTED'
+            return s || 'PENDING'  // default unknown to PENDING (show in open orders)
+          })(),
+          fill_price: parseFloat(o.dealt_avg_price ?? o.avg_price ?? 0) || null,
+          fill_time:  o.updated_time ?? o.last_err_time ?? null,
           created_at: o.create_time  ?? new Date().toISOString(),
           commission: 0,
           slippage:   0,
@@ -512,7 +526,7 @@ export default function OrdersPage() {
                         disabled={cancelling === o.order_id}
                         style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px', background: 'rgba(185,28,28,0.07)', border: '1px solid rgba(185,28,28,0.2)', color: 'var(--signal-bear)', borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit', opacity: cancelling === o.order_id ? 0.4 : 1 }}
                       >
-                        {cancelling === o.order_id ? '…' : 'Cancel'}
+                        {cancelling === o.order_id ? '…' : 'Delete'}
                       </button>
                     </td>
                   </tr>
