@@ -36,11 +36,34 @@ export async function GET(req: NextRequest) {
     let signalMap: Record<string, { signal: string; score: number | null; price_usd: number | null; change_pct: number | null }> = {};
 
     if (tickers.length) {
-      const { data: signals } = await supabase
-        .from("asset_signals")
-        .select("ticker, signal, score, price_usd, change_pct")
-        .in("ticker", tickers);
-      signalMap = Object.fromEntries((signals ?? []).map(s => [s.ticker, s]));
+      // Fetch signals and latest daily prices in parallel
+      const [signalsRes, pricesRes] = await Promise.all([
+        supabase.from("asset_signals").select("ticker, signal, score, price_usd, change_pct").in("ticker", tickers),
+        supabase.from("daily_prices").select("ticker, date, close").in("ticker", tickers).order("date", { ascending: false }),
+      ]);
+
+      // Latest close per ticker from daily_prices
+      const latestClose: Record<string, number> = {};
+      for (const row of (pricesRes.data ?? [])) {
+        if (!latestClose[row.ticker] && row.close != null) {
+          latestClose[row.ticker] = parseFloat(row.close);
+        }
+      }
+
+      // Merge: daily_prices close overrides asset_signals price_usd
+      signalMap = Object.fromEntries(
+        (signalsRes.data ?? []).map(s => [s.ticker, {
+          ...s,
+          price_usd: latestClose[s.ticker] ?? s.price_usd,
+        }])
+      );
+
+      // For tickers in daily_prices but not in asset_signals, add a minimal entry
+      for (const [ticker, close] of Object.entries(latestClose)) {
+        if (!signalMap[ticker]) {
+          signalMap[ticker] = { signal: 'hold', score: null, price_usd: close, change_pct: null };
+        }
+      }
     }
 
     const enriched = (holdings ?? []).map(h => ({

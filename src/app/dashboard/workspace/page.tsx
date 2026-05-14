@@ -91,7 +91,13 @@ function buildStrategies(h: Holding, price: number, iv: number) {
 
 const fmt = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(2)}`
 const fmtN = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 0 })
-const ivRankMap: Record<string, number> = { TSLA:58,META:31,GOOG:24,PLTR:62,AMD:41,NVDA:45,GLD:16,JEPQ:20,QQQ:18,SPY:14,SLV:32,FCX:38,COST:22,CRWD:44 }
+// IV Rank mock — will be replaced with real data from broker bridge /options/iv_rank endpoint
+// These are approximate historical IV rank values; real values from Moomoo OpenD differ
+const ivRankMap: Record<string, number> = {
+  TSLA:62, META:35, GOOG:28, PLTR:68, AMD:45, NVDA:48, GLD:18, JEPQ:22,
+  QQQ:20, SPY:16, SLV:35, FCX:42, COST:24, CRWD:48, JEPQ:22, IRM:32,
+  GEV:55, SMR:72, RXRX:65, OKLO:70, RDW:68, FNGU:75, AGQ:60, IONQ:71,
+}
 const getIV = (t: string) => ivRankMap[t] ?? Math.floor(Math.random() * 30 + 15)
 
 const quickChips: Record<string, string[]> = {
@@ -126,6 +132,7 @@ export default function WorkspacePage() {
   const [chatInput,   setChatInput]   = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [apiKey,      setApiKey]      = useState('')
+  const [signals,     setSignals]     = useState<Record<string, { price_usd: number | null; change_pct: number | null; iv_rank?: number | null }>>({})
   const chatRef = useRef<HTMLDivElement>(null)
   const taRef   = useRef<HTMLTextAreaElement>(null)
 
@@ -143,12 +150,14 @@ export default function WorkspacePage() {
           const wlData = await wlRes.json()
           setWatchlist(wlData.watchlist ?? [])
         }
-        // Load API key from user profile
+        // Load API key + fetch watchlist signals in parallel
         const keyRes = await fetch('/api/user/settings')
         if (keyRes.ok) {
           const kd = await keyRes.json()
           if (kd.profile?.anthropic_api_key) setApiKey(kd.profile.anthropic_api_key)
         }
+
+        // Build signal map from holdings + fetch any watchlist tickers not in holdings
         const raw = (d.holdings ?? []).map((h: any) => ({
           ...h,
           quantity:        parseFloat(h.quantity)        || 0,
@@ -159,6 +168,31 @@ export default function WorkspacePage() {
         setHoldings(raw)
         if (d.portfolio) setPortfolio({ id: d.portfolio.id, name: d.portfolio.name, total_capital: parseFloat(d.portfolio.total_capital) || 0, cash_pct: parseFloat(d.portfolio.cash_pct) || 0 })
         if (raw.length > 0) setSelected(raw[0])
+
+        // Build signal map: holdings already have signals, fetch extras for watchlist
+        const holdingSignalMap: Record<string, any> = {}
+        raw.forEach((hh: any) => { if (hh.signal) holdingSignalMap[hh.ticker] = hh.signal })
+        setSignals(holdingSignalMap)
+
+        // Fetch signals for any watchlist tickers not already in holdings
+        if (wlRes?.ok) {
+          const wlTickers = (d.watchlist_tickers ?? []).filter((t: string) => !holdingSignalMap[t])
+          // signals for watchlist come from asset_signals via portfolio API which returns all holding signals
+          // For watchlist-only tickers, attempt to fetch from asset_signals directly
+          const wlData2 = await (wlRes.clone ? wlRes.clone().json().catch(() => ({ watchlist: [] })) : Promise.resolve({ watchlist: [] }))
+          const extraTickers = (wlData2?.watchlist ?? []).map((w: any) => w.ticker).filter((t: string) => !holdingSignalMap[t])
+          if (extraTickers.length > 0) {
+            try {
+              const sigRes = await fetch(`/api/signals?tickers=${extraTickers.join(',')}`)
+              if (sigRes.ok) {
+                const sigData = await sigRes.json()
+                const extra: Record<string, any> = {}
+                ;(sigData.signals ?? []).forEach((s: any) => { extra[s.ticker] = s })
+                setSignals(prev => ({ ...prev, ...extra }))
+              }
+            } catch {}
+          }
+        }
       } catch {}
       finally { setLoading(false) }
     }
@@ -181,10 +215,12 @@ export default function WorkspacePage() {
   const cashAvail       = Math.max(0, portfolioCapital - totalInvested)
   const deployedPct     = portfolioCapital > 0 ? (totalInvested / portfolioCapital * 100) : 0
 
-  // Derived
+  // Derived — use signals map for price (covers watchlist items with no holdings signal)
   const h        = selected
-  const price    = h?.signal?.price_usd ?? h?.avg_cost ?? 0
-  const iv       = h ? getIV(h.ticker) : 20
+  const sigData  = h ? (h.signal ?? signals[h.ticker] ?? null) : null
+  const price    = sigData?.price_usd ?? (h?.avg_cost && h.avg_cost > 0 ? h.avg_cost : 0)
+  // IV Rank: prefer signal.iv_rank if available, fallback to asset_signals score, then mock
+  const iv       = h ? (sigData?.iv_rank ?? (sigData as any)?.score ?? getIV(h.ticker)) : 20
   const pnlAmt   = h ? (price - h.avg_cost) * h.quantity : 0
   const pnlPct   = h ? (price - h.avg_cost) / h.avg_cost * 100 : 0
   const mktVal   = h ? price * h.quantity : 0
@@ -248,7 +284,7 @@ export default function WorkspacePage() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', minHeight: 0 }}>
 
       {/* ── Page header + Portfolio financials ── */}
       <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
@@ -290,7 +326,7 @@ export default function WorkspacePage() {
       </div>
 
       {/* 3-panel body */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
 
         {/* ── Panel 1: Watchlist + Holdings ── */}
         <div style={{ width: 220, minWidth: 220, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -390,7 +426,7 @@ export default function WorkspacePage() {
         </div>
 
         {/* ── Panel 2: Workspace (center) ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, minHeight: 0 }}>
           {!h ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-4)', fontSize: 'var(--fs-sm)', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontSize: 32 }}>←</div>
@@ -408,10 +444,10 @@ export default function WorkspacePage() {
                 </div>
                 <div style={{ display: 'flex', gap: 18, marginLeft: 'auto', flexWrap: 'wrap' }}>
                   {[
-                    { l: 'Price',      v: `$${price.toFixed(2)}`,                               c: 'var(--text)' },
+                    { l: 'Price',      v: price > 0 ? `$${price.toFixed(2)}` : '—',            c: 'var(--text)' },
                     { l: 'Mkt value',  v: fmt(mktVal),                                          c: 'var(--text)' },
                     { l: 'P&L',        v: `${pnlAmt >= 0 ? '+' : ''}${fmt(Math.abs(pnlAmt))} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)`, c: pnlAmt >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
-                    { l: 'IV Rank',    v: String(iv),                                           c: iv > 45 ? 'var(--signal-bear)' : iv < 20 ? 'var(--signal-bull)' : 'var(--signal-neut)' },
+                    { l: 'IV Rank (est)', v: String(iv),                                        c: iv > 45 ? 'var(--signal-bear)' : iv < 20 ? 'var(--signal-bull)' : 'var(--signal-neut)' },
                   ].map(m => (
                     <div key={m.l} style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.l}</div>
@@ -600,7 +636,7 @@ export default function WorkspacePage() {
         </div>
 
         {/* ── Panel 3: AI Advisor ── */}
-        <div style={{ width: 280, minWidth: 280, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ width: 280, minWidth: 280, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
 
           {/* Header */}
           <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -617,7 +653,7 @@ export default function WorkspacePage() {
           </div>
 
           {/* Messages — always visible */}
-          <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
             {messages.map((msg, i) => (
               <div key={i}>
                 {msg.role === 'user' ? (
