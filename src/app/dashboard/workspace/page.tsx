@@ -326,10 +326,10 @@ export default function WorkspacePage() {
       </div>
 
       {/* 3-panel body */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0, alignItems: 'stretch' }}>
 
         {/* ── Panel 1: Watchlist + Holdings ── */}
-        <div style={{ width: 220, minWidth: 220, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ width: 220, minWidth: 220, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
 
           <div style={{ flex: 1, overflowY: 'auto' }}>
 
@@ -636,7 +636,7 @@ export default function WorkspacePage() {
         </div>
 
         {/* ── Panel 3: AI Advisor ── */}
-        <div style={{ width: 280, minWidth: 280, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+        <div style={{ width: 280, minWidth: 280, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0, height: '100%' }}>
 
           {/* Header */}
           <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
