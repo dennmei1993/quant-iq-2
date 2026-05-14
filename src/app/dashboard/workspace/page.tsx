@@ -653,12 +653,12 @@ export default function WorkspacePage() {
           </div>
 
           {/* Messages — always visible */}
-          <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+          <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0, justifyContent: messages.length === 0 ? 'center' : 'flex-start', alignItems: messages.length === 0 ? 'center' : 'stretch' }}>
             {messages.length === 0 && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: 0.35, padding: '20px 0' }}>
-                <div style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'white', fontFamily: 'var(--font-mono)' }}>AI</div>
-                <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textAlign: 'center', lineHeight: 1.5 }}>
-                  {apiKey ? 'Select a holding and ask anything' : 'Add API key in Settings to start'}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, opacity: 0.35 }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'white', fontFamily: 'var(--font-mono)' }}>AI</div>
+                <div style={{ fontSize: 10, color: 'var(--text-4)', textAlign: 'center' }}>
+                  {apiKey ? 'Ask me anything' : 'Set API key in Settings'}
                 </div>
               </div>
             )}
