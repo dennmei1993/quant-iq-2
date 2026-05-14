@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
       .from('profiles')
       .select('anthropic_api_key')
       .eq('id', user.id)
-      .single()
+      .single() as { data: { anthropic_api_key: string | null } | null }
 
-    const apiKey = profile?.anthropic_api_key
+    const apiKey = (profile as any)?.anthropic_api_key
     if (!apiKey) {
       return NextResponse.json({ error: 'No API key configured. Add your Anthropic API key in Settings.' }, { status: 400 })
     }
