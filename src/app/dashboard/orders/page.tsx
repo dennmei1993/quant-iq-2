@@ -357,6 +357,8 @@ export default function OrdersPage() {
           slippage:   0,
           notes:      o.remark ?? '',
           source:     'moomoo',
+          account_id: o._account_id ?? '',
+          trd_env:    o._trd_env    ?? '',
         }))
         setOrders(moomooOrders)
       }
@@ -518,6 +520,9 @@ export default function OrdersPage() {
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)', color: 'var(--text-3)' }}>{o.limit_price ? `$${o.limit_price}` : '—'}</td>
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)', color: 'var(--text-3)' }}>{o.stop_price ? `$${o.stop_price}` : '—'}</td>
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>
+                      <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 2, background: 'var(--bg-subtle)', border: '1px solid var(--border)', marginRight: 4 }}>
+                        {(o as any).trd_env === 'REAL' ? 'LIVE' : 'PAPER'}
+                      </span>
                       {new Date(o.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td style={{ padding: '8px 12px', textAlign: 'right' }}>

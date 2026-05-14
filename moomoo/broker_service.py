@@ -435,12 +435,36 @@ def place_order_moomoo(req: PlaceOrderRequest):
 
             # Fall back based on trading mode
             if us_acc_id is None:
-                preferred_env = 'REAL' if trading_mode == 'live' else 'SIMULATE'
-                for _, row in data.iterrows():
-                    if str(row.get('trd_env', '')) == preferred_env:
-                        us_acc_id = row['acc_id']
-                        us_env    = row['trd_env']
-                        break
+                if trading_mode == 'live':
+                    # Prefer REAL account for live trading
+                    for _, row in data.iterrows():
+                        if str(row.get('trd_env', '')) == 'REAL':
+                            us_acc_id = row['acc_id']
+                            us_env    = row['trd_env']
+                            break
+                else:
+                    # Prefer SIMULATE account for paper trading
+                    # Use US market filter to get US simulate account (327518)
+                    try:
+                        us_ctx2 = ft.OpenSecTradeContext(
+                            filter_trdmarket=ft.TrdMarket.US,
+                            host=OPEND_HOST, port=OPEND_PORT,
+                            security_firm=ft.SecurityFirm.FUTUAU,
+                        )
+                        ret2, data2 = us_ctx2.get_acc_list()
+                        if ret2 == ft.RET_OK and len(data2) > 0:
+                            for _, row in data2.iterrows():
+                                if str(row.get('trd_env', '')) == 'SIMULATE':
+                                    us_acc_id = row['acc_id']
+                                    us_env    = row['trd_env']
+                                    # Switch context to US-filtered one
+                                    us_ctx.close()
+                                    us_ctx = us_ctx2
+                                    break
+                        if us_acc_id is None:
+                            us_ctx2.close()
+                    except Exception as e:
+                        logger.warning(f"US simulate account lookup failed: {e}")
 
             # Final fallback
             if us_acc_id is None:
@@ -572,52 +596,60 @@ def cancel_order_moomoo(order_id: str, trade_pwd: str = ""):
 
 @app.get("/orders/moomoo")
 def get_orders_moomoo(status: str = ""):
-    """Get orders from real Moomoo account via FUTUAU firm."""
-    ctx = None
-    try:
-        ctx = ft.OpenSecTradeContext(
-            host=OPEND_HOST, port=OPEND_PORT,
-            security_firm=ft.SecurityFirm.FUTUAU,
-        )
-        ret, acc_data = ctx.get_acc_list()
-        if ret != ft.RET_OK or len(acc_data) == 0:
-            raise HTTPException(500, f"Cannot get account list: {acc_data}")
+    """Get orders from both real and simulate Moomoo accounts via FUTUAU."""
+    all_orders = []
 
-        # Prefer REAL account
-        acc_id = None
-        env    = None
-        for _, row in acc_data.iterrows():
-            if str(row.get('trd_env', '')) == 'REAL':
-                acc_id = row['acc_id']
-                env    = row['trd_env']
-                break
-        if acc_id is None:
-            acc_id = acc_data.iloc[0]['acc_id']
-            env    = acc_data.iloc[0]['trd_env']
+    # Query both no-filter (gets real + HK sim) and US-filter (gets US sim 327518)
+    contexts_to_try = [
+        {"filter": None,          "label": "no-filter"},
+        {"filter": ft.TrdMarket.US, "label": "US-filter"},
+    ]
 
-        logger.info(f"Querying orders for account {acc_id} ({env})")
+    seen_accounts = set()
 
-        ret, data = ctx.order_list_query(trd_env=env, acc_id=acc_id)
-        if ret != ft.RET_OK:
-            raise HTTPException(500, f"order_list_query failed: {data}")
+    for ctx_config in contexts_to_try:
+        ctx = None
+        try:
+            kwargs = dict(host=OPEND_HOST, port=OPEND_PORT, security_firm=ft.SecurityFirm.FUTUAU)
+            if ctx_config["filter"]:
+                kwargs["filter_trdmarket"] = ctx_config["filter"]
+            ctx = ft.OpenSecTradeContext(**kwargs)
 
-        if len(data) > 0:
-            logger.info(f"Order columns: {list(data.columns)}")
-            logger.info(f"First order: {data.iloc[0].to_dict()}")
+            ret, acc_data = ctx.get_acc_list()
+            if ret != ft.RET_OK or len(acc_data) == 0:
+                continue
 
-        orders = []
-        for _, row in data.iterrows():
-            orders.append({k: str(v) for k, v in row.items()})
-        return {"orders": orders, "account": str(acc_id), "trd_env": str(env)}
+            for _, acc_row in acc_data.iterrows():
+                acc_id  = acc_row['acc_id']
+                acc_env = acc_row['trd_env']
+                acc_key = f"{acc_id}_{acc_env}"
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, str(e))
-    finally:
-        if ctx:
-            try: ctx.close()
-            except: pass
+                if acc_key in seen_accounts:
+                    continue
+                seen_accounts.add(acc_key)
+
+                ret2, order_data = ctx.order_list_query(trd_env=acc_env, acc_id=acc_id)
+                if ret2 != ft.RET_OK or len(order_data) == 0:
+                    continue
+
+                logger.info(f"Account {acc_id} ({acc_env}): {len(order_data)} orders")
+                if len(order_data) > 0:
+                    logger.info(f"Order columns: {list(order_data.columns)}")
+
+                for _, row in order_data.iterrows():
+                    order = {k: str(v) for k, v in row.items()}
+                    order['_account_id']  = str(acc_id)
+                    order['_trd_env']     = str(acc_env)
+                    all_orders.append(order)
+
+        except Exception as e:
+            logger.warning(f"Order query failed for {ctx_config['label']}: {e}")
+        finally:
+            if ctx:
+                try: ctx.close()
+                except: pass
+
+    return {"orders": all_orders, "count": len(all_orders)}
 
 # ── Auto-trading ──────────────────────────────────────────────────────────────
 
