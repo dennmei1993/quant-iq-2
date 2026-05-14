@@ -248,7 +248,7 @@ export default function WorkspacePage() {
   async function sendChat(overrideText?: string) {
     const text = (overrideText ?? chatInput).trim()
     if (!text || chatLoading) return
-    if (!apiKey) { return }
+    // API key is handled server-side via /api/ai/chat
     setChatInput('')
     if (taRef.current) taRef.current.style.height = 'auto'
     const userMsg: ChatMessage = { role: 'user', content: text }
@@ -258,13 +258,14 @@ export default function WorkspacePage() {
     const summary = holdings.map(hh => `${hh.ticker}: ${Math.round(hh.quantity)} shares @ $${hh.avg_cost.toFixed(2)}`).join(', ')
     const sys = `You are an AI investment advisor in Quant IQ. Portfolio: ${portfolio?.name ?? 'unknown'}. Holdings: ${summary}. ${h ? `Currently analysing: ${h.ticker} (${Math.round(h.quantity)} shares @ $${h.avg_cost.toFixed(2)}, current $${price.toFixed(2)}, IV Rank ${iv}).` : ''} Be direct, specific, max 250 words. Options: covered calls, CSPs, long options only.`
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1024, system: sys, messages: newHistory.slice(-16) }),
       })
       const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content?.[0]?.text ?? data.error?.message ?? 'No response.' }])
+      if (data.error) setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.error}` }])
+      else setMessages(prev => [...prev, { role: 'assistant', content: data.content?.[0]?.text ?? 'No response.' }])
     } catch (e: any) { setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message}` }]) }
     setChatLoading(false)
   }
