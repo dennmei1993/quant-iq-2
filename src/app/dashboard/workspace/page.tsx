@@ -128,7 +128,7 @@ export default function WorkspacePage() {
   const [dcaN,        setDcaN]        = useState('6')
   const [dcaSched,    setDcaSched]    = useState<any[]>([])
   const [stagedDCA,   setStagedDCA]   = useState<Set<number>>(new Set())
-  const [messages,    setMessages]    = useState<ChatMessage[]>([{ role: 'assistant', content: 'Select a holding from the left panel to start analysing it. I can help with option strategies, accumulation plans, and risk management.' }])
+  const [messages,    setMessages]    = useState<ChatMessage[]>([])
   const [chatInput,   setChatInput]   = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [apiKey,      setApiKey]      = useState('')
@@ -146,9 +146,13 @@ export default function WorkspacePage() {
         ])
         if (!res.ok) return
         const d = await res.json()
+
+        // Save watchlist data before it's consumed
+        let watchlistData: any[] = []
         if (wlRes?.ok) {
           const wlData = await wlRes.json()
-          setWatchlist(wlData.watchlist ?? [])
+          watchlistData = wlData.watchlist ?? []
+          setWatchlist(watchlistData)
         }
         // Load API key + fetch watchlist signals in parallel
         const keyRes = await fetch('/api/user/settings')
@@ -174,24 +178,20 @@ export default function WorkspacePage() {
         raw.forEach((hh: any) => { if (hh.signal) holdingSignalMap[hh.ticker] = hh.signal })
         setSignals(holdingSignalMap)
 
-        // Fetch signals for any watchlist tickers not already in holdings
-        if (wlRes?.ok) {
-          const wlTickers = (d.watchlist_tickers ?? []).filter((t: string) => !holdingSignalMap[t])
-          // signals for watchlist come from asset_signals via portfolio API which returns all holding signals
-          // For watchlist-only tickers, attempt to fetch from asset_signals directly
-          const wlData2 = await (wlRes.clone ? wlRes.clone().json().catch(() => ({ watchlist: [] })) : Promise.resolve({ watchlist: [] }))
-          const extraTickers = (wlData2?.watchlist ?? []).map((w: any) => w.ticker).filter((t: string) => !holdingSignalMap[t])
-          if (extraTickers.length > 0) {
-            try {
-              const sigRes = await fetch(`/api/signals?tickers=${extraTickers.join(',')}`)
-              if (sigRes.ok) {
-                const sigData = await sigRes.json()
-                const extra: Record<string, any> = {}
-                ;(sigData.signals ?? []).forEach((s: any) => { extra[s.ticker] = s })
-                setSignals(prev => ({ ...prev, ...extra }))
-              }
-            } catch {}
-          }
+        // Fetch prices for watchlist tickers not already in holdings
+        const extraTickers = watchlistData
+          .map((w: any) => w.ticker)
+          .filter((t: string) => !holdingSignalMap[t])
+        if (extraTickers.length > 0) {
+          try {
+            const sigRes = await fetch(`/api/signals?tickers=${extraTickers.join(',')}`)
+            if (sigRes.ok) {
+              const sigData = await sigRes.json()
+              const extra: Record<string, any> = {}
+              ;(sigData.signals ?? []).forEach((s: any) => { extra[s.ticker] = s })
+              setSignals(prev => ({ ...prev, ...extra }))
+            }
+          } catch {}
         }
       } catch {}
       finally { setLoading(false) }
@@ -648,12 +648,20 @@ export default function WorkspacePage() {
                 : <a href="/dashboard/settings" style={{ fontSize: 8, background: 'rgba(245,158,11,0.08)', color: 'var(--signal-neut)', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 6px', borderRadius: 3, textDecoration: 'none', letterSpacing: '0.04em' }}>⚠ Set API key</a>
               }
             </div>
-            <button onClick={() => setMessages([{ role: 'assistant', content: 'Chat cleared. Select a holding and ask me anything.' }])}
+            <button onClick={() => setMessages([])}
               style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: 'var(--fs-xs)', fontFamily: 'inherit' }}>Clear</button>
           </div>
 
           {/* Messages — always visible */}
           <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+            {messages.length === 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, opacity: 0.4 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'white', fontFamily: 'var(--font-mono)' }}>AI</div>
+                <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textAlign: 'center', lineHeight: 1.5 }}>
+                  {apiKey ? 'Select a holding and ask anything' : 'Add API key in Settings to start'}
+                </div>
+              </div>
+            )}
             {messages.map((msg, i) => (
               <div key={i}>
                 {msg.role === 'user' ? (
