@@ -184,7 +184,7 @@ export default function DashboardShell({ user, children }: Props) {
           </div>
         </header>
 
-        <main className="shell-content">
+        <main className="shell-content" style={{ position: 'relative', overflow: 'hidden', flex: 1 }}>
           {children}
         </main>
       </div>

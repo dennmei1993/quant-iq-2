@@ -1,9 +1,9 @@
 // src/app/dashboard/workspace/layout.tsx
-// Workspace needs full height without extra padding — override shell content padding
+// Forces the workspace to fill the shell content area exactly
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', flex: 1, overflow: 'hidden', height: '100%' }}>
       {children}
     </div>
   )

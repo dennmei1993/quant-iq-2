@@ -95,7 +95,7 @@ const fmtN = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 0
 // These are approximate historical IV rank values; real values from Moomoo OpenD differ
 const ivRankMap: Record<string, number> = {
   TSLA:62, META:35, GOOG:28, PLTR:68, AMD:45, NVDA:48, GLD:18, JEPQ:22,
-  QQQ:20, SPY:16, SLV:35, FCX:42, COST:24, CRWD:48, JEPQ:22, IRM:32,
+  QQQ:20, SPY:16, SLV:35, FCX:42, COST:24, CRWD:48, IRM:32,
   GEV:55, SMR:72, RXRX:65, OKLO:70, RDW:68, FNGU:75, AGQ:60, IONQ:71,
 }
 const getIV = (t: string) => ivRankMap[t] ?? Math.floor(Math.random() * 30 + 15)
@@ -218,9 +218,9 @@ export default function WorkspacePage() {
   // Derived — use signals map for price (covers watchlist items with no holdings signal)
   const h        = selected
   const sigData  = h ? (h.signal ?? signals[h.ticker] ?? null) : null
-  const price    = sigData?.price_usd ?? (h?.avg_cost && h.avg_cost > 0 ? h.avg_cost : 0)
+  const price    = (sigData as any)?.price_usd ?? (h?.avg_cost && h.avg_cost > 0 ? h.avg_cost : 0)
   // IV Rank: prefer signal.iv_rank if available, fallback to asset_signals score, then mock
-  const iv       = h ? (sigData?.iv_rank ?? (sigData as any)?.score ?? getIV(h.ticker)) : 20
+  const iv       = h ? ((sigData as any)?.iv_rank ?? (sigData as any)?.score ?? getIV(h.ticker)) : 20
   const pnlAmt   = h ? (price - h.avg_cost) * h.quantity : 0
   const pnlPct   = h ? (price - h.avg_cost) / h.avg_cost * 100 : 0
   const mktVal   = h ? price * h.quantity : 0
@@ -284,7 +284,7 @@ export default function WorkspacePage() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', minHeight: 0 }}>
+    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ── Page header + Portfolio financials ── */}
       <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
@@ -644,15 +644,38 @@ export default function WorkspacePage() {
               <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500 }}>AI Advisor</span>
               <span style={{ fontSize: 8, background: 'rgba(37,99,235,0.1)', color: 'var(--color-info)', border: '1px solid rgba(37,99,235,0.2)', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Claude</span>
               {apiKey
-                ? <span style={{ fontSize: 8, background: 'rgba(21,128,61,0.1)', color: 'var(--signal-bull)', border: '1px solid rgba(21,128,61,0.25)', padding: '1px 6px', borderRadius: 3, letterSpacing: '0.04em' }}>● API Activated</span>
-                : <a href="/dashboard/settings" style={{ fontSize: 8, background: 'rgba(245,158,11,0.08)', color: 'var(--signal-neut)', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 6px', borderRadius: 3, textDecoration: 'none', letterSpacing: '0.04em' }}>⚠ Set API key</a>
+                ? <span style={{ fontSize: 8, background: 'rgba(21,128,61,0.1)', color: 'var(--signal-bull)', border: '1px solid rgba(21,128,61,0.25)', padding: '1px 6px', borderRadius: 3 }}>● API Activated</span>
+                : <a href="/dashboard/settings" style={{ fontSize: 8, background: 'rgba(245,158,11,0.08)', color: 'var(--signal-neut)', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 6px', borderRadius: 3, textDecoration: 'none' }}>⚠ Set API key</a>
               }
             </div>
-            <button onClick={() => setMessages([])}
-              style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: 'var(--fs-xs)', fontFamily: 'inherit' }}>Clear</button>
+            <button onClick={() => setMessages([])} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: 'var(--fs-xs)', fontFamily: 'inherit' }}>Clear</button>
           </div>
 
-          {/* Messages scroll area */}
+          {/* Input + chips — at top */}
+          <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border)', padding: '6px 10px 8px' }}>
+            <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', marginBottom: 5 }}>
+              <textarea ref={taRef} value={chatInput}
+                onChange={e => { setChatInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px' }}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
+                placeholder={!apiKey ? 'Add API key in Settings…' : h ? `Ask about ${h.ticker}…` : 'Select a holding first…'}
+                rows={1} disabled={!apiKey}
+                style={{ flex: 1, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '6px 8px', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', color: apiKey ? 'var(--text)' : 'var(--text-4)', outline: 'none', resize: 'none', minHeight: 32, maxHeight: 90, lineHeight: 1.4, boxSizing: 'border-box', opacity: apiKey ? 1 : 0.6 }} />
+              <button onClick={() => sendChat()} disabled={chatLoading || !chatInput.trim() || !apiKey}
+                style={{ width: 32, height: 32, borderRadius: 'var(--r-md)', background: !apiKey || chatLoading || !chatInput.trim() ? 'var(--bg-subtle)' : 'var(--color-info)', border: 'none', color: 'white', cursor: !apiKey || chatLoading || !chatInput.trim() ? 'not-allowed' : 'pointer', fontSize: 13, flexShrink: 0 }}>
+                →
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+              {chips.map(chip => (
+                <button key={chip} onClick={() => sendChat(chip)}
+                  style={{ fontSize: 9, padding: '2px 7px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-4)', cursor: apiKey ? 'pointer' : 'default', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: apiKey ? 1 : 0.4 }}>
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Messages — grow downward from top */}
           <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
             {messages.map((msg, i) => (
               <div key={i}>
@@ -687,32 +710,6 @@ export default function WorkspacePage() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Bottom — chips + input, always at bottom */}
-          <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)' }}>
-            <div style={{ padding: '5px 10px 4px', display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-              {chips.map(chip => (
-                <button key={chip} onClick={() => sendChat(chip)}
-                  style={{ fontSize: 9, padding: '2px 7px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-4)', cursor: apiKey ? 'pointer' : 'default', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: apiKey ? 1 : 0.4 }}>
-                  {chip}
-                </button>
-              ))}
-            </div>
-            <div style={{ padding: '4px 10px 8px' }}>
-              <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end' }}>
-                <textarea ref={taRef} value={chatInput}
-                  onChange={e => { setChatInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px' }}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
-                  placeholder={!apiKey ? 'Add API key in Settings…' : h ? `Ask about ${h.ticker}…` : 'Select a holding first…'}
-                  rows={1} disabled={!apiKey}
-                  style={{ flex: 1, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '6px 8px', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', color: apiKey ? 'var(--text)' : 'var(--text-4)', outline: 'none', resize: 'none', minHeight: 32, maxHeight: 90, lineHeight: 1.4, boxSizing: 'border-box', opacity: apiKey ? 1 : 0.6 }} />
-                <button onClick={() => sendChat()} disabled={chatLoading || !chatInput.trim() || !apiKey}
-                  style={{ width: 32, height: 32, borderRadius: 'var(--r-md)', background: !apiKey || chatLoading || !chatInput.trim() ? 'var(--bg-subtle)' : 'var(--color-info)', border: 'none', color: 'white', cursor: !apiKey || chatLoading || !chatInput.trim() ? 'not-allowed' : 'pointer', fontSize: 13, flexShrink: 0 }}>
-                  →
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
