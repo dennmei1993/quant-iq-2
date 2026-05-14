@@ -19,7 +19,8 @@ interface Holding {
   realised_gain:   number
   signal?: { price_usd: number | null; change_pct: number | null; signal: string | null } | null
 }
-interface Portfolio { id: string; name: string }
+interface Portfolio { id: string; name: string; total_capital: number; cash_pct: number }
+interface WatchlistItem { id: string; ticker: string; name: string | null }
 interface ChatMessage { role: 'user' | 'assistant'; content: string }
 interface StagedTrade { ticker: string; type: string; description: string; premium?: string; strike?: string; expiry?: string; legs?: string }
 
@@ -108,6 +109,7 @@ export default function WorkspacePage() {
   const portfolioId   = params.get('portfolio_id')
 
   const [portfolio,   setPortfolio]   = useState<Portfolio | null>(null)
+  const [watchlist,   setWatchlist]   = useState<WatchlistItem[]>([])
   const [holdings,    setHoldings]    = useState<Holding[]>([])
   const [selected,    setSelected]    = useState<Holding | null>(null)
   const [checked,     setChecked]     = useState<Set<string>>(new Set())
@@ -133,9 +135,16 @@ export default function WorkspacePage() {
     async function load() {
       try {
         const url = portfolioId ? `/api/portfolio?portfolio_id=${portfolioId}` : '/api/portfolio'
-        const res = await fetch(url)
+        const [res, wlRes] = await Promise.all([
+          fetch(url),
+          portfolioId ? fetch(`/api/portfolio/watchlist?portfolio_id=${portfolioId}`) : Promise.resolve(null),
+        ])
         if (!res.ok) return
         const d = await res.json()
+        if (wlRes?.ok) {
+          const wlData = await wlRes.json()
+          setWatchlist(wlData.watchlist ?? [])
+        }
         const raw = (d.holdings ?? []).map((h: any) => ({
           ...h,
           quantity:        parseFloat(h.quantity)        || 0,
@@ -144,7 +153,7 @@ export default function WorkspacePage() {
           realised_gain:   parseFloat(h.realised_gain)   || 0,
         })).filter((h: Holding) => h.quantity > 0 && h.ticker !== 'CASH')
         setHoldings(raw)
-        if (d.portfolio) setPortfolio(d.portfolio)
+        if (d.portfolio) setPortfolio({ id: d.portfolio.id, name: d.portfolio.name, total_capital: parseFloat(d.portfolio.total_capital) || 0, cash_pct: parseFloat(d.portfolio.cash_pct) || 0 })
         if (raw.length > 0) setSelected(raw[0])
       } catch {}
       finally { setLoading(false) }
@@ -155,6 +164,18 @@ export default function WorkspacePage() {
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, chatLoading])
+
+  // Portfolio financials
+  const totalInvested   = holdings.reduce((s, hh) => s + (hh.signal?.price_usd ?? hh.avg_cost) * hh.quantity, 0)
+  const totalCostBasis  = holdings.reduce((s, hh) => s + hh.avg_cost * hh.quantity, 0)
+  const totalUnrealised = holdings.reduce((s, hh) => {
+    const p = hh.signal?.price_usd ?? hh.avg_cost
+    return s + (p - hh.avg_cost) * hh.quantity
+  }, 0)
+  const totalRealised   = holdings.reduce((s, hh) => s + (hh.realised_gain || 0), 0)
+  const portfolioCapital = portfolio?.total_capital || totalInvested
+  const cashAvail       = Math.max(0, portfolioCapital - totalInvested)
+  const deployedPct     = portfolioCapital > 0 ? (totalInvested / portfolioCapital * 100) : 0
 
   // Derived
   const h        = selected
@@ -225,80 +246,141 @@ export default function WorkspacePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
-      {/* Page header */}
-      <div className="page-header" style={{ padding: '10px 18px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <div>
-          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Workspace</div>
-          <div className="page-title">{portfolio?.name ?? 'Portfolio'}</div>
-        </div>
-        {staged && (
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Staged: <strong style={{ color: 'var(--text)' }}>{staged.ticker} {staged.type}</strong></span>
-            <button onClick={() => setStaged(null)} style={{ padding: '3px 8px', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-4)', fontSize: 'var(--fs-xs)', cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
-            <button onClick={() => { alert(`Sending to Moomoo:\n${staged.ticker} ${staged.type}\n${staged.legs ?? staged.description}`); setStaged(null) }}
-              style={{ padding: '3px 10px', background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.3)', borderRadius: 'var(--r-md)', color: 'var(--signal-bull)', fontSize: 'var(--fs-xs)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
-              Send to Moomoo →
-            </button>
+      {/* ── Page header + Portfolio financials ── */}
+      <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        {/* Title row */}
+        <div className="page-header" style={{ padding: '8px 16px' }}>
+          <div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>Workspace</div>
+            <div className="page-title">{portfolio?.name ?? 'Portfolio'}</div>
           </div>
-        )}
+          {staged && (
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Staged: <strong style={{ color: 'var(--text)' }}>{staged.ticker} {staged.type}</strong></span>
+              <button onClick={() => setStaged(null)} style={{ padding: '3px 8px', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-4)', fontSize: 'var(--fs-xs)', cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
+              <button onClick={() => { alert(`Sending to Moomoo:\n${staged.ticker} ${staged.type}\n${staged.legs ?? staged.description}`); setStaged(null) }}
+                style={{ padding: '3px 10px', background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.3)', borderRadius: 'var(--r-md)', color: 'var(--signal-bull)', fontSize: 'var(--fs-xs)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                Send to Moomoo →
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Financials bar */}
+        <div style={{ display: 'flex', gap: 0, borderTop: '1px solid var(--border)', overflowX: 'auto' }}>
+          {[
+            { l: 'Total capital',   v: fmt(portfolioCapital),                                            s: null },
+            { l: 'Invested',        v: fmt(totalInvested),                                               s: `${deployedPct.toFixed(1)}% deployed` },
+            { l: 'Cash available',  v: fmt(cashAvail),                                                   s: `${(100 - deployedPct).toFixed(1)}% idle`, vc: 'var(--color-info)' },
+            { l: 'Current value',   v: fmt(totalInvested),                                               s: `${holdings.length} positions` },
+            { l: 'Unrealised P&L',  v: `${totalUnrealised >= 0 ? '+' : ''}${fmt(Math.abs(totalUnrealised))}`, s: `${totalUnrealised >= 0 ? '+' : ''}${portfolioCapital > 0 ? (totalUnrealised / portfolioCapital * 100).toFixed(2) : '0.00'}%`, vc: totalUnrealised >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
+            { l: 'Realised P&L',    v: `${totalRealised >= 0 ? '+' : ''}${fmt(Math.abs(totalRealised))}`,     s: 'Closed',                               vc: totalRealised >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
+          ].map((m, i) => (
+            <div key={m.l} style={{ flex: '1 1 0', padding: '7px 14px', borderRight: '1px solid var(--border)', minWidth: 110 }}>
+              <div style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{m.l}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 400, color: (m as any).vc ?? 'var(--text)' }}>{m.v}</div>
+              {m.s && <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 2 }}>{m.s}</div>}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 3-panel body */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {/* ── Panel 1: Holdings ── */}
+        {/* ── Panel 1: Watchlist + Holdings ── */}
         <div style={{ width: 220, minWidth: 220, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Holdings ({holdings.length})
-            </div>
-          </div>
-
-          {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 55px 60px', gap: 4, padding: '5px 10px', borderBottom: '1px solid var(--border)' }}>
-            {['', 'Ticker', 'Vol', 'Avg Cost'].map(h => (
-              <div key={h} style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: h === 'Vol' || h === 'Avg Cost' ? 'right' : 'left' }}>{h}</div>
-            ))}
-          </div>
 
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            {holdings.map(hh => {
-              const p = hh.signal?.price_usd ?? hh.avg_cost
-              const isPos = p >= hh.avg_cost
-              const isSelected = selected?.id === hh.id
-              const isChecked = checked.has(hh.id)
-              return (
-                <div key={hh.id}
-                  onClick={() => { setSelected(hh); setCenterTab('overview'); setSelStrat(null) }}
-                  style={{ display: 'grid', gridTemplateColumns: '18px 1fr 55px 60px', gap: 4, padding: '6px 10px', cursor: 'pointer', alignItems: 'center', borderLeft: `2px solid ${isSelected ? 'var(--color-info)' : 'transparent'}`, background: isSelected ? 'rgba(37,99,235,0.05)' : 'transparent', transition: 'all 0.1s' }}>
-                  {/* Checkbox */}
-                  <input type="checkbox" checked={isChecked} onChange={e => { e.stopPropagation(); toggleCheck(hh.id) }}
-                    style={{ width: 12, height: 12, cursor: 'pointer', accentColor: 'var(--color-info)' }} />
-                  {/* Ticker */}
-                  <div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--text)' }}>{hh.ticker}</div>
-                    <div style={{ fontSize: 9, color: isPos ? 'var(--signal-bull)' : 'var(--signal-bear)', marginTop: 1 }}>
-                      {isPos ? '+' : ''}{((p - hh.avg_cost) / hh.avg_cost * 100).toFixed(1)}%
+
+            {/* ── Watchlist section ── */}
+            {watchlist.length > 0 && (
+              <div>
+                <div style={{ padding: '6px 10px 4px', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg)' }}>
+                  <span style={{ fontSize: 9 }}>🔖</span> Watchlist ({watchlist.length})
+                </div>
+                {/* Watchlist col headers */}
+                <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 55px', gap: 4, padding: '4px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
+                  {['', 'Ticker', 'Signal'].map(c => (
+                    <div key={c} style={{ fontSize: 7, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: c === 'Signal' ? 'right' : 'left' }}>{c}</div>
+                  ))}
+                </div>
+                {watchlist.map(w => {
+                  const isSelected = selected?.ticker === w.ticker && !(holdings.find(hh => hh.ticker === w.ticker))
+                  return (
+                    <div key={w.id}
+                      onClick={() => {
+                        // Create a synthetic holding for watchlist items (no position yet)
+                        const existing = holdings.find(hh => hh.ticker === w.ticker)
+                        if (existing) { setSelected(existing); setCenterTab('overview'); setSelStrat(null) }
+                        else {
+                          setSelected({ id: w.id, ticker: w.ticker, quantity: 0, avg_cost: 0, unrealised_gain: 0, realised_gain: 0, signal: null })
+                          setCenterTab('chain'); setSelStrat(null)
+                        }
+                      }}
+                      style={{ display: 'grid', gridTemplateColumns: '18px 1fr 55px', gap: 4, padding: '5px 10px', cursor: 'pointer', alignItems: 'center', borderLeft: `2px solid ${isSelected ? 'rgba(245,158,11,0.6)' : 'transparent'}`, background: isSelected ? 'rgba(245,158,11,0.04)' : 'transparent', transition: 'all 0.1s' }}>
+                      <input type="checkbox" checked={checked.has(w.id)} onChange={e => { e.stopPropagation(); toggleCheck(w.id) }}
+                        style={{ width: 12, height: 12, cursor: 'pointer', accentColor: 'var(--signal-neut)' }} />
+                      <div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--text)' }}>{w.ticker}</div>
+                        {w.name && <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {holdings.find(hh => hh.ticker === w.ticker)
+                          ? <span style={{ fontSize: 8, background: 'rgba(37,99,235,0.1)', color: 'var(--color-info)', padding: '1px 4px', borderRadius: 2 }}>held</span>
+                          : <span style={{ fontSize: 8, color: 'var(--text-4)' }}>watch</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* ── Holdings section ── */}
+            <div>
+              <div style={{ padding: '6px 10px 4px', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg)', position: 'sticky', top: watchlist.length > 0 ? 'auto' : 0 }}>
+                <span style={{ fontSize: 9 }}>📊</span> Holdings ({holdings.length})
+              </div>
+              {/* Holdings col headers */}
+              <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 46px 58px', gap: 4, padding: '4px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
+                {['', 'Ticker', 'Vol', 'Avg Cost'].map(c => (
+                  <div key={c} style={{ fontSize: 7, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: c === 'Vol' || c === 'Avg Cost' ? 'right' : 'left' }}>{c}</div>
+                ))}
+              </div>
+              {holdings.map(hh => {
+                const p = hh.signal?.price_usd ?? hh.avg_cost
+                const isPos = p >= hh.avg_cost
+                const isSelected = selected?.id === hh.id
+                const isChecked = checked.has(hh.id)
+                return (
+                  <div key={hh.id}
+                    onClick={() => { setSelected(hh); setCenterTab('overview'); setSelStrat(null) }}
+                    style={{ display: 'grid', gridTemplateColumns: '18px 1fr 46px 58px', gap: 4, padding: '5px 10px', cursor: 'pointer', alignItems: 'center', borderLeft: `2px solid ${isSelected ? 'var(--color-info)' : 'transparent'}`, background: isSelected ? 'rgba(37,99,235,0.05)' : 'transparent', transition: 'all 0.1s' }}>
+                    <input type="checkbox" checked={isChecked} onChange={e => { e.stopPropagation(); toggleCheck(hh.id) }}
+                      style={{ width: 12, height: 12, cursor: 'pointer', accentColor: 'var(--color-info)' }} />
+                    <div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--text)' }}>{hh.ticker}</div>
+                      <div style={{ fontSize: 9, color: isPos ? 'var(--signal-bull)' : 'var(--signal-bear)', marginTop: 1 }}>
+                        {isPos ? '+' : ''}{((p - hh.avg_cost) / hh.avg_cost * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>
+                      {Math.round(hh.quantity).toLocaleString()}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>
+                      ${hh.avg_cost.toFixed(2)}
                     </div>
                   </div>
-                  {/* Volume */}
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>
-                    {Math.round(hh.quantity).toLocaleString()}
-                  </div>
-                  {/* Avg cost */}
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>
-                    ${hh.avg_cost.toFixed(2)}
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
 
           {/* Checked summary */}
           {checked.size > 0 && (
-            <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border)', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>
+            <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', fontSize: 'var(--fs-xs)', color: 'var(--text-4)', display: 'flex', alignItems: 'center', gap: 6 }}>
               {checked.size} selected
-              <button onClick={() => setChecked(new Set())} style={{ marginLeft: 6, background: 'none', border: 'none', color: 'var(--color-info)', cursor: 'pointer', fontSize: 'var(--fs-xs)', fontFamily: 'inherit' }}>Clear</button>
+              <button onClick={() => setChecked(new Set())} style={{ background: 'none', border: 'none', color: 'var(--color-info)', cursor: 'pointer', fontSize: 'var(--fs-xs)', fontFamily: 'inherit' }}>Clear</button>
             </div>
           )}
         </div>

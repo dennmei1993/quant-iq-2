@@ -32,12 +32,13 @@ interface Portfolio {
 }
 
 interface Holding {
-  id:            string
-  ticker:        string
-  name:          string | null
-  quantity:      number | null
-  avg_cost:      number | null
-  realised_gain: number
+  id:              string
+  ticker:          string
+  name:            string | null
+  quantity:        number | null
+  avg_cost:        number | null
+  realised_gain:   number
+  unrealised_gain: number
   signal: {
     signal:     string
     price_usd:  number | null
@@ -560,7 +561,7 @@ function TradeOrderModal({ ticker, currentQty, avgCost, onClose, onPlaced }: {
 }) {
   const [side,       setSide]       = useState<'BUY' | 'SELL'>('BUY')
   const [volume,     setVolume]     = useState('')
-  const [tradeType,  setTradeType]  = useState<'LIMIT' | 'MARKET' | 'STOP'>('LIMIT')
+  const [tradeType,  setTradeType]  = useState<'LIMIT' | 'MARKET' | 'STOP' | 'STOP_LIMIT'>('LIMIT')
   const [price,      setPrice]      = useState('')
   const [stopPrice,  setStopPrice]  = useState('')
   const [livePrice,  setLivePrice]  = useState<number | null>(null)
@@ -1022,7 +1023,7 @@ export default function HomeClient({
           avg_cost:        parseFloat(String(h.avg_cost ?? 0)) || 0,
           price_usd:       h.signal?.price_usd ?? null,
           realised_gain:   parseFloat(String((h as any).realised_gain   ?? 0)) || 0,
-          unrealised_gain: parseFloat(String((h as any).unrealised_gain ?? 0)) || 0,
+          unrealised_gain: parseFloat(String(h.unrealised_gain ?? 0)) || 0,
         })),
         transactions,
       )
