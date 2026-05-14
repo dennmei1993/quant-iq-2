@@ -10,27 +10,37 @@ const DEFAULT_URL = process.env.BROKER_BRIDGE_URL ?? 'http://127.0.0.1:8765'
 async function getBridgeUrl(): Promise<string> {
   try {
     const supabase = createServiceClient()
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('app_settings')
       .select('value')
       .eq('key', 'broker_bridge_url')
-      .single()
+      .single() as { data: { value: string } | null }
     if (data?.value) return data.value
   } catch {}
   return DEFAULT_URL
 }
 
-async function getTradePwd(userId: string): Promise<string> {
+async function getTradeConfig(userId: string): Promise<{
+  tradePwd:     string
+  tradingMode:  string
+  dataAccount:  string
+  tradeAccount: string
+}> {
   try {
     const supabase = createServiceClient()
     const { data } = await supabase
       .from('profiles')
-      .select('moomoo_password')
+      .select('moomoo_password, trading_mode, data_account, trade_account, moomoo_account')
       .eq('id', userId)
       .single()
-    return data?.moomoo_password ?? ''
+    return {
+      tradePwd:     data?.moomoo_password ?? '',
+      tradingMode:  data?.trading_mode    ?? 'paper',
+      dataAccount:  data?.data_account    ?? data?.moomoo_account ?? '',
+      tradeAccount: data?.trade_account   ?? '',
+    }
   } catch {}
-  return ''
+  return { tradePwd: '', tradingMode: 'paper', dataAccount: '', tradeAccount: '' }
 }
 
 async function handler(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
@@ -60,15 +70,13 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
       const isOrderEndpoint = pathStr === 'orders/moomoo' || pathStr === 'account/unlock'
       if (isOrderEndpoint && bodyText) {
         try {
-          const bodyObj = JSON.parse(bodyText)
-          if (!bodyObj.trade_pwd) {
-            const tradePwd = await getTradePwd(user.id)
-            if (tradePwd) bodyObj.trade_pwd = tradePwd
-          }
+          const bodyObj  = JSON.parse(bodyText)
+          const cfg      = await getTradeConfig(user.id)
+          if (!bodyObj.trade_pwd  && cfg.tradePwd)     bodyObj.trade_pwd     = cfg.tradePwd
+          if (!bodyObj.account_id && cfg.tradeAccount) bodyObj.account_id    = cfg.tradeAccount
+          if (!bodyObj.trading_mode)                    bodyObj.trading_mode  = cfg.tradingMode
           bodyText = JSON.stringify(bodyObj)
         } catch {}
-      } else if (isOrderEndpoint && req.method === 'POST' && pathStr === 'account/unlock') {
-        // unlock endpoint uses query param — handled via URL
       }
 
       if (bodyText) init.body = bodyText
@@ -77,8 +85,9 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
     // For DELETE on orders/moomoo — append trade PIN as query param
     let finalUrl = url
     if (req.method === 'DELETE' && pathStr.startsWith('orders/moomoo/')) {
-      const tradePwd = await getTradePwd(user.id)
-      if (tradePwd) {
+      const cfg = await getTradeConfig(user.id)
+      if (cfg.tradePwd) {
+        const tradePwd = cfg.tradePwd
         const sep = finalUrl.includes('?') ? '&' : '?'
         finalUrl = `${finalUrl}${sep}trade_pwd=${encodeURIComponent(tradePwd)}`
       }

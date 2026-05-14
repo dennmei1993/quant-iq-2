@@ -187,14 +187,16 @@ app.add_middleware(CORSMiddleware,
 # ── Models ────────────────────────────────────────────────────────────────────
 
 class PlaceOrderRequest(BaseModel):
-    symbol:      str
-    side:        str
-    qty:         int = Field(..., gt=0)
-    order_type:  str = "MARKET"
-    limit_price: Optional[float] = None
-    stop_price:  Optional[float] = None
-    notes:       Optional[str]   = None
-    trade_pwd:   Optional[str]   = None   # trade PIN for real account unlock
+    symbol:       str
+    side:         str
+    qty:          int = Field(..., gt=0)
+    order_type:   str = "MARKET"
+    limit_price:  Optional[float] = None
+    stop_price:   Optional[float] = None
+    notes:        Optional[str]   = None
+    trade_pwd:    Optional[str]   = None   # trade PIN — injected by Next.js proxy from profile
+    account_id:   Optional[str]   = None   # trade account — injected by proxy (paper or live)
+    trading_mode: Optional[str]   = None   # 'paper' or 'live' — injected by proxy
 
 class BrokerStatus(BaseModel):
     connected:        bool
@@ -406,7 +408,11 @@ def place_order_moomoo(req: PlaceOrderRequest):
     """Place order directly in Moomoo account via TradeContext."""
     require_trd()
 
-    # Use confirmed FUTUAU firm — shows real account 284008278648769324
+    # Use account_id from request (injected by proxy from user profile)
+    # trading_mode='paper' → use simulate account; 'live' → use real account
+    requested_account = req.account_id or ""
+    trading_mode      = req.trading_mode or "paper"
+
     us_ctx = None
     us_acc_id = None
     us_env = None
@@ -417,16 +423,31 @@ def place_order_moomoo(req: PlaceOrderRequest):
         )
         ret, data = us_ctx.get_acc_list()
         if ret == ft.RET_OK and len(data) > 0:
-            # Prefer REAL account
-            for _, row in data.iterrows():
-                if str(row.get('trd_env','')) == 'REAL':
-                    us_acc_id = row['acc_id']
-                    us_env    = row['trd_env']
-                    break
+            logger.info(f"Available accounts: {[(str(r['acc_id']), str(r['trd_env'])) for _, r in data.iterrows()]}")
+
+            # Match requested account ID first
+            if requested_account:
+                for _, row in data.iterrows():
+                    if str(row.get('acc_id', '')) == str(requested_account):
+                        us_acc_id = row['acc_id']
+                        us_env    = row['trd_env']
+                        break
+
+            # Fall back based on trading mode
+            if us_acc_id is None:
+                preferred_env = 'REAL' if trading_mode == 'live' else 'SIMULATE'
+                for _, row in data.iterrows():
+                    if str(row.get('trd_env', '')) == preferred_env:
+                        us_acc_id = row['acc_id']
+                        us_env    = row['trd_env']
+                        break
+
+            # Final fallback
             if us_acc_id is None:
                 us_acc_id = data.iloc[0]['acc_id']
                 us_env    = data.iloc[0]['trd_env']
-            logger.info(f"Using account {us_acc_id} ({us_env})")
+
+            logger.info(f"Using account {us_acc_id} ({us_env}) for {trading_mode} trading")
     except Exception as e:
         raise HTTPException(503, f"Cannot open trade context: {e}")
 

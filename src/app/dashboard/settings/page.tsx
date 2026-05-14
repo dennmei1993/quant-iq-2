@@ -33,8 +33,11 @@ export default function SettingsPage() {
   const [profile,       setProfile]       = useState<Profile | null>(null)
   const [portfolios,    setPortfolios]     = useState<Portfolio[]>([])
   const [linkedPortId,  setLinkedPortId]   = useState<string>('')
-  const [moomooAccount, setMoomooAccount]  = useState('')
-  const [moomooPassword,setMoomooPassword] = useState('')
+  const [moomooAccount,  setMoomooAccount]  = useState('')
+  const [moomooPassword, setMoomooPassword] = useState('')
+  const [tradingMode,    setTradingMode]    = useState<'paper' | 'live'>('paper')
+  const [dataAccount,    setDataAccount]    = useState('')
+  const [tradeAccount,   setTradeAccount]   = useState('')
   const [loading,       setLoading]        = useState(true)
   const [saving,        setSaving]         = useState(false)
   const [saved,         setSaved]          = useState(false)
@@ -53,6 +56,9 @@ export default function SettingsPage() {
         setProfile(d.profile)
         setMoomooAccount(d.profile?.moomoo_account ?? '')
         setMoomooPassword(d.profile?.moomoo_password ?? '')
+        setTradingMode(d.profile?.trading_mode ?? 'paper')
+        setDataAccount(d.profile?.data_account ?? d.profile?.moomoo_account ?? '')
+        setTradeAccount(d.profile?.trade_account ?? '')
         setLinkedPortId(d.moomoo_linked_portfolio?.id ?? '')
       }
       if (portfoliosRes.ok) {
@@ -71,9 +77,12 @@ export default function SettingsPage() {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          moomoo_account:              moomooAccount.trim() || null,
-          moomoo_password:             moomooPassword.trim() || null,
-          moomoo_linked_portfolio_id:  linkedPortId || null,
+          moomoo_account:             moomooAccount.trim()  || null,
+          moomoo_password:            moomooPassword.trim() || null,
+          trading_mode:               tradingMode,
+          data_account:               dataAccount.trim()    || null,
+          trade_account:              tradeAccount.trim()   || null,
+          moomoo_linked_portfolio_id: linkedPortId || null,
         }),
       })
       if (!res.ok) throw new Error('Failed to save')
@@ -172,6 +181,48 @@ export default function SettingsPage() {
               />
               <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 3 }}>
                 Used to unlock trading API
+              </div>
+            </div>
+          </div>
+
+          {/* Trading mode */}
+          <div>
+            <label style={ls}>Trading mode</label>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(['paper', 'live'] as const).map(m => (
+                <button key={m} onClick={() => setTradingMode(m)} style={{
+                  flex: 1, padding: '6px 0', borderRadius: 'var(--r-md)', cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 'var(--fs-sm)', fontWeight: tradingMode === m ? 600 : 400,
+                  background: tradingMode === m ? (m === 'live' ? 'rgba(21,128,61,0.1)' : 'rgba(37,99,235,0.08)') : 'none',
+                  border: `1px solid ${tradingMode === m ? (m === 'live' ? 'rgba(21,128,61,0.4)' : 'rgba(37,99,235,0.3)') : 'var(--border)'}`,
+                  color: tradingMode === m ? (m === 'live' ? 'var(--signal-bull)' : 'var(--color-info)') : 'var(--text-4)',
+                }}>
+                  {m === 'paper' ? '📄 Paper trading' : '⚡ Live trading'}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 4, lineHeight: 1.6 }}>
+              {tradingMode === 'paper'
+                ? 'Orders go to simulate account — no real money. Holdings data read from real account.'
+                : 'Orders go to real account — real money at risk. Confirm your PIN is correct.'}
+            </div>
+          </div>
+
+          {/* Data account (read) + Trade account (write) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <label style={ls}>Data account (read)</label>
+              <input value={dataAccount} onChange={e => setDataAccount(e.target.value)}
+                placeholder="e.g. 284008278648769324" style={inputSt} />
+              <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 2 }}>Real account for positions & prices</div>
+            </div>
+            <div>
+              <label style={ls}>Trade account (write)</label>
+              <input value={tradeAccount} onChange={e => setTradeAccount(e.target.value)}
+                placeholder={tradingMode === 'paper' ? 'e.g. 203343 (simulate)' : 'e.g. 284008278648769324'}
+                style={inputSt} />
+              <div style={{ fontSize: 'var(--fs-xs)', color: tradingMode === 'live' ? 'var(--signal-bear)' : 'var(--text-4)', marginTop: 2 }}>
+                {tradingMode === 'live' ? '⚠ Real money — double check' : 'Simulate account for paper orders'}
               </div>
             </div>
           </div>
