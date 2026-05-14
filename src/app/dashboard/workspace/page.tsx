@@ -655,8 +655,8 @@ export default function WorkspacePage() {
           {/* Messages — always visible */}
           <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
             {messages.length === 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, opacity: 0.4 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'white', fontFamily: 'var(--font-mono)' }}>AI</div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: 0.35, padding: '20px 0' }}>
+                <div style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'white', fontFamily: 'var(--font-mono)' }}>AI</div>
                 <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textAlign: 'center', lineHeight: 1.5 }}>
                   {apiKey ? 'Select a holding and ask anything' : 'Add API key in Settings to start'}
                 </div>
@@ -698,7 +698,7 @@ export default function WorkspacePage() {
           </div>
 
           {/* Quick chips */}
-          <div style={{ padding: '6px 10px 0', display: 'flex', flexWrap: 'wrap', gap: 4, flexShrink: 0 }}>
+          <div style={{ padding: '4px 10px 2px', display: 'flex', flexWrap: 'wrap', gap: 3, flexShrink: 0, borderTop: '1px solid var(--border)' }}>
             {chips.map(chip => (
               <button key={chip} onClick={() => sendChat(chip)}
                 style={{ fontSize: 9, padding: '2px 7px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: apiKey ? 'var(--text-4)' : 'var(--text-4)', cursor: apiKey ? 'pointer' : 'default', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: apiKey ? 1 : 0.4 }}>
@@ -708,7 +708,7 @@ export default function WorkspacePage() {
           </div>
 
           {/* Input */}
-          <div style={{ padding: '6px 10px 10px', flexShrink: 0 }}>
+          <div style={{ padding: '5px 10px 8px', flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end' }}>
               <textarea ref={taRef} value={chatInput}
                 onChange={e => { setChatInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px' }}
