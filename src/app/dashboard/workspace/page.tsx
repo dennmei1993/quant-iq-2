@@ -126,8 +126,6 @@ export default function WorkspacePage() {
   const [chatInput,   setChatInput]   = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [apiKey,      setApiKey]      = useState('')
-  const [apiInput,    setApiInput]    = useState('')
-  const [apiSet,      setApiSet]      = useState(false)
   const chatRef = useRef<HTMLDivElement>(null)
   const taRef   = useRef<HTMLTextAreaElement>(null)
 
@@ -144,6 +142,12 @@ export default function WorkspacePage() {
         if (wlRes?.ok) {
           const wlData = await wlRes.json()
           setWatchlist(wlData.watchlist ?? [])
+        }
+        // Load API key from user profile
+        const keyRes = await fetch('/api/user/settings')
+        if (keyRes.ok) {
+          const kd = await keyRes.json()
+          if (kd.profile?.anthropic_api_key) setApiKey(kd.profile.anthropic_api_key)
         }
         const raw = (d.holdings ?? []).map((h: any) => ({
           ...h,
@@ -208,7 +212,7 @@ export default function WorkspacePage() {
   async function sendChat(overrideText?: string) {
     const text = (overrideText ?? chatInput).trim()
     if (!text || chatLoading) return
-    if (!apiKey) return
+    if (!apiKey) { return }
     setChatInput('')
     if (taRef.current) taRef.current.style.height = 'auto'
     const userMsg: ChatMessage = { role: 'user', content: text }
@@ -596,30 +600,23 @@ export default function WorkspacePage() {
         </div>
 
         {/* ── Panel 3: AI Advisor ── */}
-        <div style={{ width: 280, minWidth: 280, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ width: 280, minWidth: 280, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+          {/* Header */}
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500 }}>AI Advisor</span>
               <span style={{ fontSize: 8, background: 'rgba(37,99,235,0.1)', color: 'var(--color-info)', border: '1px solid rgba(37,99,235,0.2)', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Claude</span>
+              {apiKey
+                ? <span style={{ fontSize: 8, background: 'rgba(21,128,61,0.1)', color: 'var(--signal-bull)', border: '1px solid rgba(21,128,61,0.25)', padding: '1px 6px', borderRadius: 3, letterSpacing: '0.04em' }}>● API Activated</span>
+                : <a href="/dashboard/settings" style={{ fontSize: 8, background: 'rgba(245,158,11,0.08)', color: 'var(--signal-neut)', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 6px', borderRadius: 3, textDecoration: 'none', letterSpacing: '0.04em' }}>⚠ Set API key</a>
+              }
             </div>
-            <button onClick={() => setMessages([{ role: 'assistant', content: 'Chat cleared.' }])}
+            <button onClick={() => setMessages([{ role: 'assistant', content: 'Chat cleared. Select a holding and ask me anything.' }])}
               style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: 'var(--fs-xs)', fontFamily: 'inherit' }}>Clear</button>
           </div>
 
-          {!apiSet && (
-            <div style={{ margin: '8px 10px', padding: '8px 10px', background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)', color: 'var(--signal-neut)' }}>
-              Enter Anthropic API key to activate
-              <div style={{ display: 'flex', gap: 5, marginTop: 5 }}>
-                <input type="password" value={apiInput} onChange={e => setApiInput(e.target.value)} placeholder="sk-ant-…"
-                  style={{ flex: 1, height: 24, background: 'var(--bg)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 3, padding: '0 6px', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text)', outline: 'none' }} />
-                <button onClick={() => { if (apiInput.startsWith('sk-')) { setApiKey(apiInput); setApiSet(true) } }}
-                  style={{ height: 24, padding: '0 8px', background: 'var(--signal-neut)', border: 'none', borderRadius: 3, fontSize: 10, color: 'var(--bg)', cursor: 'pointer', fontWeight: 500 }}>
-                  Activate
-                </button>
-              </div>
-            </div>
-          )}
-
+          {/* Messages — always visible */}
           <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {messages.map((msg, i) => (
               <div key={i}>
@@ -642,33 +639,41 @@ export default function WorkspacePage() {
               </div>
             ))}
             {chatLoading && (
-              <div style={{ display: 'flex', gap: 4, padding: '6px 0' }}>
-                {[0,1,2].map(i => (
-                  <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-4)', animation: 'pulse 1.2s ease-in-out infinite', animationDelay: `${i * 0.2}s` }} />
-                ))}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+                  <div style={{ width: 13, height: 13, borderRadius: 3, background: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: 'white' }}>AI</div>
+                  <span style={{ fontSize: 8, color: 'var(--text-4)' }}>Thinking…</span>
+                </div>
+                <div style={{ display: 'flex', gap: 4, padding: '4px 0' }}>
+                  {[0,1,2].map(i => (
+                    <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-4)', animation: 'pulse 1.2s ease-in-out infinite', animationDelay: `${i * 0.2}s` }} />
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
           {/* Quick chips */}
-          <div style={{ padding: '6px 10px 0', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          <div style={{ padding: '6px 10px 0', display: 'flex', flexWrap: 'wrap', gap: 4, flexShrink: 0 }}>
             {chips.map(chip => (
-              <button key={chip} onClick={() => { if (apiKey) sendChat(chip) }}
-                style={{ fontSize: 9, padding: '2px 7px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-4)', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+              <button key={chip} onClick={() => sendChat(chip)}
+                style={{ fontSize: 9, padding: '2px 7px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: apiKey ? 'var(--text-4)' : 'var(--text-4)', cursor: apiKey ? 'pointer' : 'default', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: apiKey ? 1 : 0.4 }}>
                 {chip}
               </button>
             ))}
           </div>
 
           {/* Input */}
-          <div style={{ padding: '6px 10px 10px' }}>
+          <div style={{ padding: '6px 10px 10px', flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end' }}>
-              <textarea ref={taRef} value={chatInput} onChange={e => { setChatInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px' }}
+              <textarea ref={taRef} value={chatInput}
+                onChange={e => { setChatInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px' }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
-                placeholder={h ? `Ask about ${h.ticker}…` : 'Select a holding first…'} rows={1}
-                style={{ flex: 1, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '6px 8px', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', color: 'var(--text)', outline: 'none', resize: 'none', minHeight: 32, maxHeight: 90, lineHeight: 1.4, boxSizing: 'border-box' }} />
+                placeholder={!apiKey ? 'Add API key in Settings to chat…' : h ? `Ask about ${h.ticker}…` : 'Select a holding first…'}
+                rows={1} disabled={!apiKey}
+                style={{ flex: 1, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '6px 8px', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', color: apiKey ? 'var(--text)' : 'var(--text-4)', outline: 'none', resize: 'none', minHeight: 32, maxHeight: 90, lineHeight: 1.4, boxSizing: 'border-box', opacity: apiKey ? 1 : 0.6 }} />
               <button onClick={() => sendChat()} disabled={chatLoading || !chatInput.trim() || !apiKey}
-                style={{ width: 32, height: 32, borderRadius: 'var(--r-md)', background: chatLoading || !chatInput.trim() || !apiKey ? 'var(--bg-subtle)' : 'var(--color-info)', border: 'none', color: 'white', cursor: chatLoading || !chatInput.trim() || !apiKey ? 'not-allowed' : 'pointer', fontSize: 13, flexShrink: 0 }}>
+                style={{ width: 32, height: 32, borderRadius: 'var(--r-md)', background: !apiKey || chatLoading || !chatInput.trim() ? 'var(--bg-subtle)' : 'var(--color-info)', border: 'none', color: 'white', cursor: !apiKey || chatLoading || !chatInput.trim() ? 'not-allowed' : 'pointer', fontSize: 13, flexShrink: 0 }}>
                 →
               </button>
             </div>
