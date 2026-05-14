@@ -1064,6 +1064,12 @@ export default function HomeClient({
             <div className="actions">
               <button
                 className="btn btn-outline"
+                onClick={() => router.push(`/dashboard/workspace?portfolio_id=${activeId}`)}
+              >
+                <i className="ti ti-layout-columns" aria-hidden /> Workspace
+              </button>
+              <button
+                className="btn btn-outline"
                 onClick={() => router.push(`/dashboard/portfolio?tab=recommendations&portfolio_id=${activeId}`)}
               >
                 <i className="ti ti-adjustments-horizontal" aria-hidden /> Build ↗

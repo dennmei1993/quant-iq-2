@@ -24,7 +24,6 @@ const NAV = [
   { href: '/dashboard/themes',    label: 'Themes',         icon: '🎯', section: 'Advisory',  },
   { href: '/dashboard/assets',    label: 'Asset Screener', icon: '📊', section: null,        },
   { href: '/dashboard/portfolio', label: 'My Portfolio',   icon: '🗂️', section: 'Portfolio', },
-  { href: '/dashboard/workspace', label: 'Workspace',      icon: '⚡', section: null,        },
   { href: '/dashboard/watchlist', label: 'Watchlist',      icon: '🔖', section: null,        },
   { href: '/dashboard/orders',    label: 'Orders',         icon: '📋', section: null,        },
   { href: '/dashboard/alerts',    label: 'Alerts',         icon: '🔔', section: null,        },
@@ -162,7 +161,7 @@ export default function DashboardShell({ user, children }: Props) {
           <div className="shell-user-info">
             <div className="shell-avatar">{initials}</div>
             <div>
-              <div className="shell-user-name">{user.fullName || user.email.split('@')[0]}</div>
+              <div className="shell-user-name">{user.fullName || 'Account'}</div>
               <div className="shell-user-plan">{user.plan.toUpperCase()} PLAN</div>
             </div>
           </div>

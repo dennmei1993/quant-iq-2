@@ -131,7 +131,7 @@ export default function SettingsPage() {
         </div>
         <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>
-            <span style={{ color: 'var(--text-4)' }}>Email: </span>{profile?.email}
+            <span style={{ color: 'var(--text-4)' }}>Account: </span>{profile?.email?.split('@')[0] ?? '—'}
           </div>
           {profile?.full_name && (
             <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>
