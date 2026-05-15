@@ -26,10 +26,6 @@
     {
       "path": "/api/cron/resolve-cusips",
       "schedule": "0 10 * * 1-5"
-    },
-    {
-      "path": "/api/cron/conditional-orders",
-      "schedule": "* * * * *"
     }
   ],
   "functions": {
