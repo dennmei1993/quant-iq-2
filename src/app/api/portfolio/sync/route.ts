@@ -117,15 +117,17 @@ export async function POST(req: NextRequest) {
         .not('ticker', 'in', `(${liveTickers.map(t => `"${t}"`).join(',')})`)
     }
 
+    // Fetch multi-currency buying power
+    let fundsData: any = null
+    try {
+      const fundsRes = await fetch(`${BRIDGE_URL}/account/funds`, { signal: AbortSignal.timeout(8000) })
+      if (fundsRes.ok) fundsData = await fundsRes.json()
+    } catch {}
+
     // Update total_capital from real account value
-    if (cash !== null) {
-      const invested = positions.reduce((s: number, p: any) => s + (p.cost_basis ?? 0), 0)
-      const total    = Math.round((cash + invested) * 100) / 100
-      await supabase
-        .from('portfolios')
-        .update({ total_capital: total })
-        .eq('id', portfolioId)
-        .eq('user_id', user.id)
+    const totalVal = fundsData?.total_assets ?? (cash !== null ? cash + positions.reduce((s: number, p: any) => s + (p.cost_basis ?? 0), 0) : null)
+    if (totalVal !== null) {
+      await supabase.from('portfolios').update({ total_capital: Math.round(totalVal * 100) / 100 }).eq('id', portfolioId).eq('user_id', user.id)
     }
 
     return NextResponse.json({
@@ -133,6 +135,13 @@ export async function POST(req: NextRequest) {
       synced,
       errors:    errors.length ? errors : undefined,
       cash,
+      funds:     fundsData ? {
+        total_assets:  fundsData.total_assets,
+        market_val:    fundsData.market_val,
+        buying_power:  fundsData.buying_power,
+        currencies:    fundsData.currencies,
+        base_currency: fundsData.base_currency,
+      } : null,
       message:   `Synced ${synced} position${synced !== 1 ? 's' : ''} from Moomoo`,
       synced_at: new Date().toISOString(),
     })

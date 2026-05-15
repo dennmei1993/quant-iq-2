@@ -1134,6 +1134,78 @@ def place_option_order(req: PlaceOrderRequest):
     return place_order_moomoo(req)
 
 
+
+@app.get("/account/funds")
+def get_account_funds():
+    """
+    GET /account/funds
+    Returns buying power, cash, and asset values per currency from real account.
+    """
+    ctx = None
+    try:
+        import time
+        ctx = ft.OpenSecTradeContext(
+            host=OPEND_HOST, port=OPEND_PORT,
+            security_firm=ft.SecurityFirm.FUTUAU,
+        )
+        ret, acc_data = ctx.get_acc_list()
+        if ret != ft.RET_OK or len(acc_data) == 0:
+            raise HTTPException(500, "Cannot get account list")
+
+        # Get real account
+        use_acc, use_env = None, None
+        for _, row in acc_data.iterrows():
+            if str(row.get('trd_env', '')) == 'REAL':
+                use_acc, use_env = row['acc_id'], row['trd_env']
+                break
+        if use_acc is None:
+            use_acc, use_env = acc_data.iloc[0]['acc_id'], acc_data.iloc[0]['trd_env']
+
+        ret2, funds = ctx.accinfo_query(trd_env=use_env, acc_id=use_acc)
+        if ret2 != ft.RET_OK:
+            raise HTTPException(500, f"accinfo_query failed: {funds}")
+
+        logger.info(f"accinfo columns: {list(funds.columns)}")
+        logger.info(f"accinfo data: {funds.iloc[0].to_dict()}")
+
+        row = funds.iloc[0]
+        raw = {k: str(v) for k, v in row.items()}
+
+        # Structure the multi-currency breakdown
+        currencies = []
+        for code, prefix in [('USD','us'), ('AUD','au'), ('HKD','hk'), ('SGD','sg'), ('CNH','cn')]:
+            cash_val = safe_f(row.get(f'{prefix}_cash'))
+            assets   = safe_f(row.get(f'{code.lower()}_assets') or row.get(f'{prefix}_assets'))
+            power    = safe_f(row.get(f'{code.lower()}_net_cash_power'))
+            if cash_val > 0 or assets > 0:
+                currencies.append({
+                    'currency':  code,
+                    'cash':      round(cash_val, 2),
+                    'assets':    round(assets, 2),
+                    'buying_power': round(power, 2),
+                })
+
+        return {
+            "account":      str(use_acc),
+            "trd_env":      str(use_env),
+            "base_currency": str(row.get('currency', 'HKD')),
+            "total_assets": safe_f(row.get('total_assets')),
+            "market_val":   safe_f(row.get('market_val')),
+            "cash":         safe_f(row.get('cash')),
+            "buying_power": safe_f(row.get('power')),
+            "currencies":   currencies,
+            "raw":          raw,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    finally:
+        if ctx:
+            try: ctx.close()
+            except: pass
+
 @app.get("/options/debug_snapshot")
 def debug_option_snapshot(code: str = "US.GOOG260522C380000"):
     """Debug: test live snapshot for a single option contract."""

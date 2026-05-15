@@ -849,6 +849,7 @@ export default function HomeClient({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [syncing,      setSyncing]      = useState(false)
   const [syncMsg,      setSyncMsg]      = useState('')
+  const [moomooFunds,  setMoomooFunds]  = useState<any>(null)
   const [hasMoomoo,       setHasMoomoo]       = useState(false)
   const [linkedPortfolioId, setLinkedPortfolioId] = useState<string | null>(null)
   const [mounted,      setMounted]      = useState(false)
@@ -971,6 +972,7 @@ export default function HomeClient({
       const res  = await fetch(`/api/portfolio/sync?portfolio_id=${activeId}`, { method: 'POST' })
       const data = await res.json()
       setSyncMsg(data.message ?? 'Sync complete')
+      if (data.funds) setMoomooFunds(data.funds)
       if (data.ok) await loadPortfolioData(activeId)
       setTimeout(() => setSyncMsg(''), 4000)
     } catch {
@@ -1199,6 +1201,17 @@ export default function HomeClient({
                   {fmtCurrency(metrics.cash_available)}
                 </div>
               </div>
+              {moomooFunds && (
+                <div className="metric">
+                  <div className="metric-label">Buying power</div>
+                  {(moomooFunds.currencies ?? []).filter((c: any) => c.cash > 0).map((c: any) => (
+                    <div key={c.currency} className="metric-value" style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-info)' }}>
+                      {c.currency} {c.buying_power > 0 ? c.buying_power.toLocaleString('en-US', { maximumFractionDigits: 0 }) : c.cash.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    </div>
+                  ))}
+                  <div className="metric-sub">Live from Moomoo</div>
+                </div>
+              )}
               <div className="metric">
                 <div className="metric-label">Current value</div>
                 <div className="metric-value">{fmtCurrency(metrics.current_value)}</div>
