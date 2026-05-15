@@ -368,7 +368,7 @@ export default function WorkspaceClient() {
     if (!expiry) return
     setChainLoading(true); setRealChain(null)
     console.log('[chain] fetching:', `/api/broker/options/chain?symbol=US.${ticker}&expiry=${expiry.slice(0,10)}`)
-    fetch(`/api/broker/options/chain?symbol=US.${ticker}&expiry=${expiry.slice(0,10)}&strike_count=12`)
+    fetch(`/api/broker/options/chain?symbol=US.${ticker}&expiry=${expiry.slice(0,10)}&strike_count=0`)
       .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
       .then(d => {
         console.log('[chain] rows:', d?.rows?.length, 'sample:', d?.rows?.[0])
