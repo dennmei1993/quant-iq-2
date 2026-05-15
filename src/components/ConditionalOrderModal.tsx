@@ -12,6 +12,7 @@ interface Props {
 }
 
 export default function ConditionalOrderModal({ ticker, currentPrice, onClose, onCreated }: Props) {
+  const [mode,          setMode]          = useState<'immediate'|'conditional'>('conditional')
   const [side,          setSide]          = useState<'BUY'|'SELL'>('BUY')
   const [qty,           setQty]           = useState('1')
   const [orderType,     setOrderType]     = useState<'LIMIT'|'MARKET'>('LIMIT')
@@ -37,7 +38,7 @@ export default function ConditionalOrderModal({ ticker, currentPrice, onClose, o
   async function create() {
     if (!qty || parseInt(qty) < 1) { setError('Enter valid quantity'); return }
     if (orderType === 'LIMIT' && !limitPrice) { setError('Enter limit price'); return }
-    if (!priceAbove && !priceBelow) { setError('Set at least one price condition'); return }
+    if (mode === 'conditional' && !priceAbove && !priceBelow) { setError('Set at least one price condition'); return }
     setSaving(true); setError('')
     try {
       const res = await fetch('/api/orders/conditional', {
@@ -49,11 +50,11 @@ export default function ConditionalOrderModal({ ticker, currentPrice, onClose, o
           qty:             parseInt(qty),
           order_type:      orderType,
           limit_price:     limitPrice ? parseFloat(limitPrice) : null,
-          price_above:     priceAbove ? parseFloat(priceAbove) : null,
-          price_below:     priceBelow ? parseFloat(priceBelow) : null,
+          price_above:     mode === 'conditional' && priceAbove ? parseFloat(priceAbove) : null,
+          price_below:     mode === 'conditional' && priceBelow ? parseFloat(priceBelow) : null,
           not_before_time: notBeforeTime,
           expires_at:      expiresAt,
-          notes:           notes || null,
+          notes:           notes || (mode === 'immediate' ? 'Immediate — execute at market open' : null),
         }),
       })
       const data = await res.json()
@@ -94,6 +95,23 @@ export default function ConditionalOrderModal({ ticker, currentPrice, onClose, o
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
+          {/* Mode selector */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {([['immediate', '⚡ Immediate', 'Execute at next market open'], ['conditional', '⏱ Conditional', 'Execute when price condition is met']] as const).map(([m, label, desc]) => (
+              <button key={m} onClick={() => setMode(m as any)} style={{ flex: 1, padding: '7px 8px', borderRadius: 'var(--r-md)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--fs-xs)', textAlign: 'left', background: mode === m ? 'rgba(37,99,235,0.08)' : 'none', border: `1px solid ${mode === m ? 'rgba(37,99,235,0.35)' : 'var(--border)'}`, color: mode === m ? 'var(--color-info)' : 'var(--text-4)' }}>
+                <div style={{ fontWeight: 600, marginBottom: 1 }}>{label}</div>
+                <div style={{ fontSize: 8, opacity: 0.8 }}>{desc}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Immediate info */}
+          {mode === 'immediate' && (
+            <div style={{ padding: '7px 10px', background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.15)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)', color: 'var(--text-3)', lineHeight: 1.6 }}>
+              Order will execute at <strong>next market open (9:30am ET)</strong> or at the specified time. No price condition required.
+            </div>
+          )}
+
           {/* Side */}
           <div style={{ display: 'flex', gap: 4 }}>
             {(['BUY','SELL'] as const).map(s => (
@@ -132,17 +150,19 @@ export default function ConditionalOrderModal({ ticker, currentPrice, onClose, o
               Execute when ALL conditions are met
             </div>
 
-            {/* Price conditions */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-              <div>
-                <label style={lbSt}>Price rises above ($)</label>
-                <input value={priceAbove} onChange={e => setPriceAbove(e.target.value)} type="number" step="0.01" placeholder="Optional" style={inSt} />
+            {/* Price conditions — conditional mode only */}
+            {mode === 'conditional' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <div>
+                  <label style={lbSt}>Price rises above ($)</label>
+                  <input value={priceAbove} onChange={e => setPriceAbove(e.target.value)} type="number" step="0.01" placeholder="Optional" style={inSt} />
+                </div>
+                <div>
+                  <label style={lbSt}>Price drops below ($)</label>
+                  <input value={priceBelow} onChange={e => setPriceBelow(e.target.value)} type="number" step="0.01" placeholder="Optional" style={inSt} />
+                </div>
               </div>
-              <div>
-                <label style={lbSt}>Price drops below ($)</label>
-                <input value={priceBelow} onChange={e => setPriceBelow(e.target.value)} type="number" step="0.01" placeholder="Optional" style={inSt} />
-              </div>
-            </div>
+            )}
 
             {/* Time gate */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -176,9 +196,9 @@ export default function ConditionalOrderModal({ ticker, currentPrice, onClose, o
           <div style={{ padding: '8px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)', color: 'var(--text-3)', lineHeight: 1.7 }}>
             <strong style={{ color: 'var(--text)' }}>Summary: </strong>
             {side} {qty} {ticker} {orderType === 'LIMIT' ? `@ $${limitPrice || '?'}` : 'at market'}
-            {priceBelow ? ` when price drops below $${priceBelow}` : ''}
-            {priceAbove ? ` when price rises above $${priceAbove}` : ''}
-            {` · not before ${notBeforeTime} ET`}
+            {mode === 'immediate'
+              ? ` · execute at ${notBeforeTime} ET on next trading day`
+              : `${priceBelow ? ` when price drops below $${priceBelow}` : ''}${priceAbove ? ` when price rises above $${priceAbove}` : ''} · not before ${notBeforeTime} ET`}
             {expiresIn !== 'never' ? ` · expires in ${expiresIn}` : ''}
           </div>
 
@@ -192,7 +212,7 @@ export default function ConditionalOrderModal({ ticker, currentPrice, onClose, o
 
           <button onClick={create} disabled={saving}
             style={{ padding: '7px', fontWeight: 600, fontFamily: 'inherit', fontSize: 'var(--fs-sm)', borderRadius: 'var(--r-md)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.5 : 1, background: side === 'BUY' ? 'rgba(21,128,61,0.1)' : 'rgba(185,28,28,0.1)', border: `1px solid ${side === 'BUY' ? 'rgba(21,128,61,0.35)' : 'rgba(185,28,28,0.35)'}`, color: side === 'BUY' ? 'var(--signal-bull)' : 'var(--signal-bear)' }}>
-            {saving ? 'Creating…' : `Create conditional ${side} order`}
+            {saving ? 'Creating…' : mode === 'immediate' ? `Schedule ${side} at ${notBeforeTime} ET` : `Create conditional ${side} order`}
           </button>
         </div>
       </div>
