@@ -532,17 +532,11 @@ export default function WorkspaceClient() {
                   return (
                     <div key={w.id}
                       onClick={() => {
-                        // Create a synthetic holding for watchlist items (no position yet)
                         const existing = holdings.find(hh => hh.ticker === w.ticker)
                         if (existing) { setSelected(existing); setCenterTab('overview'); setSelStrat(null) }
-                        else {
-                          setSelected({ id: w.id, ticker: w.ticker, quantity: 0, avg_cost: 0, unrealised_gain: 0, realised_gain: 0, signal: null })
-                          setCenterTab('chain'); setSelStrat(null)
-                        }
+                        else { setSelected({ id: w.id, ticker: w.ticker, quantity: 0, avg_cost: 0, unrealised_gain: 0, realised_gain: 0, signal: null }); setCenterTab('chain'); setSelStrat(null) }
                       }}
                       style={{ display: 'grid', gridTemplateColumns: '1fr 55px', gap: 4, padding: '5px 10px', cursor: 'pointer', alignItems: 'center', borderLeft: `2px solid ${isSelected ? 'rgba(245,158,11,0.6)' : 'transparent'}`, background: isSelected ? 'rgba(245,158,11,0.04)' : 'transparent', transition: 'all 0.1s' }}>
-                      <input type="checkbox" checked={checked.has(w.id)} onChange={e => { e.stopPropagation(); toggleCheck(w.id) }}
-                        style={{ width: 12, height: 12, cursor: 'pointer', accentColor: 'var(--signal-neut)' }} />
                       <div>
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--text)' }}>{w.ticker}</div>
                         {w.name && <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>}
