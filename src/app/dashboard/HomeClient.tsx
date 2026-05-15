@@ -1188,34 +1188,61 @@ export default function HomeClient({
             <div className="metrics" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
               <div className="metric">
                 <div className="metric-label">Total capital</div>
-                <div className="metric-value">{fmtCurrency(metrics.total_capital)}</div>
+                {moomooFunds ? (
+                  <>
+                    {(moomooFunds.currencies ?? []).filter((c: any) => c.assets > 0 && ['USD','AUD'].includes(c.currency)).map((c: any) => (
+                      <div key={c.currency} className="metric-value" style={{ fontSize: 'var(--fs-sm)' }}>
+                        {c.currency} {c.assets.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                      </div>
+                    ))}
+                    <div className="metric-sub">Total assets</div>
+                  </>
+                ) : (
+                  <div className="metric-value">{fmtCurrency(metrics.total_capital)}</div>
+                )}
               </div>
               <div className="metric">
                 <div className="metric-label">Invested</div>
                 <div className="metric-value">{fmtCurrency(metrics.invested)}</div>
                 <div className="metric-sub">{investedPct.toFixed(0)}% deployed</div>
               </div>
+              {/* Cash available — per currency from Moomoo, or portfolio calc */}
               <div className="metric">
                 <div className="metric-label">Cash available</div>
-                <div className="metric-value" style={{ color: 'var(--color-info)' }}>
-                  {fmtCurrency(metrics.cash_available)}
-                </div>
+                {moomooFunds?.currencies?.filter((c: any) => c.cash > 0).map((c: any) => (
+                  <div key={c.currency} className="metric-value" style={{ color: 'var(--color-info)', fontSize: 'var(--fs-sm)' }}>
+                    {c.currency} {c.cash.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </div>
+                )) ?? (
+                  <div className="metric-value" style={{ color: 'var(--color-info)' }}>
+                    {fmtCurrency(metrics.cash_available)}
+                  </div>
+                )}
+                {moomooFunds && <div className="metric-sub">Live · Moomoo</div>}
               </div>
-              {moomooFunds && (
-                <div className="metric">
-                  <div className="metric-label">Buying power</div>
-                  {(moomooFunds.currencies ?? []).filter((c: any) => c.cash > 0).map((c: any) => (
-                    <div key={c.currency} className="metric-value" style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-info)' }}>
-                      {c.currency} {c.buying_power > 0 ? c.buying_power.toLocaleString('en-US', { maximumFractionDigits: 0 }) : c.cash.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-                    </div>
-                  ))}
-                  <div className="metric-sub">Live from Moomoo</div>
-                </div>
-              )}
+
+              {/* Current value — market value of holdings */}
               <div className="metric">
                 <div className="metric-label">Current value</div>
-                <div className="metric-value">{fmtCurrency(metrics.current_value)}</div>
+                {moomooFunds ? (
+                  <>
+                    {(moomooFunds.currencies ?? []).filter((c: any) => c.assets > 0 && ['USD','AUD'].includes(c.currency)).map((c: any) => {
+                      const cashPart = c.cash ?? 0
+                      const invested = c.assets - cashPart
+                      return invested > 0 ? (
+                        <div key={c.currency} className="metric-value" style={{ fontSize: 'var(--fs-sm)' }}>
+                          {c.currency} {invested.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                        </div>
+                      ) : null
+                    })}
+                    <div className="metric-sub">Holdings value</div>
+                  </>
+                ) : (
+                  <div className="metric-value">{fmtCurrency(metrics.current_value)}</div>
+                )}
               </div>
+
+              {/* Unrealised P&L — summed from synced holdings */}
               <div className="metric">
                 <div className="metric-label">Unrealised P&L</div>
                 <div className="metric-value" style={{ color: signCol(metrics.unrealised_gain) }}>
@@ -1225,6 +1252,8 @@ export default function HomeClient({
                   {fmtPct(metrics.unrealised_pct)}
                 </div>
               </div>
+
+              {/* Realised P&L — summed from synced holdings */}
               <div className="metric">
                 <div className="metric-label">Realised P&L</div>
                 <div className="metric-value" style={{ color: signCol(metrics.realised_gain) }}>
