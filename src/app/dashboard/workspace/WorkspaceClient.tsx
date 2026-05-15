@@ -677,7 +677,7 @@ export default function WorkspaceClient() {
                   </button>
                 ))}
                 <div style={{ flex: 1 }} />
-                {h && price > 0 && (
+                {h && (
                   <button onClick={() => setShowConditional(true)}
                     style={{ padding: '3px 10px', fontSize: 'var(--fs-xs)', fontFamily: 'inherit', cursor: 'pointer', borderRadius: 'var(--r-md)', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', color: 'var(--signal-neut)', whiteSpace: 'nowrap', fontWeight: 500 }}>
                     ⏱ Conditional
