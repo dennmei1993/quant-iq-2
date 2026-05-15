@@ -347,7 +347,11 @@ export default function WorkspaceClient() {
           setRealExpiries(d.expiries)
           setBrokerOnline(true)
           setChainError('')
-          console.log('[chain] expiries loaded:', d.expiries.slice(0,3))
+          console.log('[chain] expiries loaded:', d.expiries.slice(0,5))
+          // Auto-select first expiry with DTE > 0 (skip today's expiry)
+          const today = new Date().toISOString().slice(0,10)
+          const firstValid = d.expiries.findIndex((e: string) => e.slice(0,10) > today)
+          setExpiryIdx(firstValid >= 0 ? firstValid : 0)
         } else {
           setBrokerOnline(false)
           setChainError('No expiries returned from bridge')

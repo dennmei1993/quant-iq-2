@@ -1053,6 +1053,10 @@ def get_option_chain(symbol: str, expiry: str, strike_count: int = 10):
                 bid    = safe_f(s.get('bid_price'))
                 ask    = safe_f(s.get('ask_price'))
                 last   = safe_f(s.get('last_price'))
+                # For expiring options bid/ask may be 0 — use last traded price as reference
+                if bid == 0 and ask == 0 and last > 0:
+                    bid = round(last * 0.95, 2)
+                    ask = round(last * 1.05, 2)
                 volume = safe_i(s.get('volume'))
                 oi     = safe_i(s.get('option_open_interest'))
                 iv     = safe_f(s.get('option_implied_volatility'))
