@@ -1376,7 +1376,188 @@ def get_iv_rank(symbol: str, lookback_days: int = 252):
         raise HTTPException(500, str(e))
 
 
-# ── Run ───────────────────────────────────────────────────────────────────────
+# ── Conditional order monitor ─────────────────────────────────────────────────
+# Runs in background thread, polls every 60s during US market hours
+# Checks conditional_orders table and executes when conditions are met
+
+import threading
+import requests as _requests
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+
+def _et_time() -> str:
+    """Current time in US Eastern timezone HH:MM"""
+    from datetime import datetime
+    import zoneinfo
+    try:
+        et = datetime.now(zoneinfo.ZoneInfo("America/New_York"))
+        return et.strftime("%H:%M")
+    except Exception:
+        return "00:00"
+
+def _is_market_hours() -> bool:
+    from datetime import datetime
+    import zoneinfo
+    try:
+        et = datetime.now(zoneinfo.ZoneInfo("America/New_York"))
+        if et.weekday() >= 5: return False  # weekend
+        t = et.strftime("%H:%M")
+        return "09:30" <= t <= "16:00"
+    except Exception:
+        return False
+
+def _get_price(ticker: str) -> float:
+    """Get live price for a ticker via OpenD"""
+    try:
+        ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+        ctx.subscribe([f"US.{ticker}"], [ft.SubType.QUOTE], subscribe_push=False)
+        import time; time.sleep(0.3)
+        ret, snap = ctx.get_market_snapshot([f"US.{ticker}"])
+        ctx.close()
+        if ret == ft.RET_OK and len(snap) > 0:
+            return safe_f(snap.iloc[0].get("last_price"))
+    except Exception as e:
+        logger.warning(f"Price fetch failed for {ticker}: {e}")
+    return 0.0
+
+def _supabase_get(path: str) -> list:
+    if not SUPABASE_URL or not SUPABASE_KEY: return []
+    try:
+        r = _requests.get(
+            f"{SUPABASE_URL}/rest/v1/{path}",
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+            timeout=10,
+        )
+        return r.json() if r.ok else []
+    except Exception as e:
+        logger.warning(f"Supabase GET failed: {e}")
+        return []
+
+def _supabase_patch(table: str, id_: str, data: dict):
+    if not SUPABASE_URL or not SUPABASE_KEY: return
+    try:
+        _requests.patch(
+            f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{id_}",
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": "application/json"},
+            json=data, timeout=10,
+        )
+    except Exception as e:
+        logger.warning(f"Supabase PATCH failed: {e}")
+
+def _supabase_post(table: str, data: dict):
+    if not SUPABASE_URL or not SUPABASE_KEY: return
+    try:
+        _requests.post(
+            f"{SUPABASE_URL}/rest/v1/{table}",
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates"},
+            json=data, timeout=10,
+        )
+    except Exception as e:
+        logger.warning(f"Supabase POST failed: {e}")
+
+def conditional_order_monitor():
+    import time
+    logger.info("Conditional order monitor started")
+    while True:
+        try:
+            time.sleep(60)
+            if not _is_market_hours():
+                continue
+
+            et_time = _et_time()
+            now_iso = __import__("datetime").datetime.utcnow().isoformat() + "Z"
+
+            # Fetch active orders with profile data
+            orders = _supabase_get(
+                "conditional_orders?status=eq.active&select=*,profiles!inner(moomoo_password,trading_mode,trade_account)"
+            )
+            if not orders:
+                continue
+
+            logger.info(f"[monitor] {et_time} ET — checking {len(orders)} conditional orders")
+
+            # Group by ticker for efficient price fetching
+            tickers = list({o["ticker"] for o in orders})
+            prices = {t: _get_price(t) for t in tickers}
+
+            for order in orders:
+                ticker = order["ticker"]
+                price  = prices.get(ticker, 0)
+                if price == 0:
+                    continue
+
+                # Update last checked
+                _supabase_patch("conditional_orders", order["id"], {
+                    "last_checked_at": now_iso, "last_price_seen": price
+                })
+
+                # Time gate
+                nbt = order.get("not_before_time") or "10:00"
+                if et_time < nbt:
+                    continue
+
+                # Date gate
+                nbd = order.get("not_before_date")
+                if nbd and now_iso[:10] < nbd:
+                    continue
+
+                # Price conditions
+                pa = order.get("price_above")
+                pb = order.get("price_below")
+                if pa and price <= float(pa): continue
+                if pb and price >= float(pb): continue
+
+                # All conditions met — execute
+                logger.info(f"[monitor] Conditions met for {ticker} @ ${price} — executing {order['side']} {order['qty']}")
+                try:
+                    profile = order.get("profiles", {})
+                    body = {
+                        "symbol":       order.get("option_code") or f"US.{ticker}",
+                        "side":         order["side"],
+                        "qty":          order["qty"],
+                        "order_type":   order.get("order_type", "LIMIT"),
+                        "trade_pwd":    profile.get("moomoo_password", ""),
+                        "account_id":   profile.get("trade_account", ""),
+                        "trading_mode": profile.get("trading_mode", "paper"),
+                    }
+                    if order.get("order_type") == "LIMIT" and order.get("limit_price"):
+                        body["limit_price"] = float(order["limit_price"])
+
+                    endpoint = "/options/order" if order.get("asset_type") == "option" else "/orders/moomoo"
+                    res = _requests.post(f"http://127.0.0.1:{SERVICE_PORT}{endpoint}", json=body, timeout=15)
+                    data = res.json()
+
+                    if res.ok and data.get("order_id"):
+                        logger.info(f"[monitor] ✓ Executed {ticker} — order_id={data['order_id']}")
+                        _supabase_patch("conditional_orders", order["id"], {
+                            "status": "triggered", "triggered_at": now_iso,
+                            "executed_order_id": data["order_id"], "updated_at": now_iso,
+                        })
+                        _supabase_post("broker_orders", {
+                            "user_id": order["user_id"], "order_id": data["order_id"],
+                            "ticker": ticker, "side": order["side"], "qty": order["qty"],
+                            "price": data.get("price") or order.get("limit_price"),
+                            "order_type": order.get("order_type", "LIMIT"),
+                            "status": "PLACED", "account": data.get("account"),
+                            "trd_env": data.get("trd_env"),
+                        })
+                    else:
+                        reason = data.get("detail", "Unknown error")
+                        logger.warning(f"[monitor] ✗ Execution failed for {ticker}: {reason}")
+                        _supabase_patch("conditional_orders", order["id"], {
+                            "status": "failed", "fail_reason": reason, "updated_at": now_iso,
+                        })
+                except Exception as e:
+                    logger.error(f"[monitor] Exception executing {ticker}: {e}")
+                    _supabase_patch("conditional_orders", order["id"], {
+                        "status": "failed", "fail_reason": str(e), "updated_at": now_iso,
+                    })
+
+        except Exception as e:
+            logger.error(f"[monitor] Loop error: {e}")
+
+
 
 if __name__ == "__main__":
     print(f"""
@@ -1391,4 +1572,13 @@ if __name__ == "__main__":
 ║  WRITE → simulate account orders (via SimulatedBroker)   ║
 ╚══════════════════════════════════════════════════════════╝
 """)
+    # Start conditional order monitor in background thread
+    if SUPABASE_URL and SUPABASE_KEY:
+        monitor_thread = threading.Thread(target=conditional_order_monitor, daemon=True)
+        monitor_thread.start()
+        logger.info("✓ Conditional order monitor started (polls every 60s during market hours)")
+    else:
+        logger.warning("SUPABASE_URL or SUPABASE_SERVICE_KEY not set — conditional order monitor disabled")
+        logger.warning("Set env vars and restart to enable conditional orders")
+
     uvicorn.run("broker_service:app", host="127.0.0.1", port=SERVICE_PORT, reload=False)

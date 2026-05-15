@@ -4,3 +4,6 @@ python broker_service.py
 #Papertrade account: 327518
 
 cloudflared tunnel --url http://localhost:8765
+
+
+powershell -ExecutionPolicy Bypass -File broker-start.ps1

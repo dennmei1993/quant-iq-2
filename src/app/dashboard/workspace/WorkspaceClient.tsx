@@ -1,5 +1,6 @@
 'use client'
 // src/app/dashboard/workspace/WorkspaceClient.tsx
+import ConditionalOrderModal from '@/components/ConditionalOrderModal'
 // Options & Research Workspace — 3-panel layout
 // Left: Holdings list with checkboxes
 // Center: Selected ticker workspace (chain, strategies, DCA)
@@ -260,6 +261,7 @@ export default function WorkspaceClient() {
   const [moomooFunds, setMoomooFunds]  = useState<any>(null)
   const [volData,     setVolData]      = useState<any>(null)
   const [chainError,  setChainError]   = useState('')
+  const [showConditional, setShowConditional] = useState(false)
   const [optionOrder, setOptionOrder]  = useState<{
     code: string; strike: number; type: 'call' | 'put'
     bid: number; ask: number; expiry: string; ticker: string
@@ -965,6 +967,14 @@ export default function WorkspaceClient() {
         </div>
       </div>
 
+      {showConditional && h && (
+        <ConditionalOrderModal
+          ticker={h.ticker}
+          currentPrice={price}
+          onClose={() => setShowConditional(false)}
+          onCreated={() => setShowConditional(false)}
+        />
+      )}
       {optionOrder && (
         <OptionOrderModal
           order={optionOrder}
