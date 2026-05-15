@@ -257,6 +257,7 @@ export default function WorkspaceClient() {
   const [chainLoading,setChainLoading] = useState(false)
   const [realExpiries,setRealExpiries] = useState<string[]>([])
   const [brokerOnline,setBrokerOnline] = useState(false)
+  const [moomooFunds, setMoomooFunds]  = useState<any>(null)
   const [chainError,  setChainError]   = useState('')
   const [optionOrder, setOptionOrder]  = useState<{
     code: string; strike: number; type: 'call' | 'put'
@@ -289,6 +290,14 @@ export default function WorkspaceClient() {
           const kd = await keyRes.json()
           if (kd.profile?.anthropic_api_key) setApiKey(kd.profile.anthropic_api_key)
         }
+        // Fetch live buying power from broker bridge
+        try {
+          const fundsRes = await fetch('/api/broker/account/funds')
+          if (fundsRes.ok) {
+            const fd = await fundsRes.json()
+            setMoomooFunds(fd)
+          }
+        } catch {}
 
         // Build signal map from holdings + fetch any watchlist tickers not in holdings
         const raw = (d.holdings ?? []).map((h: any) => ({
@@ -495,12 +504,23 @@ export default function WorkspaceClient() {
         {/* Financials bar */}
         <div style={{ display: 'flex', gap: 0, borderTop: '1px solid var(--border)', overflowX: 'auto' }}>
           {[
-            { l: 'Total capital',   v: fmt(portfolioCapital),                                            s: null },
-            { l: 'Invested',        v: fmt(totalInvested),                                               s: `${deployedPct.toFixed(1)}% deployed` },
-            { l: 'Cash available',  v: fmt(cashAvail),                                                   s: `${(100 - deployedPct).toFixed(1)}% idle`, vc: 'var(--color-info)' },
-            { l: 'Current value',   v: fmt(totalInvested),                                               s: `${holdings.length} positions` },
-            { l: 'Unrealised P&L',  v: `${totalUnrealised >= 0 ? '+' : ''}${fmt(Math.abs(totalUnrealised))}`, s: `${totalUnrealised >= 0 ? '+' : ''}${portfolioCapital > 0 ? (totalUnrealised / portfolioCapital * 100).toFixed(2) : '0.00'}%`, vc: totalUnrealised >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
-            { l: 'Realised P&L',    v: `${totalRealised >= 0 ? '+' : ''}${fmt(Math.abs(totalRealised))}`,     s: 'Closed',                               vc: totalRealised >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
+            ...(moomooFunds?.currencies ?? [])
+              .filter((c: any) => c.assets > 0 && ['USD','AUD'].includes(c.currency))
+              .map((c: any) => ({
+                l: `${c.currency} Assets`, v: `${c.currency} ${c.assets.toLocaleString('en-US',{maximumFractionDigits:0})}`, s: null,
+              })),
+            ...(moomooFunds?.currencies ?? [])
+              .filter((c: any) => c.cash > 0 && ['USD','AUD'].includes(c.currency))
+              .map((c: any) => ({
+                l: `${c.currency} Cash`, v: `${c.currency} ${c.cash.toLocaleString('en-US',{maximumFractionDigits:0})}`, s: 'Available', vc: 'var(--color-info)',
+              })),
+            ...(!moomooFunds ? [
+              { l: 'Total capital',  v: fmt(portfolioCapital), s: null },
+              { l: 'Cash available', v: fmt(cashAvail), s: `${(100-deployedPct).toFixed(1)}% idle`, vc: 'var(--color-info)' },
+            ] : []),
+            { l: 'Current value',  v: fmt(totalInvested),                                                s: `${holdings.length} positions` },
+            { l: 'Unrealised P&L', v: `${totalUnrealised >= 0 ? '+' : ''}${fmt(Math.abs(totalUnrealised))}`, s: `${totalUnrealised >= 0 ? '+' : ''}${portfolioCapital > 0 ? (totalUnrealised / portfolioCapital * 100).toFixed(2) : '0.00'}%`, vc: totalUnrealised >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
+            { l: 'Realised P&L',   v: `${totalRealised >= 0 ? '+' : ''}${fmt(Math.abs(totalRealised))}`,     s: 'Closed', vc: totalRealised >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
           ].map((m, i) => (
             <div key={m.l} style={{ flex: '1 1 0', padding: '7px 14px', borderRight: '1px solid var(--border)', minWidth: 110 }}>
               <div style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{m.l}</div>
