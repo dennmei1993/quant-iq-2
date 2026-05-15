@@ -1206,6 +1206,91 @@ def get_account_funds():
             try: ctx.close()
             except: pass
 
+@app.get("/options/volatility")
+def get_stock_volatility(symbol: str):
+    """
+    GET /options/volatility?symbol=US.GOOG
+    Returns IV, IV Rank, IV Percentile, Historical Volatility from market snapshot.
+    These are per-stock metrics shown in Moomoo's Options tab header.
+    """
+    try:
+        import time
+        ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+
+        # Subscribe to get fresh data
+        ret_sub, _ = ctx.subscribe([symbol], [ft.SubType.QUOTE], subscribe_push=False)
+        time.sleep(0.5)
+
+        ret, snap = ctx.get_market_snapshot([symbol])
+        if ret != ft.RET_OK or len(snap) == 0:
+            ctx.close()
+            raise HTTPException(500, f"Cannot get snapshot for {symbol}")
+
+        row = snap.iloc[0]
+        logger.info(f"All snapshot fields: { {k: str(v) for k, v in row.items() if str(v) not in ['nan', 'N/A', '0.0', 'None', '0']} }")
+
+        # Try get_option_chain_expiry_date_list which has aggregate IV data
+        # Also try get_capital_flow and get_plate_stock for IV rank
+        # Check if Moomoo has a dedicated IV rank query
+        try:
+            ret_iv, iv_data = ctx.get_option_expiration_date(symbol)
+            logger.info(f"Expiry data columns: {list(iv_data.columns) if ret_iv == ft.RET_OK else 'failed'}")
+            if ret_iv == ft.RET_OK and len(iv_data) > 0:
+                logger.info(f"Expiry sample: {iv_data.iloc[0].to_dict()}")
+        except Exception as e:
+            logger.warning(f"Expiry data failed: {e}")
+
+        # Get option chain for ATM IV
+        expiries_ret, exp_data = ctx.get_option_expiration_date(symbol)
+        atm_iv = None
+        if expiries_ret == ft.RET_OK and len(exp_data) > 0:
+            from datetime import datetime, timedelta
+            today = datetime.now().date().isoformat()
+            future_expiries = [e for e in exp_data['strike_time'].tolist() if e > today]
+            if future_expiries:
+                nearest = future_expiries[0]
+                chain_ret, chain_data = ctx.get_option_chain(
+                    code=symbol, start=nearest, end=nearest,
+                    option_type=ft.OptionType.ALL,
+                )
+                if chain_ret == ft.RET_OK and len(chain_data) > 0:
+                    # Get spot for ATM detection
+                    spot = safe_f(row.get('last_price'))
+                    # Collect IVs from ATM strikes via snapshot
+                    atm_codes = []
+                    for _, crow in chain_data.iterrows():
+                        strike = safe_f(crow.get('strike_price'))
+                        if spot > 0 and abs(strike - spot) / spot < 0.02:
+                            atm_codes.append(str(crow.get('code', '')))
+
+                    if atm_codes:
+                        ctx.subscribe(atm_codes[:10], [ft.SubType.QUOTE], subscribe_push=False)
+                        time.sleep(0.5)
+                        snap_ret, atm_snap = ctx.get_market_snapshot(atm_codes[:10])
+                        if snap_ret == ft.RET_OK and len(atm_snap) > 0:
+                            ivs = [safe_f(r.get('option_implied_volatility')) for _, r in atm_snap.iterrows() if safe_f(r.get('option_implied_volatility')) > 0]
+                            if ivs:
+                                atm_iv = round(sum(ivs) / len(ivs), 2)
+
+        ctx.close()
+
+        return {
+            "symbol":              symbol,
+            "last_price":          safe_f(row.get('last_price')),
+            "iv":                  atm_iv,
+            # Moomoo stores these as stock-level fields — check what's available
+            "iv_rank":             safe_f(row.get('option_iv_rank'))             or None,
+            "iv_percentile":       safe_f(row.get('option_iv_percentile'))       or None,
+            "historical_vol_30d":  safe_f(row.get('historical_volatility'))      or None,
+            "put_call_ratio":      safe_f(row.get('option_put_call_ratio'))      or None,
+            "open_interest":       safe_f(row.get('option_open_interest_total')) or None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
 @app.get("/options/debug_snapshot")
 def debug_option_snapshot(code: str = "US.GOOG260522C380000"):
     """Debug: test live snapshot for a single option contract."""

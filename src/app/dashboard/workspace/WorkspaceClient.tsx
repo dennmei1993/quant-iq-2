@@ -258,6 +258,7 @@ export default function WorkspaceClient() {
   const [realExpiries,setRealExpiries] = useState<string[]>([])
   const [brokerOnline,setBrokerOnline] = useState(false)
   const [moomooFunds, setMoomooFunds]  = useState<any>(null)
+  const [volData,     setVolData]      = useState<any>(null)
   const [chainError,  setChainError]   = useState('')
   const [optionOrder, setOptionOrder]  = useState<{
     code: string; strike: number; type: 'call' | 'put'
@@ -344,6 +345,17 @@ export default function WorkspaceClient() {
   // h must be declared before effects that depend on it
   const h = selected
 
+  // Fetch volatility data when selected holding changes
+  useEffect(() => {
+    const ticker = selected?.ticker
+    if (!ticker || ticker === 'CASH') return
+    setVolData(null)
+    fetch(`/api/signals/volatility?ticker=${ticker}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && !d.error) setVolData(d) })
+      .catch(() => {})
+  }, [selected?.ticker])
+
   // Fetch real option expiries when selected holding changes
   useEffect(() => {
     const ticker = selected?.ticker
@@ -418,8 +430,11 @@ export default function WorkspaceClient() {
     return avg > 0 ? Math.round(avg) : null
   })()
 
-  // IV: prefer live chain ATM IV → signal → mock
-  const iv       = liveIV ?? (h ? ((sigData as any)?.iv_rank ?? (sigData as any)?.score ?? getIV(h.ticker)) : 20)
+  // IV: prefer live chain ATM IV → volData → signal → mock
+  const iv       = liveIV ?? volData?.iv ?? (h ? ((sigData as any)?.iv_rank ?? (sigData as any)?.score ?? getIV(h.ticker)) : 20)
+  const ivRank   = volData?.iv_rank ?? null
+  const ivPerc   = volData?.iv_percentile ?? null
+  const hv30     = volData?.hv_30d ?? null
   const pnlAmt   = h ? (price - h.avg_cost) * h.quantity : 0
   const pnlPct   = h && h.avg_cost > 0 ? (price - h.avg_cost) / h.avg_cost * 100 : 0
   const mktVal   = h ? price * h.quantity : 0
@@ -639,7 +654,7 @@ export default function WorkspaceClient() {
                     { l: 'Price',      v: price > 0 ? `$${price.toFixed(2)}` : '—',            c: 'var(--text)' },
                     { l: 'Mkt value',  v: fmt(mktVal),                                          c: 'var(--text)' },
                     { l: 'P&L',        v: `${pnlAmt >= 0 ? '+' : ''}${fmt(Math.abs(pnlAmt))} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)`, c: pnlAmt >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
-                    { l: 'IV Rank (est)', v: String(iv),                                        c: iv > 45 ? 'var(--signal-bear)' : iv < 20 ? 'var(--signal-bull)' : 'var(--signal-neut)' },
+                    { l: ivRank !== null ? 'IV Rank' : 'IV (ATM)', v: ivRank !== null ? `${ivRank} (IV ${iv.toFixed(0)}%)` : `${iv.toFixed(1)}%`, c: (ivRank ?? iv) > 45 ? 'var(--signal-bear)' : (ivRank ?? iv) < 20 ? 'var(--signal-bull)' : 'var(--signal-neut)' },
                   ].map(m => (
                     <div key={m.l} style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.l}</div>
@@ -671,7 +686,7 @@ export default function WorkspaceClient() {
                         { l: 'Unrealised P&L', v: `${pnlAmt >= 0 ? '+' : ''}${fmt(Math.abs(pnlAmt))}`, s: `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`, vc: pnlAmt >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
                         { l: 'IV Rank', v: String(iv), s: iv > 45 ? 'Elevated — sell vol' : iv < 20 ? 'Low — buy options' : 'Moderate' },
                         { l: 'Realised P&L', v: `${h.realised_gain >= 0 ? '+' : ''}${fmt(Math.abs(h.realised_gain))}`, s: 'Closed positions', vc: h.realised_gain >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
-                        { l: 'Options signal', v: iv > 40 ? 'Sell premium' : iv < 20 ? 'Buy options' : 'Neutral', s: 'Based on IV rank' },
+                        { l: 'IV vs HV',      v: hv30 ? (iv > hv30 ? 'IV > HV' : 'IV < HV') : '—', s: hv30 ? (iv > hv30 ? 'Options rich → sell' : 'Options cheap → buy') : 'Awaiting HV data' },
                       ].map(m => (
                         <div key={m.l} style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '9px 11px' }}>
                           <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{m.l}</div>
@@ -688,9 +703,19 @@ export default function WorkspaceClient() {
                         </button>
                       ))}
                     </div>
-                    <div style={{ padding: '9px 11px', background: iv > 40 ? 'rgba(185,28,28,0.04)' : 'rgba(21,128,61,0.04)', border: `1px solid ${iv > 40 ? 'rgba(185,28,28,0.12)' : 'rgba(21,128,61,0.12)'}`, borderRadius: 'var(--r-lg)', fontSize: 'var(--fs-sm)', lineHeight: 1.6, color: 'var(--text-3)' }}>
-                      <strong style={{ color: 'var(--text)' }}>IV Rank {iv} — </strong>
-                      {iv > 45 ? `Elevated. Options premiums are rich. Covered calls and CSPs will collect above-average income. Ideal selling window.` : iv < 20 ? `Low. Options are cheap relative to history. Good time to buy protective puts or long calls. Avoid selling premium.` : `Moderate. Standard strategies apply. Covered calls at 30 delta offer balanced income vs upside participation.`}
+                    <div style={{ padding: '9px 11px', background: (ivRank ?? iv) > 40 ? 'rgba(185,28,28,0.04)' : 'rgba(21,128,61,0.04)', border: `1px solid ${(ivRank ?? iv) > 40 ? 'rgba(185,28,28,0.12)' : 'rgba(21,128,61,0.12)'}`, borderRadius: 'var(--r-lg)', fontSize: 'var(--fs-sm)', lineHeight: 1.6, color: 'var(--text-3)' }}>
+                      <strong style={{ color: 'var(--text)' }}>
+                        IV {iv.toFixed(1)}%{ivRank !== null ? ` · IVR ${ivRank}` : ''}{ivPerc !== null ? ` · IVP ${ivPerc}%` : ''}{hv30 ? ` · HV ${hv30.toFixed(1)}%` : ''} —{' '}
+                      </strong>
+                      {ivRank !== null
+                        ? ivRank > 50
+                          ? `IV Rank ${ivRank} is elevated. Premium selling strategies (covered calls, CSPs) will collect above-average income.${hv30 && iv > hv30 ? ' IV > HV confirms options are overpriced.' : ''}`
+                          : ivRank < 20
+                            ? `IV Rank ${ivRank} is low. Options are cheap relative to history. Good time to buy protective puts or long calls.${hv30 && iv < hv30 ? ' IV < HV confirms options are underpriced.' : ''}`
+                            : `IV Rank ${ivRank} is moderate. Standard strategies apply.${hv30 ? ` IV ${iv < hv30 ? '<' : '>'} HV suggests options are ${iv < hv30 ? 'cheap — lean buy' : 'rich — lean sell'}.` : ''}`
+                        : iv > 40
+                          ? `IV at ${iv.toFixed(1)}% is elevated. Consider selling premium. IV Rank will be available after 20 days of data collection.`
+                          : `IV at ${iv.toFixed(1)}% is moderate. IV Rank building up — check back as history accumulates.`}
                     </div>
                   </div>
                 )}
