@@ -258,6 +258,7 @@ export default function WorkspaceClient() {
   const [chainLoading,setChainLoading] = useState(false)
   const [realExpiries,setRealExpiries] = useState<string[]>([])
   const [brokerOnline,setBrokerOnline] = useState(false)
+  const [chainError,  setChainError]   = useState('')
   const [optionOrder, setOptionOrder]  = useState<{
     code: string; strike: number; type: 'call' | 'put'
     bid: number; ask: number; expiry: string; ticker: string
@@ -341,12 +342,19 @@ export default function WorkspaceClient() {
     if (!ticker) return
     setRealExpiries([]); setRealChain(null); setBrokerOnline(false)
     fetch(`/api/broker/options/expiries?symbol=US.${ticker}`)
-      .then(r => r.ok ? r.json() : null)
+      .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
       .then(d => {
-        if (d?.expiries?.length) { setRealExpiries(d.expiries); setBrokerOnline(true) }
-        else { setBrokerOnline(false) }
+        if (d?.expiries?.length) {
+          setRealExpiries(d.expiries)
+          setBrokerOnline(true)
+          setChainError('')
+          console.log('[chain] expiries loaded:', d.expiries.slice(0,3))
+        } else {
+          setBrokerOnline(false)
+          setChainError('No expiries returned from bridge')
+        }
       })
-      .catch(() => setBrokerOnline(false))
+      .catch(e => { setBrokerOnline(false); setChainError(`Expiry fetch failed: ${e}`) })
   }, [selected?.ticker])
 
   // Fetch real option chain when expiry index or expiries list changes
@@ -356,10 +364,15 @@ export default function WorkspaceClient() {
     const expiry = realExpiries[Math.min(expiryIdx, realExpiries.length - 1)]
     if (!expiry) return
     setChainLoading(true); setRealChain(null)
+    console.log('[chain] fetching:', `/api/broker/options/chain?symbol=US.${ticker}&expiry=${expiry.slice(0,10)}`)
     fetch(`/api/broker/options/chain?symbol=US.${ticker}&expiry=${expiry.slice(0,10)}&strike_count=12`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setRealChain(d?.rows?.length > 0 ? d.rows : null))
-      .catch(() => setRealChain(null))
+      .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
+      .then(d => {
+        console.log('[chain] rows:', d?.rows?.length, 'sample:', d?.rows?.[0])
+        setRealChain(d?.rows?.length > 0 ? d.rows : null)
+        if (!d?.rows?.length) setChainError('Chain returned no rows')
+      })
+      .catch(e => { console.error('[chain] error:', e); setRealChain(null); setChainError(`Chain fetch failed: ${e}`) })
       .finally(() => setChainLoading(false))
   }, [selected?.ticker, expiryIdx, realExpiries])
 
