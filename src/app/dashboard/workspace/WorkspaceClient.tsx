@@ -62,7 +62,7 @@ const EXPIRIES = [
 // ── Strategies ────────────────────────────────────────────────────────────────
 
 function buildStrategies(h: Holding, price: number, iv: number) {
-  const pnlPct = ((price - h.avg_cost) / h.avg_cost * 100)
+  const pnlPct = h.avg_cost > 0 ? ((price - h.avg_cost) / h.avg_cost * 100) : 0
   const strats = []
   const step = price < 50 ? 1 : price < 200 ? 2.5 : price < 500 ? 5 : 10
 
@@ -393,7 +393,7 @@ export default function WorkspaceClient() {
   // IV: prefer live chain ATM IV → signal → mock
   const iv       = liveIV ?? (h ? ((sigData as any)?.iv_rank ?? (sigData as any)?.score ?? getIV(h.ticker)) : 20)
   const pnlAmt   = h ? (price - h.avg_cost) * h.quantity : 0
-  const pnlPct   = h ? (price - h.avg_cost) / h.avg_cost * 100 : 0
+  const pnlPct   = h && h.avg_cost > 0 ? (price - h.avg_cost) / h.avg_cost * 100 : 0
   const mktVal   = h ? price * h.quantity : 0
   const strats   = h ? buildStrategies(h, price, iv) : []
   const chips    = h ? (quickChips[h.ticker] ?? quickChips.DEFAULT) : quickChips.DEFAULT
@@ -426,7 +426,7 @@ export default function WorkspaceClient() {
     setMessages(newHistory)
     setChatLoading(true)
     const summary = holdings.map(hh => `${hh.ticker}: ${Math.round(hh.quantity)} shares @ $${hh.avg_cost.toFixed(2)}`).join(', ')
-    const sys = `You are an AI investment advisor in Quant IQ. Portfolio: ${portfolio?.name ?? 'unknown'}. Holdings: ${summary}. ${h ? `Currently analysing: ${h.ticker} (${Math.round(h.quantity)} shares @ $${h.avg_cost.toFixed(2)}, current $${price.toFixed(2)}, IV Rank ${iv}).` : ''} Be direct, specific, max 250 words. Options: covered calls, CSPs, long options only.`
+    const sys = `You are an AI investment advisor in Quant IQ. Portfolio: ${portfolio?.name ?? 'unknown'}. Holdings: ${summary}. ${h ? `Currently analysing: ${h.ticker} (${Math.round(h.quantity)} shares @ $${h.avg_cost > 0 ? h.avg_cost.toFixed(2) : 'watchlist'}, current $${price.toFixed(2)}, IV Rank ${iv}).` : ''} Be direct, specific, max 250 words. Options: covered calls, CSPs, long options only.`
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -572,7 +572,7 @@ export default function WorkspaceClient() {
                     <div>
                       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--text)' }}>{hh.ticker}</div>
                       <div style={{ fontSize: 9, color: isPos ? 'var(--signal-bull)' : 'var(--signal-bear)', marginTop: 1 }}>
-                        {isPos ? '+' : ''}{((p - hh.avg_cost) / hh.avg_cost * 100).toFixed(1)}%
+                        {hh.avg_cost > 0 ? `${isPos ? '+' : ''}${((p - hh.avg_cost) / hh.avg_cost * 100).toFixed(1)}%` : '—'}
                       </div>
                     </div>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>
@@ -610,7 +610,7 @@ export default function WorkspaceClient() {
                 <div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 300, letterSpacing: '-0.5px' }}>{h.ticker}</div>
                   <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 1 }}>
-                    {Math.round(h.quantity)} shares · Avg ${h.avg_cost.toFixed(2)}
+                    {Math.round(h.quantity)} shares{h.avg_cost > 0 ? ` · Avg $${h.avg_cost.toFixed(2)}` : ' · Watchlist'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 18, marginLeft: 'auto', flexWrap: 'wrap' }}>
@@ -646,7 +646,7 @@ export default function WorkspaceClient() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                       {[
                         { l: 'Position value', v: fmt(mktVal), s: `${Math.round(h.quantity)} shares @ $${price.toFixed(2)}` },
-                        { l: 'Cost basis', v: fmt(h.quantity * h.avg_cost), s: `Avg $${h.avg_cost.toFixed(2)}` },
+                        { l: 'Cost basis', v: h.avg_cost > 0 ? fmt(h.quantity * h.avg_cost) : '—', s: h.avg_cost > 0 ? `Avg $${h.avg_cost.toFixed(2)}` : 'Watchlist only' },
                         { l: 'Unrealised P&L', v: `${pnlAmt >= 0 ? '+' : ''}${fmt(Math.abs(pnlAmt))}`, s: `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`, vc: pnlAmt >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
                         { l: 'IV Rank', v: String(iv), s: iv > 45 ? 'Elevated — sell vol' : iv < 20 ? 'Low — buy options' : 'Moderate' },
                         { l: 'Realised P&L', v: `${h.realised_gain >= 0 ? '+' : ''}${fmt(Math.abs(h.realised_gain))}`, s: 'Closed positions', vc: h.realised_gain >= 0 ? 'var(--signal-bull)' : 'var(--signal-bear)' },
