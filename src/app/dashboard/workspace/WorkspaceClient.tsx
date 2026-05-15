@@ -443,6 +443,9 @@ export default function WorkspaceClient() {
   const strats   = h ? buildStrategies(h, price, iv) : []
   const chips    = h ? (quickChips[h.ticker] ?? quickChips.DEFAULT) : quickChips.DEFAULT
 
+  // AI-suggested conditional order state
+  const [aiSuggestedOrder, setAiSuggestedOrder] = useState<any>(null)
+
   function genDCA() {
     const cap = parseFloat(dcaCap) || 20000, n = parseInt(dcaN) || 6
     let d = new Date(); d.setDate(d.getDate() + 7)
@@ -978,8 +981,9 @@ export default function WorkspaceClient() {
         <ConditionalOrderModal
           ticker={h.ticker}
           currentPrice={price}
-          onClose={() => setShowConditional(false)}
-          onCreated={() => setShowConditional(false)}
+          suggestion={aiSuggestedOrder}
+          onClose={() => { setShowConditional(false); setAiSuggestedOrder(null) }}
+          onCreated={() => { setShowConditional(false); setAiSuggestedOrder(null) }}
         />
       )}
       {optionOrder && (

@@ -5,23 +5,24 @@
 import { useState } from 'react'
 
 interface Props {
-  ticker:      string
+  ticker:       string
   currentPrice: number
-  onClose:     () => void
-  onCreated:   () => void
+  suggestion?:  any   // AI-generated suggestion to pre-fill
+  onClose:      () => void
+  onCreated:    () => void
 }
 
-export default function ConditionalOrderModal({ ticker, currentPrice, onClose, onCreated }: Props) {
-  const [mode,          setMode]          = useState<'immediate'|'conditional'>('conditional')
-  const [side,          setSide]          = useState<'BUY'|'SELL'>('BUY')
+export default function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCreated }: Props) {
+  const [mode,          setMode]          = useState<'immediate'|'conditional'>(suggestion?.mode ?? 'conditional')
+  const [side,          setSide]          = useState<'BUY'|'SELL'>(suggestion?.side ?? 'BUY')
   const [qty,           setQty]           = useState('1')
-  const [orderType,     setOrderType]     = useState<'LIMIT'|'MARKET'>('LIMIT')
-  const [limitPrice,    setLimitPrice]    = useState('')
-  const [priceAbove,    setPriceAbove]    = useState('')
-  const [priceBelow,    setPriceBelow]    = useState('')
-  const [notBeforeTime, setNotBeforeTime] = useState('10:00')
+  const [orderType,     setOrderType]     = useState<'LIMIT'|'MARKET'>(suggestion?.order_type ?? 'LIMIT')
+  const [limitPrice,    setLimitPrice]    = useState(suggestion?.limit_price ? String(suggestion.limit_price) : '')
+  const [priceAbove,    setPriceAbove]    = useState(suggestion?.price_above  ? String(suggestion.price_above)  : '')
+  const [priceBelow,    setPriceBelow]    = useState(suggestion?.price_below  ? String(suggestion.price_below)  : '')
+  const [notBeforeTime, setNotBeforeTime] = useState(suggestion?.not_before_time ?? '10:00')
   const [expiresIn,     setExpiresIn]     = useState('1d')
-  const [notes,         setNotes]         = useState('')
+  const [notes,         setNotes]         = useState(suggestion?.rationale ?? '')
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState('')
 
@@ -89,6 +90,11 @@ export default function ConditionalOrderModal({ ticker, currentPrice, onClose, o
             <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 1 }}>
               Current price: ${currentPrice.toFixed(2)} · Monitors every minute during market hours
             </div>
+            {suggestion && (
+              <div style={{ marginTop: 6, padding: '4px 8px', background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 'var(--r-md)', fontSize: 9, color: 'var(--color-info)' }}>
+                ✦ AI suggested — review and adjust before creating
+              </div>
+            )}
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
         </div>
