@@ -394,7 +394,7 @@ export default function WorkspaceClient() {
   // Derived — use signals map for price (covers watchlist items with no holdings signal)
   const sigData  = h ? (h.signal ?? signals[h.ticker] ?? null) : null
   const price    = (sigData as any)?.price_usd ?? (h?.avg_cost && h.avg_cost > 0 ? h.avg_cost : 0)
-  const chain    = realChain ?? (h ? buildChain(price, 20, EXPIRIES[expiryIdx].dte) : [])
+  const chain    = realChain ?? (h ? buildChain(price, 20, 30) : [])
   const usingRealChain = realChain !== null
 
   // Compute live IV from real chain ATM strike (average of call + put IV)
@@ -681,7 +681,13 @@ export default function WorkspaceClient() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 16px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 2 }}>
                       <select value={expiryIdx} onChange={e => setExpiryIdx(Number(e.target.value))}
                         style={{ ...inBase, width: 'auto', height: 27, padding: '0 8px', fontFamily: 'var(--font-mono)' }}>
-                        {EXPIRIES.map((exp, i) => <option key={i} value={i}>{exp.label} ({exp.dte}d)</option>)}
+                        {realExpiries.length > 0
+                          ? realExpiries.map((exp, i) => {
+                              const d = Math.round((new Date(exp.slice(0,10)).getTime() - Date.now()) / 86400000)
+                              return <option key={i} value={i}>{exp.slice(0,10)} ({d}d)</option>
+                            })
+                          : <option value={0}>{chainLoading ? 'Loading…' : 'No expiries'}</option>
+                        }
                       </select>
                       <span style={{ marginLeft: 'auto', fontSize: 'var(--fs-xs)', color: 'var(--text-4)', fontFamily: 'var(--font-mono)' }}>
                         {h.ticker} · ${price.toFixed(2)} · IV {iv}%
@@ -706,7 +712,7 @@ export default function WorkspaceClient() {
                         const itmBg: React.CSSProperties = row.isCallITM && !row.isATM ? { background: 'rgba(21,128,61,0.03)' } : {}
                         return (
                           <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 64px 1fr', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
-                            onClick={() => setStaged({ ticker: h.ticker, type: `Call $${row.strike.toFixed(0)}`, description: `${row.callDelta}Δ IV ${row.callIV}%`, premium: `$${row.callAsk}`, strike: `$${row.strike.toFixed(0)}`, expiry: EXPIRIES[expiryIdx].label })}>
+                            onClick={() => setStaged({ ticker: h.ticker, type: `Call $${row.strike.toFixed(0)}`, description: `${cDelta}Δ IV ${cIV}%`, premium: `$${cAsk}`, strike: `$${row.strike.toFixed(0)}`, expiry: realExpiries[expiryIdx] ?? '' })}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', ...atmBg, ...itmBg }}>
                               {[row.callDelta, row.callIV+'%', '$'+row.callBid, '$'+row.callAsk, fmtN(row.callVol)].map((v, j) => (
                                 <div key={j} style={{ padding: '4px 3px', fontSize: 10, textAlign: 'right', fontFamily: 'var(--font-mono)', color: j === 0 ? (parseFloat(row.callDelta) > 0.5 ? 'var(--signal-bull)' : 'var(--text-3)') : 'var(--text-3)' }}>{v}</div>
