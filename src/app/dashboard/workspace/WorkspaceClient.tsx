@@ -348,13 +348,26 @@ export default function WorkspaceClient() {
   const h        = selected
   const sigData  = h ? (h.signal ?? signals[h.ticker] ?? null) : null
   const price    = (sigData as any)?.price_usd ?? (h?.avg_cost && h.avg_cost > 0 ? h.avg_cost : 0)
-  // IV Rank: prefer signal.iv_rank if available, fallback to asset_signals score, then mock
-  const iv       = h ? ((sigData as any)?.iv_rank ?? (sigData as any)?.score ?? getIV(h.ticker)) : 20
+  const chain    = realChain ?? (h ? buildChain(price, 20, EXPIRIES[expiryIdx].dte) : [])
+  const usingRealChain = realChain !== null
+
+  // Compute live IV from real chain ATM strike (average of call + put IV)
+  const liveIV = (() => {
+    if (!realChain || realChain.length === 0) return null
+    const atm = realChain.reduce((best: any, row: any) =>
+      Math.abs(row.strike - price) < Math.abs(best.strike - price) ? row : best
+    , realChain[0])
+    const callIV = atm?.call_iv ?? 0
+    const putIV  = atm?.put_iv  ?? 0
+    const avg    = callIV > 0 && putIV > 0 ? (callIV + putIV) / 2 : callIV || putIV
+    return avg > 0 ? Math.round(avg) : null
+  })()
+
+  // IV: prefer live chain ATM IV → signal → mock
+  const iv       = liveIV ?? (h ? ((sigData as any)?.iv_rank ?? (sigData as any)?.score ?? getIV(h.ticker)) : 20)
   const pnlAmt   = h ? (price - h.avg_cost) * h.quantity : 0
   const pnlPct   = h ? (price - h.avg_cost) / h.avg_cost * 100 : 0
   const mktVal   = h ? price * h.quantity : 0
-  const chain    = realChain ?? (h ? buildChain(price, iv, EXPIRIES[expiryIdx].dte) : [])
-  const usingRealChain = realChain !== null
   const strats   = h ? buildStrategies(h, price, iv) : []
   const chips    = h ? (quickChips[h.ticker] ?? quickChips.DEFAULT) : quickChips.DEFAULT
 
