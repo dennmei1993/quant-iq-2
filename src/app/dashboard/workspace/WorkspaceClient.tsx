@@ -1,5 +1,5 @@
 'use client'
-// src/app/dashboard/workspace/page.tsx
+// src/app/dashboard/workspace/WorkspaceClient.tsx
 // Options & Research Workspace — 3-panel layout
 // Left: Holdings list with checkboxes
 // Center: Selected ticker workspace (chain, strategies, DCA)
@@ -89,8 +89,8 @@ function buildStrategies(h: Holding, price: number, iv: number) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fmt = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(2)}`
-const fmtN = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 0 })
+function fmt(n: number) { return n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(2)}` }
+function fmtN(n: number) { return n.toLocaleString('en-US', { maximumFractionDigits: 0 }) }
 // IV Rank mock — will be replaced with real data from broker bridge /options/iv_rank endpoint
 // These are approximate historical IV rank values; real values from Moomoo OpenD differ
 const ivRankMap: Record<string, number> = {
@@ -98,7 +98,7 @@ const ivRankMap: Record<string, number> = {
   QQQ:20, SPY:16, SLV:35, FCX:42, COST:24, CRWD:48, IRM:32,
   GEV:55, SMR:72, RXRX:65, OKLO:70, RDW:68, FNGU:75, AGQ:60, IONQ:71,
 }
-const getIV = (t: string) => ivRankMap[t] ?? Math.floor(Math.random() * 30 + 15)
+function getIV(t: string) { return ivRankMap[t] ?? Math.floor(Math.random() * 30 + 15) }
 
 const quickChips: Record<string, string[]> = {
   TSLA: ['Best covered call?', 'TSLA hedge idea', 'CSP to buy dip?'],
@@ -332,6 +332,9 @@ export default function WorkspaceClient() {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, chatLoading])
 
+  // h must be declared before effects that depend on it
+  const h = selected
+
   // Fetch real option expiries when holding changes
   useEffect(() => {
     if (!h?.ticker) return
@@ -370,7 +373,6 @@ export default function WorkspaceClient() {
   const deployedPct     = portfolioCapital > 0 ? (totalInvested / portfolioCapital * 100) : 0
 
   // Derived — use signals map for price (covers watchlist items with no holdings signal)
-  const h        = selected
   const sigData  = h ? (h.signal ?? signals[h.ticker] ?? null) : null
   const price    = (sigData as any)?.price_usd ?? (h?.avg_cost && h.avg_cost > 0 ? h.avg_cost : 0)
   const chain    = realChain ?? (h ? buildChain(price, 20, EXPIRIES[expiryIdx].dte) : [])
