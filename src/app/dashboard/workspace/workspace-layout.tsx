@@ -1,5 +1,4 @@
 // src/app/dashboard/workspace/layout.tsx
-// Forces the workspace to fill the shell content area exactly
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   return (
