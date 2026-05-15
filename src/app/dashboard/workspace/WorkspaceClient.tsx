@@ -667,12 +667,19 @@ export default function WorkspaceClient() {
               </div>
 
               {/* Tabs */}
-              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 16px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 16px', flexShrink: 0, alignItems: 'center' }}>
                 {(['overview', 'chain', 'strategies', 'dca'] as const).map(t => (
                   <button key={t} onClick={() => setCenterTab(t)} style={{ padding: '7px 11px', fontSize: 'var(--fs-sm)', cursor: 'pointer', border: 'none', borderBottom: `2px solid ${centerTab === t ? 'var(--color-info)' : 'transparent'}`, color: centerTab === t ? 'var(--text)' : 'var(--text-4)', fontWeight: centerTab === t ? 500 : 400, background: 'none', fontFamily: 'inherit', transition: 'all 0.15s' }}>
                     {t === 'overview' ? 'Overview' : t === 'chain' ? 'Option Chain' : t === 'strategies' ? 'Strategies' : 'DCA'}
                   </button>
                 ))}
+                <div style={{ flex: 1 }} />
+                {h && price > 0 && (
+                  <button onClick={() => setShowConditional(true)}
+                    style={{ padding: '3px 10px', fontSize: 'var(--fs-xs)', fontFamily: 'inherit', cursor: 'pointer', borderRadius: 'var(--r-md)', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', color: 'var(--signal-neut)', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                    ⏱ Conditional
+                  </button>
+                )}
               </div>
 
               {/* Tab content */}
