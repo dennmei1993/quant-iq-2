@@ -239,7 +239,6 @@ export default function WorkspaceClient() {
   const [watchlist,   setWatchlist]   = useState<WatchlistItem[]>([])
   const [holdings,    setHoldings]    = useState<Holding[]>([])
   const [selected,    setSelected]    = useState<Holding | null>(null)
-  const [checked,     setChecked]     = useState<Set<string>>(new Set())
   const [loading,     setLoading]     = useState(true)
   const [centerTab,   setCenterTab]   = useState<'overview' | 'chain' | 'strategies' | 'dca'>('overview')
   const [expiryIdx,   setExpiryIdx]   = useState(0)
@@ -414,10 +413,6 @@ export default function WorkspaceClient() {
   const strats   = h ? buildStrategies(h, price, iv) : []
   const chips    = h ? (quickChips[h.ticker] ?? quickChips.DEFAULT) : quickChips.DEFAULT
 
-  function toggleCheck(id: string) {
-    setChecked(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
-  }
-
   function genDCA() {
     const cap = parseFloat(dcaCap) || 20000, n = parseInt(dcaN) || 6
     let d = new Date(); d.setDate(d.getDate() + 7)
@@ -527,8 +522,8 @@ export default function WorkspaceClient() {
                   <span style={{ fontSize: 9 }}>🔖</span> Watchlist ({watchlist.length})
                 </div>
                 {/* Watchlist col headers */}
-                <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 55px', gap: 4, padding: '4px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['', 'Ticker', 'Signal'].map(c => (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 55px', gap: 4, padding: '4px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
+                  {['Ticker', 'Signal'].map(c => (
                     <div key={c} style={{ fontSize: 7, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: c === 'Signal' ? 'right' : 'left' }}>{c}</div>
                   ))}
                 </div>
@@ -545,7 +540,7 @@ export default function WorkspaceClient() {
                           setCenterTab('chain'); setSelStrat(null)
                         }
                       }}
-                      style={{ display: 'grid', gridTemplateColumns: '18px 1fr 55px', gap: 4, padding: '5px 10px', cursor: 'pointer', alignItems: 'center', borderLeft: `2px solid ${isSelected ? 'rgba(245,158,11,0.6)' : 'transparent'}`, background: isSelected ? 'rgba(245,158,11,0.04)' : 'transparent', transition: 'all 0.1s' }}>
+                      style={{ display: 'grid', gridTemplateColumns: '1fr 55px', gap: 4, padding: '5px 10px', cursor: 'pointer', alignItems: 'center', borderLeft: `2px solid ${isSelected ? 'rgba(245,158,11,0.6)' : 'transparent'}`, background: isSelected ? 'rgba(245,158,11,0.04)' : 'transparent', transition: 'all 0.1s' }}>
                       <input type="checkbox" checked={checked.has(w.id)} onChange={e => { e.stopPropagation(); toggleCheck(w.id) }}
                         style={{ width: 12, height: 12, cursor: 'pointer', accentColor: 'var(--signal-neut)' }} />
                       <div>
@@ -569,8 +564,8 @@ export default function WorkspaceClient() {
                 <span style={{ fontSize: 9 }}>📊</span> Holdings ({holdings.length})
               </div>
               {/* Holdings col headers */}
-              <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 46px 58px', gap: 4, padding: '4px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['', 'Ticker', 'Vol', 'Avg Cost'].map(c => (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 46px 58px', gap: 4, padding: '4px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
+                {['Ticker', 'Vol', 'Avg Cost'].map(c => (
                   <div key={c} style={{ fontSize: 7, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: c === 'Vol' || c === 'Avg Cost' ? 'right' : 'left' }}>{c}</div>
                 ))}
               </div>
@@ -578,13 +573,11 @@ export default function WorkspaceClient() {
                 const p = hh.signal?.price_usd ?? hh.avg_cost
                 const isPos = p >= hh.avg_cost
                 const isSelected = selected?.id === hh.id
-                const isChecked = checked.has(hh.id)
-                return (
+                  return (
                   <div key={hh.id}
                     onClick={() => { setSelected(hh); setCenterTab('overview'); setSelStrat(null) }}
-                    style={{ display: 'grid', gridTemplateColumns: '18px 1fr 46px 58px', gap: 4, padding: '5px 10px', cursor: 'pointer', alignItems: 'center', borderLeft: `2px solid ${isSelected ? 'var(--color-info)' : 'transparent'}`, background: isSelected ? 'rgba(37,99,235,0.05)' : 'transparent', transition: 'all 0.1s' }}>
-                    <input type="checkbox" checked={isChecked} onChange={e => { e.stopPropagation(); toggleCheck(hh.id) }}
-                      style={{ width: 12, height: 12, cursor: 'pointer', accentColor: 'var(--color-info)' }} />
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 46px 58px', gap: 4, padding: '5px 10px', cursor: 'pointer', alignItems: 'center', borderLeft: `2px solid ${isSelected ? 'var(--color-info)' : 'transparent'}`, background: isSelected ? 'rgba(37,99,235,0.05)' : 'transparent', transition: 'all 0.1s' }}>
+
                     <div>
                       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--text)' }}>{hh.ticker}</div>
                       <div style={{ fontSize: 9, color: isPos ? 'var(--signal-bull)' : 'var(--signal-bear)', marginTop: 1 }}>
@@ -603,13 +596,7 @@ export default function WorkspaceClient() {
             </div>
           </div>
 
-          {/* Checked summary */}
-          {checked.size > 0 && (
-            <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', fontSize: 'var(--fs-xs)', color: 'var(--text-4)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              {checked.size} selected
-              <button onClick={() => setChecked(new Set())} style={{ background: 'none', border: 'none', color: 'var(--color-info)', cursor: 'pointer', fontSize: 'var(--fs-xs)', fontFamily: 'inherit' }}>Clear</button>
-            </div>
-          )}
+
         </div>
 
         {/* ── Panel 2: Workspace (center) ── */}
