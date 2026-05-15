@@ -108,6 +108,127 @@ const quickChips: Record<string, string[]> = {
   DEFAULT: ['Review this position', 'Best income strategy', 'Risk analysis'],
 }
 
+// ── Option Order Modal ────────────────────────────────────────────────────────
+
+function OptionOrderModal({ order, onClose, onPlaced }: {
+  order:    { code: string; strike: number; type: 'call'|'put'; bid: number; ask: number; expiry: string; ticker: string }
+  onClose:  () => void
+  onPlaced: () => void
+}) {
+  const [side,     setSide]     = useState<'BUY'|'SELL'>('BUY')
+  const [qty,      setQty]      = useState('1')
+  const [price,    setPrice]    = useState(order.ask > 0 ? order.ask.toFixed(2) : '')
+  const [placing,  setPlacing]  = useState(false)
+  const [error,    setError]    = useState('')
+  const [result,   setResult]   = useState<any>(null)
+
+  const estTotal   = qty && price ? parseFloat(qty) * parseFloat(price) * 100 : null
+  const isCall     = order.type === 'call'
+  const typeColor  = isCall ? 'var(--signal-bull)' : 'var(--signal-bear)'
+
+  async function place() {
+    if (!qty || !price) { setError('Enter quantity and price'); return }
+    setPlacing(true); setError('')
+    try {
+      const res = await fetch('/api/broker/options/order', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: order.code, side, qty: parseInt(qty), order_type: 'LIMIT', limit_price: parseFloat(price) }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.detail ?? data.error ?? 'Order failed'); return }
+      setResult(data)
+    } catch (e: any) { setError(e.message) }
+    finally { setPlacing(false) }
+  }
+
+  const inSt: React.CSSProperties = { padding: '5px 8px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', width: '100%', outline: 'none', boxSizing: 'border-box' }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.5)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '1.2rem', width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Options Order · Moomoo</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600 }}>{order.ticker}</span>
+              <span style={{ fontSize: 'var(--fs-sm)', color: typeColor, fontWeight: 500 }}>${order.strike} {order.type.toUpperCase()}</span>
+              <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>{order.expiry.slice(0,10)}</span>
+            </div>
+            <div style={{ fontSize: 9, color: 'var(--text-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{order.code}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+        </div>
+
+        {result ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ padding: '12px', background: 'rgba(21,128,61,0.05)', border: '1px solid rgba(21,128,61,0.2)', borderRadius: 'var(--r-lg)' }}>
+              <div style={{ color: 'var(--signal-bull)', fontWeight: 600, marginBottom: 8 }}>✓ Option order placed</div>
+              {[['Order ID', result.order_id], ['Side', result.side], ['Contracts', result.qty], ['Premium', `$${result.price}/share`], ['Total', `$${(result.qty * result.price * 100).toFixed(2)}`], ['Account', result.trd_env]].map(([l,v]) => (
+                <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--fs-xs)', padding: '2px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ color: 'var(--text-4)' }}>{l}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => setResult(null)} style={{ flex: 1, padding: '6px', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>Place another</button>
+              <button onClick={() => { onPlaced(); onClose() }} style={{ flex: 1, padding: '6px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>Done</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Bid/Ask reference */}
+            <div style={{ display: 'flex', gap: 10, padding: '8px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)' }}>
+              <div><span style={{ color: 'var(--text-4)' }}>Bid </span><span style={{ fontFamily: 'var(--font-mono)', color: 'var(--signal-bull)' }}>${order.bid.toFixed(2)}</span></div>
+              <div><span style={{ color: 'var(--text-4)' }}>Ask </span><span style={{ fontFamily: 'var(--font-mono)', color: 'var(--signal-bear)' }}>${order.ask.toFixed(2)}</span></div>
+              {order.bid === 0 && <div style={{ color: 'var(--signal-neut)', marginLeft: 'auto' }}>⚠ Market closed</div>}
+            </div>
+
+            {/* BUY/SELL */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(['BUY','SELL'] as const).map(s => (
+                <button key={s} onClick={() => setSide(s)} style={{ flex: 1, padding: '5px', borderRadius: 'var(--r-md)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 'var(--fs-sm)', background: side === s ? (s === 'BUY' ? 'rgba(21,128,61,0.1)' : 'rgba(185,28,28,0.1)') : 'none', border: `1px solid ${side === s ? (s === 'BUY' ? 'rgba(21,128,61,0.4)' : 'rgba(185,28,28,0.4)') : 'var(--border)'}`, color: side === s ? (s === 'BUY' ? 'var(--signal-bull)' : 'var(--signal-bear)') : 'var(--text-4)' }}>{s}</button>
+              ))}
+            </div>
+
+            {/* Qty + Price */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Contracts</div>
+                <input value={qty} onChange={e => setQty(e.target.value)} type="number" min="1" placeholder="1" style={inSt} />
+                <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 2 }}>1 contract = 100 shares</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Limit price ($/share)</div>
+                <input value={price} onChange={e => setPrice(e.target.value)} type="number" step="0.01" placeholder="0.00" style={inSt} />
+                <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 2 }}>Premium per share</div>
+              </div>
+            </div>
+
+            {/* Estimated total */}
+            {estTotal !== null && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)' }}>
+                <span style={{ color: 'var(--text-4)' }}>Estimated {side === 'BUY' ? 'debit' : 'credit'}</span>
+                <strong style={{ fontFamily: 'var(--font-mono)' }}>${estTotal.toFixed(2)}</strong>
+              </div>
+            )}
+
+            {error && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--signal-bear)', padding: '6px 8px', background: 'rgba(185,28,28,0.05)', border: '1px solid rgba(185,28,28,0.15)', borderRadius: 'var(--r-md)' }}>{error}</div>}
+
+            <button onClick={place} disabled={placing || !qty || !price}
+              style={{ padding: '7px', fontWeight: 600, fontFamily: 'inherit', fontSize: 'var(--fs-sm)', borderRadius: 'var(--r-md)', cursor: placing || !qty || !price ? 'not-allowed' : 'pointer', opacity: placing || !qty || !price ? 0.5 : 1, background: side === 'BUY' ? 'rgba(21,128,61,0.1)' : 'rgba(185,28,28,0.1)', border: `1px solid ${side === 'BUY' ? 'rgba(21,128,61,0.35)' : 'rgba(185,28,28,0.35)'}`, color: side === 'BUY' ? 'var(--signal-bull)' : 'var(--signal-bear)' }}>
+              {placing ? 'Placing…' : `Place ${side} order · ${order.type.toUpperCase()}`}
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function WorkspacePage() {
@@ -203,6 +324,38 @@ export default function WorkspacePage() {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, chatLoading])
 
+  // Fetch real option chain when holding or expiry changes
+  useEffect(() => {
+    if (!h || h.quantity === 0) return
+    async function fetchChain() {
+      setChainLoading(true); setRealChain(null)
+      try {
+        const symbol = `US.${h!.ticker}`
+        // Get expiries first
+        const expRes = await fetch(`/api/broker/options/expiries?symbol=${symbol}`)
+        if (expRes.ok) {
+          const expData = await expRes.json()
+          const expiries = expData.expiries ?? []
+          setRealExpiries(expiries)
+          setBrokerOnline(true)
+          // Fetch chain for selected expiry — use current index or first available
+          const expiry = expiries[Math.min(expiryIdx, expiries.length - 1)] ?? expiries[0]
+          if (expiry) {
+            const chainRes = await fetch(`/api/broker/options/chain?symbol=${symbol}&expiry=${expiry.slice(0,10).replace(/ .*/,'')}&strike_count=12`)
+            if (chainRes.ok) {
+              const chainData = await chainRes.json()
+              setRealChain(chainData.rows ?? null)
+            }
+          }
+        } else {
+          setBrokerOnline(false)
+        }
+      } catch { setBrokerOnline(false) }
+      finally { setChainLoading(false) }
+    }
+    fetchChain()
+  }, [h?.ticker, expiryIdx])
+
   // Portfolio financials
   const totalInvested   = holdings.reduce((s, hh) => s + (hh.signal?.price_usd ?? hh.avg_cost) * hh.quantity, 0)
   const totalCostBasis  = holdings.reduce((s, hh) => s + hh.avg_cost * hh.quantity, 0)
@@ -224,7 +377,8 @@ export default function WorkspacePage() {
   const pnlAmt   = h ? (price - h.avg_cost) * h.quantity : 0
   const pnlPct   = h ? (price - h.avg_cost) / h.avg_cost * 100 : 0
   const mktVal   = h ? price * h.quantity : 0
-  const chain    = h ? buildChain(price, iv, EXPIRIES[expiryIdx].dte) : []
+  const chain    = realChain ?? (h ? buildChain(price, iv, EXPIRIES[expiryIdx].dte) : [])
+  const usingRealChain = realChain !== null
   const strats   = h ? buildStrategies(h, price, iv) : []
   const chips    = h ? (quickChips[h.ticker] ?? quickChips.DEFAULT) : quickChips.DEFAULT
 
@@ -520,11 +674,14 @@ export default function WorkspacePage() {
                       {/* Column headers */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 1fr', marginTop: 6 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-                          {['Delta','IV%','Bid','Ask','Vol'].map(c => <div key={c} style={{ fontSize: 8, color: 'var(--text-4)', textAlign: 'right', padding: '0 3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</div>)}
+                          {(usingRealChain ? ['Delta','IV%','Bid','Ask','Vol','OI'] : ['Delta','IV%','Bid','Ask','Vol']).map(c => <div key={c} style={{ fontSize: 8, color: 'var(--text-4)', textAlign: 'right', padding: '0 3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</div>)}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase' }}>STRIKE</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', gap: 1 }}>
+                          <span>STRIKE</span>
+                          {usingRealChain && <span style={{ fontSize: 7, opacity: 0.6 }}>code</span>}
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-                          {['Vol','Bid','Ask','IV%','Delta'].map(c => <div key={c} style={{ fontSize: 8, color: 'var(--text-4)', textAlign: 'right', padding: '0 3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</div>)}
+                          {(usingRealChain ? ['OI','Vol','Bid','Ask','IV%','Delta'] : ['Vol','Bid','Ask','IV%','Delta']).map(c => <div key={c} style={{ fontSize: 8, color: 'var(--text-4)', textAlign: 'right', padding: '0 3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</div>)}
                         </div>
                       </div>
                       {chain.map((row, i) => {
@@ -715,6 +872,13 @@ export default function WorkspacePage() {
         </div>
       </div>
 
+      {optionOrder && (
+        <OptionOrderModal
+          order={optionOrder}
+          onClose={() => setOptionOrder(null)}
+          onPlaced={() => setOptionOrder(null)}
+        />
+      )}
       <style>{`@keyframes pulse{0%,80%,100%{opacity:0.2}40%{opacity:1}}`}</style>
     </div>
   )

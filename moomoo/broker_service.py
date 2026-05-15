@@ -32,6 +32,24 @@ from pydantic import BaseModel, Field
 
 from simulated_broker import SimulatedBroker, OrderSide, OrderType, OrderStatus
 
+# ── Safe numeric helpers ──────────────────────────────────────────────────────
+
+import math as _math
+
+def safe_f(v, d: float = 0.0) -> float:
+    """Convert value to float, returning d for NaN/Inf/None/errors."""
+    try:
+        f = float(v)
+        return d if _math.isnan(f) or _math.isinf(f) else f
+    except (TypeError, ValueError):
+        return d
+
+def safe_i(v, d: int = 0) -> int:
+    """Convert value to int, returning d for NaN/Inf/None/errors."""
+    return int(safe_f(v, float(d)))
+
+
+
 # ── Config ────────────────────────────────────────────────────────────────────
 
 OPEND_HOST   = os.getenv("OPEND_HOST",   "127.0.0.1")
@@ -916,6 +934,285 @@ def disconnect():
         except: pass
         broker = None
     return {"ok": True}
+
+
+# ── Options endpoints ─────────────────────────────────────────────────────────
+
+@app.get("/options/expiries")
+def get_option_expiries(symbol: str):
+    """
+    GET /options/expiries?symbol=US.GOOG
+    Returns available option expiry dates for a symbol.
+    Requires OpenD with US Options LV1 subscription.
+    """
+    try:
+        ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+        ret, data = ctx.get_option_expiration_date(symbol)
+        ctx.close()
+        if ret != ft.RET_OK:
+            raise HTTPException(500, f"get_option_expiration_date failed: {data}")
+        dates = data['strike_time'].tolist() if 'strike_time' in data.columns else []
+        return {"symbol": symbol, "expiries": dates}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/options/chain")
+def get_option_chain(symbol: str, expiry: str, strike_count: int = 10):
+    """
+    GET /options/chain?symbol=US.GOOG&expiry=2025-06-20&strike_count=10
+    Returns call and put option chain for a symbol + expiry.
+    Each row: strike, call_bid, call_ask, call_iv, call_delta, call_volume,
+              put_bid,  put_ask,  put_iv,  put_delta,  put_volume, is_atm
+    """
+    try:
+        ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+
+        # Get option chain (calls and puts)
+        ret, data = ctx.get_option_chain(
+            code=symbol,
+            start=expiry,
+            end=expiry,
+            option_type=ft.OptionType.ALL,
+        )
+        ctx.close()
+
+        if ret != ft.RET_OK:
+            raise HTTPException(500, f"get_option_chain failed: {data}")
+
+        if data is None or len(data) == 0:
+            logger.warning(f"Option chain empty for {symbol} expiry={expiry}")
+            return {"symbol": symbol, "expiry": expiry, "rows": [], "note": "No data — check expiry date matches Moomoo format"}
+
+        logger.info(f"Option chain columns: {list(data.columns)}")
+        logger.info(f"Option chain rows: {len(data)}, sample: {data.iloc[0].to_dict() if len(data) > 0 else {}}")
+
+        # Get spot price FIRST — needed for ATM-priority sorting
+        spot = 0
+        try:
+            qctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+            ret2, snap = qctx.get_market_snapshot([symbol])
+            qctx.close()
+            spot = safe_f(snap['last_price'].iloc[0]) if ret2 == ft.RET_OK and len(snap) > 0 else 0
+        except Exception:
+            spot = 0
+
+        # Collect all option codes from chain
+        option_codes = [str(row.get('code', '')) for _, row in data.iterrows() if row.get('code')]
+
+        # Build snap_map from live snapshots
+        snap_map = {}
+        if option_codes:
+            try:
+                import time
+                # Sort ATM-first for subscription priority
+                def strike_from_code(c):
+                    try:
+                        part = c.split('C')[-1] if 'C' in c[8:] else c.split('P')[-1]
+                        return abs(float(part) / 1000 - spot)
+                    except: return 9999
+                codes_sorted = sorted(option_codes, key=strike_from_code)
+
+                sub_ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+                for i in range(0, len(codes_sorted), 50):
+                    batch = codes_sorted[i:i+50]
+                    ret_sub, msg_sub = sub_ctx.subscribe(batch, [ft.SubType.QUOTE], subscribe_push=False)
+                    logger.info(f"Subscribe batch {i//50+1}: ret={ret_sub}")
+                time.sleep(1.5)
+                for i in range(0, len(codes_sorted), 50):
+                    batch = codes_sorted[i:i+50]
+                    snap_ret, snap_data = sub_ctx.get_market_snapshot(batch)
+                    if snap_ret == ft.RET_OK and len(snap_data) > 0:
+                        for _, srow in snap_data.iterrows():
+                            snap_map[str(srow.get('code',''))] = srow
+                sub_ctx.close()
+
+                # Debug: confirm snap_map coverage
+                if snap_map:
+                    match_count = sum(1 for c in option_codes if c in snap_map)
+                    logger.info(f"Option chain: {len(snap_map)} snapshots, {match_count}/{len(option_codes)} codes matched")
+            except Exception as e:
+                logger.warning(f"Quote subscription failed: {e}")
+
+        rows = []
+        seen_strikes = {}
+
+        for _, row in data.iterrows():
+            try:
+                strike   = safe_f(row.get('strike_price'))
+                if strike == 0:
+                    continue
+                opt_type = str(row.get('option_type', '')).upper()
+                code     = str(row.get('code', ''))
+                is_atm   = spot > 0 and abs(strike - spot) / spot < 0.015
+
+                # Read live prices from snap_map — default to 0 if not subscribed
+                s      = snap_map.get(code, {})
+                bid    = safe_f(s.get('bid_price'))
+                ask    = safe_f(s.get('ask_price'))
+                last   = safe_f(s.get('last_price'))
+                volume = safe_i(s.get('volume'))
+                oi     = safe_i(s.get('option_open_interest'))
+                iv     = safe_f(s.get('option_implied_volatility'))
+                delta  = safe_f(s.get('option_delta'))
+                gamma  = safe_f(s.get('option_gamma'))
+                theta  = safe_f(s.get('option_theta'))
+                vega   = safe_f(s.get('option_vega'))
+
+                if strike not in seen_strikes:
+                    seen_strikes[strike] = {'strike': strike, 'is_atm': is_atm}
+
+                side = 'call' if 'CALL' in opt_type else 'put'
+                seen_strikes[strike][f'{side}_bid']    = round(bid,   2)
+                seen_strikes[strike][f'{side}_ask']    = round(ask,   2)
+                seen_strikes[strike][f'{side}_last']   = round(last,  2)
+                seen_strikes[strike][f'{side}_iv']     = round(iv,    1)
+                seen_strikes[strike][f'{side}_delta']  = round(delta, 3)
+                seen_strikes[strike][f'{side}_gamma']  = round(gamma, 4)
+                seen_strikes[strike][f'{side}_theta']  = round(theta, 4)
+                seen_strikes[strike][f'{side}_vega']   = round(vega,  4)
+                seen_strikes[strike][f'{side}_volume'] = volume
+                seen_strikes[strike][f'{side}_oi']     = oi
+                seen_strikes[strike][f'{side}_code']   = code
+            except Exception as e:
+                logger.warning(f"Option row parse error: {e}")
+                continue
+
+        # Sort by strike, filter to ±strike_count from ATM
+        all_strikes = sorted(seen_strikes.values(), key=lambda r: r['strike'])
+        if spot > 0 and strike_count > 0:
+            atm_idx = min(range(len(all_strikes)), key=lambda i: abs(all_strikes[i]['strike'] - spot))
+            lo = max(0, atm_idx - strike_count)
+            hi = min(len(all_strikes), atm_idx + strike_count + 1)
+            all_strikes = all_strikes[lo:hi]
+
+        return {
+            "symbol":  symbol,
+            "expiry":  expiry,
+            "spot":    round(spot, 2),
+            "rows":    all_strikes,
+            "count":   len(all_strikes),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/options/order")
+def place_option_order(req: PlaceOrderRequest):
+    """
+    POST /options/order
+    Place an option order via Moomoo.
+    symbol must be a full option contract code: US.GOOG260522C380000
+    side: BUY | SELL
+    qty: number of contracts (1 contract = 100 shares)
+    order_type: LIMIT | MARKET
+    limit_price: premium per share (e.g. 5.20)
+    trade_pwd: injected by Next.js proxy from user profile
+    """
+    # Validate option code format
+    sym = req.symbol.upper()
+    if not (sym.startswith('US.') and ('C' in sym[8:] or 'P' in sym[8:])):
+        raise HTTPException(400, f"Invalid option code format: {sym}. Expected US.XXXX260522C380000")
+
+    # Option orders must be LIMIT (market orders on options are risky)
+    if req.order_type.upper() == 'MARKET':
+        raise HTTPException(400, "Market orders not supported for options. Use LIMIT with a price.")
+
+    if not req.limit_price or req.limit_price <= 0:
+        raise HTTPException(400, "limit_price required for option orders (premium per share)")
+
+    # Reuse existing order placement — it already handles option codes
+    return place_order_moomoo(req)
+
+
+@app.get("/options/debug_snapshot")
+def debug_option_snapshot(code: str = "US.GOOG260522C380000"):
+    """Debug: test live snapshot for a single option contract."""
+    try:
+        import time
+        ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+
+        # Subscribe
+        ret_sub, msg_sub = ctx.subscribe([code], [ft.SubType.QUOTE], subscribe_push=False)
+        logger.info(f"Subscribe ret={ret_sub} msg={msg_sub}")
+        time.sleep(1)
+
+        # Snapshot
+        ret_snap, snap = ctx.get_market_snapshot([code])
+        snap_data = {}
+        if ret_snap == ft.RET_OK and len(snap) > 0:
+            snap_data = {k: str(v) for k, v in snap.iloc[0].items()}
+            logger.info(f"Snapshot: {snap_data}")
+
+        # Basic quote
+        ret_q, quote = ctx.get_stock_quote([code])
+        quote_data = {}
+        if ret_q == ft.RET_OK and len(quote) > 0:
+            quote_data = {k: str(v) for k, v in quote.iloc[0].items()}
+
+        ctx.close()
+        return {
+            "code":      code,
+            "subscribe": {"ret": ret_sub, "msg": str(msg_sub)},
+            "snapshot":  snap_data,
+            "quote":     quote_data,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def get_iv_rank(symbol: str, lookback_days: int = 252):
+    """
+    GET /options/iv_rank?symbol=US.GOOG
+    Approximates IV Rank from historical option chain IV data.
+    IV Rank = (current IV - 52w low IV) / (52w high IV - 52w low IV) * 100
+    """
+    try:
+        # Get current ATM IV from latest chain
+        ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+
+        # Get expiry dates
+        ret, exp_data = ctx.get_option_expiration_date(symbol)
+        if ret != ft.RET_OK or len(exp_data) == 0:
+            ctx.close()
+            raise HTTPException(500, "Cannot get expiry dates")
+
+        # Use nearest expiry ~30 DTE
+        from datetime import datetime, timedelta
+        target = datetime.now() + timedelta(days=30)
+        expiries = exp_data['strike_time'].tolist()
+        nearest  = min(expiries, key=lambda d: abs((datetime.strptime(d[:10], '%Y-%m-%d') - target).days))
+
+        ret2, chain = ctx.get_option_chain(code=symbol, start=nearest, end=nearest, option_type=ft.OptionType.ALL)
+        ctx.close()
+
+        if ret2 != ft.RET_OK or chain is None or len(chain) == 0:
+            raise HTTPException(500, "Cannot get option chain for IV")
+
+        # Get ATM IV (average of call + put ATM IV)
+        ivs = [float(r) * 100 for r in chain['implied_volatility'] if r and float(r) > 0]
+        current_iv = sum(ivs) / len(ivs) if ivs else 0
+
+        # IV Rank: without historical data, estimate from current IV percentile
+        # A proper implementation would store daily IV snapshots
+        # For now return current IV with note
+        return {
+            "symbol":     symbol,
+            "current_iv": round(current_iv, 1),
+            "iv_rank":    None,  # requires historical IV storage
+            "note":       "IV Rank requires historical data. Current IV shown.",
+            "expiry_used": nearest,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────
