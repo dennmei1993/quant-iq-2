@@ -696,34 +696,59 @@ export default function WorkspaceClient() {
                     <div style={{ padding: '0 16px 16px' }}>
                       {/* Column headers */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 1fr', marginTop: 6 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: usingRealChain ? 'repeat(6,1fr)' : 'repeat(5,1fr)', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
                           {(usingRealChain ? ['Delta','IV%','Bid','Ask','Vol','OI'] : ['Delta','IV%','Bid','Ask','Vol']).map(c => <div key={c} style={{ fontSize: 8, color: 'var(--text-4)', textAlign: 'right', padding: '0 3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</div>)}
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', gap: 1 }}>
-                          <span>STRIKE</span>
-                          {usingRealChain && <span style={{ fontSize: 7, opacity: 0.6 }}>code</span>}
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase' }}>STRIKE</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: usingRealChain ? 'repeat(6,1fr)' : 'repeat(5,1fr)', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
                           {(usingRealChain ? ['OI','Vol','Bid','Ask','IV%','Delta'] : ['Vol','Bid','Ask','IV%','Delta']).map(c => <div key={c} style={{ fontSize: 8, color: 'var(--text-4)', textAlign: 'right', padding: '0 3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</div>)}
                         </div>
                       </div>
-                      {chain.map((row, i) => {
-                        const atmBg: React.CSSProperties = row.isATM ? { background: 'rgba(245,158,11,0.07)' } : {}
-                        const itmBg: React.CSSProperties = row.isCallITM && !row.isATM ? { background: 'rgba(21,128,61,0.03)' } : {}
+                      {chain.map((row: any, i: number) => {
+                        // Normalise field names — real chain uses snake_case, simulated uses camelCase
+                        const cDelta = row.call_delta  ?? row.callDelta ?? 0
+                        const cIV    = row.call_iv     ?? row.callIV    ?? 0
+                        const cBid   = row.call_bid    ?? row.callBid   ?? 0
+                        const cAsk   = row.call_ask    ?? row.callAsk   ?? 0
+                        const cVol   = row.call_volume ?? row.callVol   ?? 0
+                        const cOI    = row.call_oi     ?? 0
+                        const cCode  = row.call_code   ?? ''
+                        const pDelta = row.put_delta   ?? row.putDelta  ?? 0
+                        const pIV    = row.put_iv      ?? row.putIV     ?? 0
+                        const pBid   = row.put_bid     ?? row.putBid    ?? 0
+                        const pAsk   = row.put_ask     ?? row.putAsk    ?? 0
+                        const pVol   = row.put_volume  ?? row.putVol    ?? 0
+                        const pOI    = row.put_oi      ?? 0
+                        const isATM  = row.is_atm      ?? row.isATM     ?? false
+                        const atmBg: React.CSSProperties = isATM ? { background: 'rgba(245,158,11,0.07)' } : {}
+                        const itmBg: React.CSSProperties = (parseFloat(String(cDelta)) > 0.5) && !isATM ? { background: 'rgba(21,128,61,0.03)' } : {}
                         return (
                           <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 64px 1fr', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
-                            onClick={() => setStaged({ ticker: h.ticker, type: `Call $${row.strike.toFixed(0)}`, description: `${cDelta}Δ IV ${cIV}%`, premium: `$${cAsk}`, strike: `$${row.strike.toFixed(0)}`, expiry: realExpiries[expiryIdx] ?? '' })}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', ...atmBg, ...itmBg }}>
-                              {[row.callDelta, row.callIV+'%', '$'+row.callBid, '$'+row.callAsk, fmtN(row.callVol)].map((v, j) => (
-                                <div key={j} style={{ padding: '4px 3px', fontSize: 10, textAlign: 'right', fontFamily: 'var(--font-mono)', color: j === 0 ? (parseFloat(row.callDelta) > 0.5 ? 'var(--signal-bull)' : 'var(--text-3)') : 'var(--text-3)' }}>{v}</div>
+                            onClick={() => {
+                              if (usingRealChain && cCode) {
+                                setOptionOrder({ code: cCode, strike: row.strike, type: 'call', bid: parseFloat(String(cBid))||0, ask: parseFloat(String(cAsk))||0, expiry: realExpiries[expiryIdx] ?? '', ticker: h.ticker })
+                              } else {
+                                setStaged({ ticker: h.ticker, type: `Call $${row.strike}`, description: `${cDelta}Δ IV ${cIV}%`, premium: `$${cAsk}`, strike: `$${row.strike}`, expiry: realExpiries[expiryIdx] ?? '' })
+                              }
+                            }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: usingRealChain ? 'repeat(6,1fr)' : 'repeat(5,1fr)', ...atmBg, ...itmBg }}>
+                              {(usingRealChain
+                                ? [String(cDelta), String(cIV)+'%', '$'+Number(cBid).toFixed(2), '$'+Number(cAsk).toFixed(2), fmtN(cVol), fmtN(cOI)]
+                                : [String(cDelta), String(cIV)+'%', '$'+Number(cBid).toFixed(2), '$'+Number(cAsk).toFixed(2), fmtN(cVol)]
+                              ).map((v, j) => (
+                                <div key={j} style={{ padding: '4px 3px', fontSize: 10, textAlign: 'right', fontFamily: 'var(--font-mono)', color: j === 0 ? (parseFloat(String(cDelta)) > 0.5 ? 'var(--signal-bull)' : 'var(--text-3)') : 'var(--text-3)' }}>{v}</div>
                               ))}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', ...atmBg }}>
-                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, color: row.isATM ? 'var(--signal-neut)' : 'var(--text)', background: row.isATM ? 'rgba(245,158,11,0.15)' : 'transparent', padding: '1px 4px', borderRadius: 2 }}>${row.strike.toFixed(0)}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', ...atmBg, padding: '2px 0' }}>
+                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, color: isATM ? 'var(--signal-neut)' : 'var(--text)', background: isATM ? 'rgba(245,158,11,0.15)' : 'transparent', padding: '1px 4px', borderRadius: 2 }}>${row.strike}</span>
+                              {usingRealChain && cCode && <span style={{ fontSize: 6, color: 'var(--text-4)', fontFamily: 'var(--font-mono)', marginTop: 1 }}>{cCode.slice(-8)}</span>}
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', ...atmBg }}>
-                              {[fmtN(row.putVol), '$'+row.putBid, '$'+row.putAsk, row.putIV+'%', row.putDelta].map((v, j) => (
-                                <div key={j} style={{ padding: '4px 3px', fontSize: 10, textAlign: 'right', fontFamily: 'var(--font-mono)', color: j === 4 ? (parseFloat(row.putDelta) < -0.5 ? 'var(--signal-bear)' : 'var(--text-3)') : 'var(--text-3)' }}>{v}</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: usingRealChain ? 'repeat(6,1fr)' : 'repeat(5,1fr)', ...atmBg }}>
+                              {(usingRealChain
+                                ? [fmtN(pOI), fmtN(pVol), '$'+Number(pBid).toFixed(2), '$'+Number(pAsk).toFixed(2), String(pIV)+'%', String(pDelta)]
+                                : [fmtN(pVol), '$'+Number(pBid).toFixed(2), '$'+Number(pAsk).toFixed(2), String(pIV)+'%', String(pDelta)]
+                              ).map((v, j) => (
+                                <div key={j} style={{ padding: '4px 3px', fontSize: 10, textAlign: 'right', fontFamily: 'var(--font-mono)', color: j === (usingRealChain ? 5 : 4) ? (parseFloat(String(pDelta)) < -0.5 ? 'var(--signal-bear)' : 'var(--text-3)') : 'var(--text-3)' }}>{v}</div>
                               ))}
                             </div>
                           </div>
