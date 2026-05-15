@@ -89,8 +89,8 @@ function buildStrategies(h: Holding, price: number, iv: number) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmt(n: number) { return n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(2)}` }
-function fmtN(n: number) { return n.toLocaleString('en-US', { maximumFractionDigits: 0 }) }
+function fmt(n: number | null | undefined) { const v = n ?? 0; return v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFixed(2)}` }
+function fmtN(n: number | null | undefined) { return (n ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 }) }
 // IV Rank mock — will be replaced with real data from broker bridge /options/iv_rank endpoint
 // These are approximate historical IV rank values; real values from Moomoo OpenD differ
 const ivRankMap: Record<string, number> = {
