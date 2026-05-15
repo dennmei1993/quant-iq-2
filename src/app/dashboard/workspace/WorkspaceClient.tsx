@@ -332,6 +332,31 @@ export default function WorkspaceClient() {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, chatLoading])
 
+  // Fetch real option expiries when holding changes
+  useEffect(() => {
+    if (!h?.ticker) return
+    setRealExpiries([]); setRealChain(null); setBrokerOnline(false)
+    fetch(`/api/broker/options/expiries?symbol=US.${h.ticker}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.expiries?.length) { setRealExpiries(d.expiries); setBrokerOnline(true) }
+      })
+      .catch(() => {})
+  }, [h?.ticker])
+
+  // Fetch real option chain when expiry index or expiries list changes
+  useEffect(() => {
+    if (!h?.ticker || realExpiries.length === 0) return
+    const expiry = realExpiries[Math.min(expiryIdx, realExpiries.length - 1)]
+    if (!expiry) return
+    setChainLoading(true)
+    fetch(`/api/broker/options/chain?symbol=US.${h.ticker}&expiry=${expiry.slice(0,10)}&strike_count=12`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setRealChain(d?.rows?.length > 0 ? d.rows : null))
+      .catch(() => setRealChain(null))
+      .finally(() => setChainLoading(false))
+  }, [h?.ticker, expiryIdx, realExpiries])
+
   // Portfolio financials
   const totalInvested   = holdings.reduce((s, hh) => s + (hh.signal?.price_usd ?? hh.avg_cost) * hh.quantity, 0)
   const totalCostBasis  = holdings.reduce((s, hh) => s + hh.avg_cost * hh.quantity, 0)
