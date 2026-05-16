@@ -838,7 +838,7 @@ export default function WorkspaceClient() {
   const [holdings,    setHoldings]    = useState<Holding[]>([])
   const [selected,    setSelected]    = useState<Holding | null>(null)
   const [loading,     setLoading]     = useState(true)
-  const [centerTab,   setCenterTab]   = useState<'overview' | 'chain' | 'builder' | 'strategies' | 'dca'>('overview')
+  const [centerTab,   setCenterTab]   = useState<'overview' | 'chain' | 'builder' | 'dca'>('overview')
   const [expiryIdx,   setExpiryIdx]   = useState(0)
   const [staged,      setStaged]      = useState<StagedTrade | null>(null)
   const [selStrat,    setSelStrat]    = useState<number | null>(null)
@@ -862,6 +862,7 @@ export default function WorkspaceClient() {
   const [volData,     setVolData]      = useState<any>(null)
   const [chainError,  setChainError]   = useState('')
   const [showConditional, setShowConditional] = useState(false)
+  const [showAI,      setShowAI]      = useState(false)
   const [optionOrder, setOptionOrder]  = useState<{
     code: string; strike: number; type: 'call' | 'put'
     bid: number; ask: number; expiry: string; ticker: string
@@ -1271,9 +1272,9 @@ export default function WorkspaceClient() {
 
               {/* Tabs */}
               <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 16px', flexShrink: 0, alignItems: 'center' }}>
-                {(['overview', 'chain', 'builder', 'strategies', 'dca'] as const).map(t => (
+                {(['overview', 'chain', 'builder', 'dca'] as const).map(t => (
                   <button key={t} onClick={() => setCenterTab(t)} style={{ padding: '7px 11px', fontSize: 'var(--fs-sm)', cursor: 'pointer', border: 'none', borderBottom: `2px solid ${centerTab === t ? 'var(--color-info)' : 'transparent'}`, color: centerTab === t ? 'var(--text)' : 'var(--text-4)', fontWeight: centerTab === t ? 500 : 400, background: 'none', fontFamily: 'inherit', transition: 'all 0.15s' }}>
-                    {t === 'overview' ? 'Overview' : t === 'chain' ? 'Option Chain' : t === 'builder' ? 'Trade Builder' : t === 'strategies' ? 'Strategies' : 'DCA'}
+                    {t === 'overview' ? 'Overview' : t === 'chain' ? 'Option Chain' : t === 'builder' ? 'Trade Builder' : 'DCA'}
                   </button>
                 ))}
                 <div style={{ flex: 1 }} />
@@ -1458,109 +1459,116 @@ export default function WorkspaceClient() {
                   </div>
                 )}
 
-                {/* Trade Builder */}
+                {/* Trade Builder — 2 column: search left, strategy advisory right */}
                 {centerTab === 'builder' && h && (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                    {/* Search panel always visible */}
-                    <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                        <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500 }}>Option Trade Builder</span>
-                        <span style={{ fontSize: 9, color: 'var(--text-4)' }}>{h.ticker} · ${price.toFixed(2)} · IV {iv}%{ivRank !== null ? ` · IVR ${ivRank}` : ''}</span>
-                        {searchResults && (
-                          <button onClick={() => setSearchResults(null)}
-                            style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: 9, fontFamily: 'inherit', cursor: 'pointer', borderRadius: 'var(--r-md)', background: 'none', border: '1px solid var(--border)', color: 'var(--text-4)' }}>
-                            Clear results
-                          </button>
+                  <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+
+                    {/* Left — option search */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflow: 'hidden', minWidth: 0 }}>
+                      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                          <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500 }}>Option Search</span>
+                          <span style={{ fontSize: 9, color: 'var(--text-4)' }}>{h.ticker} · ${price.toFixed(2)}</span>
+                          {searchResults && (
+                            <button onClick={() => setSearchResults(null)}
+                              style={{ marginLeft: 'auto', padding: '1px 7px', fontSize: 9, fontFamily: 'inherit', cursor: 'pointer', borderRadius: 'var(--r-md)', background: 'none', border: '1px solid var(--border)', color: 'var(--text-4)' }}>
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        <BuilderSearchPanel
+                          ticker={h.ticker}
+                          spot={price}
+                          expiries={realExpiries}
+                          onResults={(rows) => setSearchResults(rows)}
+                          searching={searching}
+                          setSearching={setSearching}
+                        />
+                      </div>
+                      <div style={{ flex: 1, overflowY: 'auto', padding: '0 14px 12px' }}>
+                        {searching && <div style={{ padding: 16, textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Searching…</div>}
+                        {!searching && !searchResults && <div style={{ padding: 16, textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Set criteria and search</div>}
+                        {!searching && searchResults && searchResults.length === 0 && <div style={{ padding: 16, textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>No contracts matched</div>}
+                        {!searching && searchResults && searchResults.length > 0 && (
+                          <div style={{ marginTop: 6 }}>
+                            <div style={{ fontSize: 9, color: 'var(--text-4)', padding: '4px 0' }}>{searchResults.length} contracts · click to place order</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '52px 40px 50px 50px 48px 52px 52px 46px 46px', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', padding: '3px 0', borderBottom: '1px solid var(--border)', gap: 2 }}>
+                              {['Expiry','Type','Strike','Delta','IV%','Bid','Ask','Vol','OI'].map(c => <div key={c} style={{ textAlign: 'right' }}>{c}</div>)}
+                            </div>
+                            {searchResults.map((row, i) => (
+                              <div key={i} onClick={() => {
+                                if (row.code) setOptionOrder({ code: row.code, strike: row.strike, type: row.type === 'CALL' ? 'call' : 'put', bid: row.bid ?? 0, ask: row.ask ?? 0, expiry: row.expiry, ticker: h.ticker })
+                              }} style={{ display: 'grid', gridTemplateColumns: '52px 40px 50px 50px 48px 52px 52px 46px 46px', fontSize: 10, fontFamily: 'var(--font-mono)', padding: '4px 0', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer', gap: 2, background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)' }}>
+                                <div style={{ textAlign: 'right', color: 'var(--text-4)', fontSize: 9 }}>{row.expiry?.slice(5)}</div>
+                                <div style={{ textAlign: 'right', color: row.type === 'CALL' ? 'var(--signal-bull)' : 'var(--signal-bear)', fontWeight: 600, fontSize: 9 }}>{row.type}</div>
+                                <div style={{ textAlign: 'right' }}>${row.strike}</div>
+                                <div style={{ textAlign: 'right', color: 'var(--text-3)' }}>{Number(row.delta).toFixed(3)}</div>
+                                <div style={{ textAlign: 'right', color: 'var(--text-3)' }}>{Number(row.iv).toFixed(1)}%</div>
+                                <div style={{ textAlign: 'right' }}>${Number(row.bid).toFixed(2)}</div>
+                                <div style={{ textAlign: 'right' }}>${Number(row.ask).toFixed(2)}</div>
+                                <div style={{ textAlign: 'right', color: 'var(--text-4)' }}>{(row.vol ?? 0).toLocaleString()}</div>
+                                <div style={{ textAlign: 'right', color: 'var(--text-4)' }}>{(row.oi ?? 0).toLocaleString()}</div>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <BuilderSearchPanel
-                        ticker={h.ticker}
-                        spot={price}
-                        expiries={realExpiries}
-                        onResults={(rows) => setSearchResults(rows)}
-                        searching={searching}
-                        setSearching={setSearching}
-                      />
                     </div>
-                    {/* Results */}
-                    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px' }}>
-                      {searching && (
-                        <div style={{ padding: 20, textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Searching…</div>
-                      )}
-                      {!searching && searchResults && searchResults.length === 0 && (
-                        <div style={{ padding: 20, textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>No contracts matched your criteria</div>
-                      )}
-                      {!searching && searchResults && searchResults.length > 0 && (
-                        <div style={{ marginTop: 8 }}>
-                          <div style={{ fontSize: 9, color: 'var(--text-4)', marginBottom: 4 }}>
-                            {searchResults.length} contracts · click to place order
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '60px 45px 55px 55px 55px 55px 55px 55px 55px', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', padding: '3px 0', borderBottom: '1px solid var(--border)', gap: 2 }}>
-                            {['Expiry','Type','Strike','Delta','IV%','Bid','Ask','Vol','OI'].map(c => <div key={c} style={{ textAlign: 'right' }}>{c}</div>)}
-                          </div>
-                          {searchResults.map((row, i) => (
-                            <div key={i} onClick={() => {
-                              if (row.code) setOptionOrder({ code: row.code, strike: row.strike, type: row.type === 'CALL' ? 'call' : 'put', bid: row.bid ?? 0, ask: row.ask ?? 0, expiry: row.expiry, ticker: h.ticker })
-                            }} style={{ display: 'grid', gridTemplateColumns: '60px 45px 55px 55px 55px 55px 55px 55px 55px', fontSize: 10, fontFamily: 'var(--font-mono)', padding: '4px 0', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer', gap: 2, background: row.type === 'CALL' ? 'rgba(21,128,61,0.02)' : 'rgba(185,28,28,0.02)' }}>
-                              <div style={{ textAlign: 'right', color: 'var(--text-4)', fontSize: 9 }}>{row.expiry?.slice(5)}</div>
-                              <div style={{ textAlign: 'right', color: row.type === 'CALL' ? 'var(--signal-bull)' : 'var(--signal-bear)', fontWeight: 600, fontSize: 9 }}>{row.type}</div>
-                              <div style={{ textAlign: 'right' }}>${row.strike}</div>
-                              <div style={{ textAlign: 'right', color: 'var(--text-3)' }}>{Number(row.delta).toFixed(3)}</div>
-                              <div style={{ textAlign: 'right', color: 'var(--text-3)' }}>{Number(row.iv).toFixed(1)}%</div>
-                              <div style={{ textAlign: 'right' }}>${Number(row.bid).toFixed(2)}</div>
-                              <div style={{ textAlign: 'right' }}>${Number(row.ask).toFixed(2)}</div>
-                              <div style={{ textAlign: 'right', color: 'var(--text-4)' }}>{(row.vol ?? 0).toLocaleString()}</div>
-                              <div style={{ textAlign: 'right', color: 'var(--text-4)' }}>{(row.oi ?? 0).toLocaleString()}</div>
+
+                    {/* Right — strategy advisory */}
+                    <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                        <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 500, marginBottom: 1 }}>Strategy Advisory</div>
+                        <div style={{ fontSize: 9, color: 'var(--text-4)' }}>{h.ticker} · IV {iv}%{ivRank !== null ? ` · IVR ${ivRank}` : ''}{hv30 ? ` · HV ${hv30.toFixed(1)}%` : ''}</div>
+                      </div>
+                      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
+                          {strats.map((s, i) => (
+                            <div key={i} onClick={() => setSelStrat(selStrat === i ? null : i)}
+                              style={{ background: 'var(--bg-subtle)', border: `1px solid ${selStrat === i ? s.color : 'var(--border)'}`, borderRadius: 'var(--r-lg)', padding: '9px 11px', cursor: 'pointer', transition: 'all 0.15s', position: 'relative', overflow: 'hidden' }}>
+                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: s.color }} />
+                              <div style={{ fontWeight: 600, fontSize: 11, marginBottom: 1, marginTop: 2 }}>{s.name}</div>
+                              <div style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>{s.type}</div>
+                              <div style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 7 }}>{s.desc}</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
+                                {[{ l: 'Risk', v: s.risk }, { l: 'Reward', v: s.reward }, { l: 'Prob', v: s.prob }].map(m => (
+                                  <div key={m.l}>
+                                    <div style={{ fontSize: 7, color: 'var(--text-4)' }}>{m.l}</div>
+                                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text)', marginTop: 1 }}>{m.v}</div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           ))}
                         </div>
-                      )}
-                      {!searching && !searchResults && (
-                        <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>
-                          Set your criteria above and search for contracts
+                        {selStrat !== null && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <button onClick={() => { setChatInput(`Tell me about the ${strats[selStrat].name} for my ${h.ticker} position`); setShowAI(true) }}
+                              style={{ padding: '5px 0', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>Ask AI ✦</button>
+                            <button onClick={() => setCenterTab('chain')}
+                              style={{ padding: '5px 0', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>View Chain</button>
+                            <button onClick={() => setStaged({ ticker: h.ticker, type: strats[selStrat].name, description: strats[selStrat].desc, premium: strats[selStrat].reward, legs: strats[selStrat].legs, expiry: strats[selStrat].expiry })}
+                              style={{ padding: '5px 0', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.25)', borderRadius: 'var(--r-md)', color: 'var(--color-info)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>Stage →</button>
+                          </div>
+                        )}
+                        {/* IV context */}
+                        <div style={{ marginTop: 10, padding: '8px 10px', background: (ivRank ?? iv) > 40 ? 'rgba(185,28,28,0.04)' : 'rgba(21,128,61,0.04)', border: `1px solid ${(ivRank ?? iv) > 40 ? 'rgba(185,28,28,0.12)' : 'rgba(21,128,61,0.12)'}`, borderRadius: 'var(--r-lg)', fontSize: 10, lineHeight: 1.6, color: 'var(--text-3)' }}>
+                          <strong style={{ color: 'var(--text)' }}>
+                            IV {iv.toFixed(1)}%{ivRank !== null ? ` · IVR ${ivRank}` : ''} —{' '}
+                          </strong>
+                          {ivRank !== null
+                            ? ivRank > 50 ? 'Elevated — sell premium'
+                            : ivRank < 20 ? 'Low — buy options'
+                            : `Moderate${hv30 ? `. IV ${iv < hv30 ? '< HV → cheap' : '> HV → rich'}` : ''}`
+                            : iv > 40 ? 'Elevated — consider selling premium'
+                            : 'Moderate — standard strategies apply'}
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Strategies */}
-                {centerTab === 'strategies' && (
-                  <div style={{ padding: '12px 16px' }}>
-                    <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginBottom: 10 }}>
-                      Strategies for {h.ticker} · {Math.round(h.quantity)} shares · IV Rank {iv}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      {strats.map((s, i) => (
-                        <div key={i} onClick={() => setSelStrat(selStrat === i ? null : i)}
-                          style={{ background: 'var(--bg-subtle)', border: `1px solid ${selStrat === i ? s.color : 'var(--border)'}`, borderRadius: 'var(--r-lg)', padding: '11px 13px', cursor: 'pointer', transition: 'all 0.15s', position: 'relative', overflow: 'hidden' }}>
-                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: s.color }} />
-                          <div style={{ fontWeight: 600, fontSize: 'var(--fs-sm)', marginBottom: 2, marginTop: 3 }}>{s.name}</div>
-                          <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 7 }}>{s.type} · {s.expiry}</div>
-                          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 9 }}>{s.desc}</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 5, paddingTop: 7, borderTop: '1px solid var(--border)' }}>
-                            {[{ l: 'Risk', v: s.risk }, { l: 'Reward', v: s.reward }, { l: 'Prob', v: s.prob }].map(m => (
-                              <div key={m.l}>
-                                <div style={{ fontSize: 8, color: 'var(--text-4)' }}>{m.l}</div>
-                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text)', marginTop: 1 }}>{m.v}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {selStrat !== null && (
-                      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                        <button onClick={() => { setChatInput(`Tell me about the ${strats[selStrat].name} for my ${h.ticker} position`) }}
-                          style={{ flex: 1, padding: '5px 0', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>Ask AI ↗</button>
-                        <button onClick={() => setCenterTab('chain')}
-                          style={{ flex: 1, padding: '5px 0', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>View Chain</button>
-                        <button onClick={() => setStaged({ ticker: h.ticker, type: strats[selStrat].name, description: strats[selStrat].desc, premium: strats[selStrat].reward, legs: strats[selStrat].legs, expiry: strats[selStrat].expiry })}
-                          style={{ flex: 1, padding: '5px 0', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.25)', borderRadius: 'var(--r-md)', color: 'var(--color-info)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>Stage →</button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Strategies tab removed — moved to Trade Builder right panel */}
 
                 {/* DCA */}
                 {centerTab === 'dca' && (
@@ -1607,37 +1615,67 @@ export default function WorkspaceClient() {
           )}
         </div>
 
-        {/* ── Panel 3: AI Advisor ── */}
-        <div style={{ width: 280, minWidth: 280, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0, height: '100%' }}>
+        {/* Floating AI button */}
+      <button onClick={() => setShowAI(true)}
+        style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 300, width: 48, height: 48, borderRadius: '50%', background: 'var(--color-info)', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(37,99,235,0.4)', fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', transition: 'transform 0.15s', flexShrink: 0 }}
+        title="Ask AI Advisor">
+        ✦
+      </button>
 
-          {/* Header */}
-          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500 }}>AI Advisor</span>
-              <span style={{ fontSize: 8, background: 'rgba(37,99,235,0.1)', color: 'var(--color-info)', border: '1px solid rgba(37,99,235,0.2)', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Claude</span>
-              {apiKey
-                ? <span style={{ fontSize: 8, background: 'rgba(21,128,61,0.1)', color: 'var(--signal-bull)', border: '1px solid rgba(21,128,61,0.25)', padding: '1px 6px', borderRadius: 3 }}>● API Activated</span>
-                : <a href="/dashboard/settings" style={{ fontSize: 8, background: 'rgba(245,158,11,0.08)', color: 'var(--signal-neut)', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 6px', borderRadius: 3, textDecoration: 'none' }}>⚠ Set API key</a>
-              }
+      {/* AI Popup */}
+      {showAI && (
+        <>
+          <div onClick={() => setShowAI(false)} style={{ position: 'fixed', inset: 0, zIndex: 350, background: 'rgba(0,0,0,0.3)' }} />
+          <div style={{ position: 'fixed', bottom: 80, right: 24, zIndex: 351, width: 360, height: 520, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500 }}>AI Advisor</span>
+                <span style={{ fontSize: 8, background: 'rgba(37,99,235,0.1)', color: 'var(--color-info)', border: '1px solid rgba(37,99,235,0.2)', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>Claude</span>
+                {apiKey && <span style={{ fontSize: 8, background: 'rgba(21,128,61,0.1)', color: 'var(--signal-bull)', border: '1px solid rgba(21,128,61,0.25)', padding: '1px 6px', borderRadius: 3 }}>● Active</span>}
+                {h && <span style={{ fontSize: 9, color: 'var(--text-4)', marginLeft: 4 }}>{h.ticker} · ${price.toFixed(2)}</span>}
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button onClick={() => setMessages([])} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: 'var(--fs-xs)', fontFamily: 'inherit' }}>Clear</button>
+                <button onClick={() => setShowAI(false)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.1rem' }}>×</button>
+              </div>
             </div>
-            <button onClick={() => setMessages([])} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: 'var(--fs-xs)', fontFamily: 'inherit' }}>Clear</button>
-          </div>
-
-          {/* Input + chips — at top */}
-          <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border)', padding: '6px 10px 8px' }}>
-            <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', marginBottom: 5 }}>
-              <textarea ref={taRef} value={chatInput}
-                onChange={e => { setChatInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px' }}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
-                placeholder={!apiKey ? 'Add API key in Settings…' : h ? `Ask about ${h.ticker}…` : 'Select a holding first…'}
-                rows={1} disabled={!apiKey}
-                style={{ flex: 1, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '6px 8px', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', color: apiKey ? 'var(--text)' : 'var(--text-4)', outline: 'none', resize: 'none', minHeight: 32, maxHeight: 90, lineHeight: 1.4, boxSizing: 'border-box', opacity: apiKey ? 1 : 0.6 }} />
-              <button onClick={() => sendChat()} disabled={chatLoading || !chatInput.trim() || !apiKey}
-                style={{ width: 32, height: 32, borderRadius: 'var(--r-md)', background: !apiKey || chatLoading || !chatInput.trim() ? 'var(--bg-subtle)' : 'var(--color-info)', border: 'none', color: 'white', cursor: !apiKey || chatLoading || !chatInput.trim() ? 'not-allowed' : 'pointer', fontSize: 13, flexShrink: 0 }}>
-                →
-              </button>
+            {/* Messages */}
+            <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+              {messages.length === 0 && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, opacity: 0.35 }}>
+                  <div style={{ fontSize: 22 }}>✦</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-4)', textAlign: 'center' }}>
+                    {apiKey ? 'Ask anything about your holdings or options' : 'Set API key in Settings to start'}
+                  </div>
+                </div>
+              )}
+              {messages.map((msg, i) => (
+                <div key={i}>
+                  {msg.role === 'user' ? (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: '8px 8px 2px 8px', padding: '6px 9px', fontSize: 'var(--fs-sm)', maxWidth: '88%', lineHeight: 1.5 }}>{msg.content}</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+                        <span style={{ fontSize: 10 }}>✦</span>
+                        <span style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Advisor</span>
+                      </div>
+                      <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: '2px 8px 8px 8px', padding: '7px 9px', fontSize: 'var(--fs-sm)', lineHeight: 1.55 }}
+                        dangerouslySetInnerHTML={{ __html: fmtAI(msg.content) }} />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {chatLoading && (
+                <div style={{ display: 'flex', gap: 4, padding: '4px 0' }}>
+                  {[0,1,2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-4)', animation: 'pulse 1.2s ease-in-out infinite', animationDelay: `${i * 0.2}s` }} />)}
+                </div>
+              )}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            {/* Chips */}
+            <div style={{ padding: '4px 12px 2px', display: 'flex', flexWrap: 'wrap', gap: 3, flexShrink: 0, borderTop: '1px solid var(--border)' }}>
               {chips.map(chip => (
                 <button key={chip} onClick={() => sendChat(chip)}
                   style={{ fontSize: 9, padding: '2px 7px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-4)', cursor: apiKey ? 'pointer' : 'default', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: apiKey ? 1 : 0.4 }}>
@@ -1645,44 +1683,22 @@ export default function WorkspaceClient() {
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Messages — grow downward from top */}
-          <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
-            {messages.map((msg, i) => (
-              <div key={i}>
-                {msg.role === 'user' ? (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <div style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: '8px 8px 2px 8px', padding: '6px 9px', fontSize: 'var(--fs-sm)', color: 'var(--text)', maxWidth: '88%', lineHeight: 1.5 }}>
-                      {msg.content}
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-                      <div style={{ width: 13, height: 13, borderRadius: 3, background: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: 'white', fontFamily: 'var(--font-mono)' }}>AI</div>
-                      <span style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Advisor</span>
-                    </div>
-                    <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: '2px 8px 8px 8px', padding: '7px 9px', fontSize: 'var(--fs-sm)', lineHeight: 1.55 }}
-                      dangerouslySetInnerHTML={{ __html: fmtAI(msg.content) }} />
-                  </div>
-                )}
+            {/* Input */}
+            <div style={{ padding: '5px 12px 10px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end' }}>
+                <textarea ref={taRef} value={chatInput}
+                  onChange={e => { setChatInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px' }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
+                  placeholder={!apiKey ? 'Add API key in Settings…' : h ? `Ask about ${h.ticker}…` : 'Select a holding first…'}
+                  rows={1} disabled={!apiKey}
+                  style={{ flex: 1, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '6px 8px', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', color: 'var(--text)', outline: 'none', resize: 'none', minHeight: 32, maxHeight: 90, lineHeight: 1.4, boxSizing: 'border-box', opacity: apiKey ? 1 : 0.6 }} />
+                <button onClick={() => sendChat()} disabled={chatLoading || !chatInput.trim() || !apiKey}
+                  style={{ width: 32, height: 32, borderRadius: 'var(--r-md)', background: !apiKey || chatLoading || !chatInput.trim() ? 'var(--bg-subtle)' : 'var(--color-info)', border: 'none', color: 'white', cursor: !apiKey || chatLoading || !chatInput.trim() ? 'not-allowed' : 'pointer', fontSize: 13, flexShrink: 0 }}>→</button>
               </div>
-            ))}
-            {chatLoading && (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-                  <div style={{ width: 13, height: 13, borderRadius: 3, background: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: 'white' }}>AI</div>
-                  <span style={{ fontSize: 8, color: 'var(--text-4)' }}>Thinking…</span>
-                </div>
-                <div style={{ display: 'flex', gap: 4, padding: '4px 0' }}>
-                  {[0,1,2].map(i => (
-                    <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-4)', animation: 'pulse 1.2s ease-in-out infinite', animationDelay: `${i * 0.2}s` }} />
-                  ))}
-                </div>
-              </div>
-            )}
+            </div>
           </div>
+        </>
+      )}
         </div>
       </div>
 
