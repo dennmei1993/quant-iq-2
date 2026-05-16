@@ -46,9 +46,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
-  if (!isMarketHours()) {
-    return NextResponse.json({ skipped: true, reason: 'Outside market hours', et_time: getETTime() })
-  }
+  // TODO: re-enable market hours check after testing
+  // if (!isMarketHours()) {
+  //   return NextResponse.json({ skipped: true, reason: 'Outside market hours', et_time: getETTime() })
+  // }
 
   const supabase = createServiceClient()
   const now = new Date().toISOString()
