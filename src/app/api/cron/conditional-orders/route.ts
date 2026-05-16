@@ -55,19 +55,36 @@ export async function GET(req: NextRequest) {
   const now = new Date().toISOString()
   const etTime = getETTime()
 
-  // Fetch all active conditional orders
+  // Fetch all active non-expired orders
   const { data: orders, error } = await (supabase as any)
     .from('conditional_orders')
-    .select('*, profiles!inner(moomoo_password, trading_mode, trade_account)')
+    .select('*')
     .eq('status', 'active')
     .or(`expires_at.is.null,expires_at.gt.${now}`)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!orders?.length) return NextResponse.json({ checked: 0, executed: 0 })
+  if (error) return NextResponse.json({ error: error.message, stage: 'fetch_orders' }, { status: 500 })
+  if (!orders?.length) return NextResponse.json({ checked: 0, executed: 0, debug: 'No active orders found' })
+
+  // Fetch user profiles separately (service role bypasses RLS)
+  const userIds = [...new Set((orders as any[]).map((o: any) => o.user_id))]
+  const { data: profiles } = await (supabase as any)
+    .from('profiles')
+    .select('id, moomoo_password, trading_mode, trade_account')
+    .in('id', userIds)
+
+  const profileMap: Record<string, any> = {}
+  for (const p of (profiles ?? [])) profileMap[p.id] = p
+
+  // Attach profile to each order
+  const ordersWithProfiles = (orders as any[]).map((o: any) => ({
+    ...o,
+    profile: profileMap[o.user_id] ?? {},
+  }))
 
   // Get unique tickers to fetch prices
   const tickers = [...new Set((orders as any[]).map((o: any) => o.ticker))]
   const priceMap: Record<string, number> = {}
+  const priceDebug: Record<string, string> = {}
 
   await Promise.allSettled(tickers.map(async (ticker) => {
     try {
@@ -76,17 +93,29 @@ export async function GET(req: NextRequest) {
       })
       if (res.ok) {
         const d = await res.json()
-        if (d.last_price) priceMap[ticker] = d.last_price
+        if (d.last_price) {
+          priceMap[ticker] = d.last_price
+          priceDebug[ticker] = `$${d.last_price}`
+        } else {
+          priceDebug[ticker] = 'no price returned'
+        }
+      } else {
+        priceDebug[ticker] = `bridge HTTP ${res.status}`
       }
-    } catch {}
+    } catch (e: any) {
+      priceDebug[ticker] = `bridge error: ${e.message}`
+    }
   }))
 
   let executed = 0
   const results: any[] = []
 
-  for (const order of orders as any[]) {
+  for (const order of ordersWithProfiles) {
     const price = priceMap[order.ticker]
-    if (price === undefined) continue
+    if (price === undefined) {
+      results.push({ id: order.id, ticker: order.ticker, skip: `no price available — bridge may be offline` })
+      continue
+    }
 
     // Update last_checked_at and last_price_seen
     await (supabase as any)
@@ -127,12 +156,24 @@ export async function GET(req: NextRequest) {
 
     // ── All conditions met — execute order ────────────────────────────────────
     try {
-      const profile = order.profiles
+      const profile = order.profile
       const tradePwd = profile?.moomoo_password ?? ''
       const tradeAccount = profile?.trade_account ?? ''
       const tradingMode = profile?.trading_mode ?? 'paper'
 
-      const orderBody: any = {
+      // Log what we're about to execute
+      results.push({
+        id:           order.id,
+        ticker:       order.ticker,
+        conditions:   'ALL MET',
+        price:        price,
+        side:         order.side,
+        qty:          order.qty,
+        order_type:   order.order_type,
+        account:      tradeAccount,
+        trading_mode: tradingMode,
+        status:       'EXECUTING...',
+      })
         symbol:       order.option_code ?? `US.${order.ticker}`,
         side:         order.side,
         qty:          order.qty,
@@ -156,7 +197,7 @@ export async function GET(req: NextRequest) {
       const execData = await execRes.json()
 
       if (execRes.ok && execData.order_id) {
-        // Mark as triggered
+        // Mark as triggered — prevents re-execution
         await (supabase as any)
           .from('conditional_orders')
           .update({
@@ -183,8 +224,10 @@ export async function GET(req: NextRequest) {
             trd_env:    execData.trd_env,
           }, { onConflict: 'order_id' })
 
+        // Update result with success
+        const idx = results.findIndex(r => r.id === order.id)
+        if (idx >= 0) results[idx] = { ...results[idx], status: 'EXECUTED', order_id: execData.order_id, account: execData.account, trd_env: execData.trd_env, price: execData.price }
         executed++
-        results.push({ id: order.id, ticker: order.ticker, executed: true, order_id: execData.order_id, price_at_execution: price })
       } else {
         await (supabase as any)
           .from('conditional_orders')
@@ -202,9 +245,10 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    checked:  orders.length,
+    checked:    orders.length,
     executed,
-    et_time:  etTime,
+    et_time:    etTime,
+    prices:     priceDebug,
     results,
   })
 }

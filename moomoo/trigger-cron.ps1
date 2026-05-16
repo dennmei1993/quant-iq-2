@@ -19,11 +19,11 @@ try {
         Write-Host $msg
     } else {
         $msg = $timestamp + " | checked=" + $response.checked + " executed=" + $response.executed + " et=" + $response.et_time
-        if ($response.executed -gt 0) {
-            $msg = $msg + " | ORDERS EXECUTED"
-        }
+        $detail = $response | ConvertTo-Json -Compress -Depth 5
         Add-Content -Path $logFile -Value $msg
+        Add-Content -Path $logFile -Value ("  DETAIL: " + $detail)
         Write-Host $msg
+        Write-Host ("  DETAIL: " + $detail)
     }
 } catch {
     $errMsg = $timestamp + " | ERROR: " + $_.Exception.Message
