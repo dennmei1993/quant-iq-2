@@ -1,1 +1,8 @@
 2026-05-16 22:47:47 | ERROR: The remote server returned an error: (500) Internal Server Error.
+2026-05-16 22:48:47 | ERROR: The remote server returned an error: (500) Internal Server Error.
+2026-05-16 22:49:47 | checked=2 executed=0 et=08:49
+  DETAIL: {"checked":2,"executed":0,"et_time":"08:49","prices":{"QQQ":"$708.93"},"results":[{"id":"5af2db44-82a6-40e9-81a2-2943b846ddd6","ticker":"QQQ","skip":"waiting for 10:00 ET (now 08:49)"},{"id":"d62da93f-8cfd-48c3-b33b-639f5ac60d1f","ticker":"QQQ","skip":"waiting for 09:30 ET (now 08:49)"}]}
+2026-05-16 22:50:47 | checked=2 executed=0 et=08:50
+  DETAIL: {"checked":2,"executed":0,"et_time":"08:50","prices":{"QQQ":"$708.93"},"results":[{"id":"5af2db44-82a6-40e9-81a2-2943b846ddd6","ticker":"QQQ","skip":"waiting for 10:00 ET (now 08:50)"},{"id":"d62da93f-8cfd-48c3-b33b-639f5ac60d1f","ticker":"QQQ","skip":"waiting for 09:30 ET (now 08:50)"}]}
+2026-05-16 22:51:47 | checked=2 executed=0 et=08:51
+  DETAIL: {"checked":2,"executed":0,"et_time":"08:51","prices":{"QQQ":"$708.93"},"results":[{"id":"5af2db44-82a6-40e9-81a2-2943b846ddd6","ticker":"QQQ","skip":"waiting for 10:00 ET (now 08:51)"},{"id":"d62da93f-8cfd-48c3-b33b-639f5ac60d1f","ticker":"QQQ","skip":"waiting for 09:30 ET (now 08:51)"}]}
