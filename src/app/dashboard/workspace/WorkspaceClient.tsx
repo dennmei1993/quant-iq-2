@@ -108,6 +108,157 @@ const quickChips: Record<string, string[]> = {
   DEFAULT: ['Review this position', 'Best income strategy', 'Risk analysis'],
 }
 
+// ── Builder Search Panel (inline, no modal) ───────────────────────────────────
+
+function BuilderSearchPanel({ ticker, spot, expiries, onResults, searching, setSearching }: {
+  ticker:       string
+  spot:         number
+  expiries:     string[]
+  onResults:    (rows: any[]) => void
+  searching:    boolean
+  setSearching: (v: boolean) => void
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const futureExpiries = expiries.filter(e => e.slice(0, 10) > today)
+
+  const [expiryFrom,  setExpiryFrom]  = useState(futureExpiries[0]?.slice(0, 10) ?? '')
+  const [expiryTo,    setExpiryTo]    = useState(futureExpiries[Math.min(2, futureExpiries.length - 1)]?.slice(0, 10) ?? '')
+  const [optionType,  setOptionType]  = useState<'ALL'|'CALL'|'PUT'>('ALL')
+  const [strikeMin,   setStrikeMin]   = useState(Math.round(spot * 0.90).toString())
+  const [strikeMax,   setStrikeMax]   = useState(Math.round(spot * 1.10).toString())
+  const [deltaMin,    setDeltaMin]    = useState('')
+  const [deltaMax,    setDeltaMax]    = useState('')
+  const [ivMin,       setIvMin]       = useState('')
+  const [ivMax,       setIvMax]       = useState('')
+  const [minOI,       setMinOI]       = useState('')
+  const [error,       setError]       = useState('')
+
+  const inSt: React.CSSProperties = { padding: '3px 6px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 11, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' as const }
+
+  async function search() {
+    if (!expiryFrom) { setError('Select start expiry'); return }
+    setSearching(true); setError('')
+    try {
+      const targetExpiries = futureExpiries.filter(e => {
+        const d = e.slice(0, 10)
+        return d >= expiryFrom && (!expiryTo || d <= expiryTo)
+      })
+      if (!targetExpiries.length) { setError('No expiries in range'); setSearching(false); return }
+
+      const allRows: any[] = []
+      for (const expiry of targetExpiries.slice(0, 4)) {
+        const res = await fetch(`/api/broker/options/chain?symbol=US.${ticker}&expiry=${expiry.slice(0,10)}&strike_count=0`)
+        if (!res.ok) continue
+        const d = await res.json()
+        for (const row of (d.rows ?? [])) {
+          if (strikeMin && row.strike < parseFloat(strikeMin)) continue
+          if (strikeMax && row.strike > parseFloat(strikeMax)) continue
+          const process = (type: 'CALL'|'PUT') => {
+            const prefix = type === 'CALL' ? 'call' : 'put'
+            const delta = Math.abs(parseFloat(String(row[`${prefix}_delta`] ?? 0)))
+            const iv    = parseFloat(String(row[`${prefix}_iv`] ?? 0))
+            const oi    = parseInt(String(row[`${prefix}_oi`] ?? 0))
+            const bid   = parseFloat(String(row[`${prefix}_bid`] ?? 0))
+            const ask   = parseFloat(String(row[`${prefix}_ask`] ?? 0))
+            if (deltaMin && delta < parseFloat(deltaMin)) return
+            if (deltaMax && delta > parseFloat(deltaMax)) return
+            if (ivMin    && iv    < parseFloat(ivMin))    return
+            if (ivMax    && iv    > parseFloat(ivMax))    return
+            if (minOI    && oi    < parseInt(minOI))      return
+            if (bid === 0 && ask === 0)                    return
+            allRows.push({ ...row, type, expiry: expiry.slice(0,10),
+              delta: type === 'PUT' ? -delta : delta, iv, bid, ask,
+              vol: row[`${prefix}_volume`] ?? 0, oi, code: row[`${prefix}_code`] ?? '' })
+          }
+          if (optionType !== 'PUT')  process('CALL')
+          if (optionType !== 'CALL') process('PUT')
+        }
+      }
+      allRows.sort((a, b) => a.expiry.localeCompare(b.expiry) || a.strike - b.strike)
+      if (!allRows.length) { setError('No contracts matched'); setSearching(false); return }
+      onResults(allRows)
+    } catch (e: any) { setError(e.message) }
+    finally { setSearching(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {/* Row 1: Expiry + Type */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Expiry from</div>
+          <select value={expiryFrom} onChange={e => setExpiryFrom(e.target.value)} style={{ ...inSt, width: 130 }}>
+            {futureExpiries.map(exp => {
+              const d = Math.round((new Date(exp.slice(0,10)).getTime() - Date.now()) / 86400000)
+              return <option key={exp} value={exp.slice(0,10)}>{exp.slice(0,10)} ({d}d)</option>
+            })}
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>To</div>
+          <select value={expiryTo} onChange={e => setExpiryTo(e.target.value)} style={{ ...inSt, width: 130 }}>
+            <option value="">Any</option>
+            {futureExpiries.map(exp => {
+              const d = Math.round((new Date(exp.slice(0,10)).getTime() - Date.now()) / 86400000)
+              return <option key={exp} value={exp.slice(0,10)}>{exp.slice(0,10)} ({d}d)</option>
+            })}
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Type</div>
+          <div style={{ display: 'flex', gap: 2 }}>
+            {(['ALL','CALL','PUT'] as const).map(t => (
+              <button key={t} onClick={() => setOptionType(t)} style={{ padding: '3px 8px', borderRadius: 'var(--r-md)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, fontWeight: optionType === t ? 600 : 400, background: optionType === t ? 'rgba(37,99,235,0.1)' : 'none', border: `1px solid ${optionType === t ? 'rgba(37,99,235,0.4)' : 'var(--border)'}`, color: optionType === t ? 'var(--color-info)' : 'var(--text-4)' }}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 2: Strike + Delta + IV + OI */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        {[
+          { label: 'Strike min', val: strikeMin, set: setStrikeMin, w: 70, ph: String(Math.round(spot*0.9)) },
+          { label: 'Strike max', val: strikeMax, set: setStrikeMax, w: 70, ph: String(Math.round(spot*1.1)) },
+          { label: 'Delta min', val: deltaMin, set: setDeltaMin, w: 60, ph: '0.20' },
+          { label: 'Delta max', val: deltaMax, set: setDeltaMax, w: 60, ph: '0.50' },
+          { label: 'IV% min',   val: ivMin,    set: setIvMin,    w: 55, ph: '20' },
+          { label: 'IV% max',   val: ivMax,    set: setIvMax,    w: 55, ph: '60' },
+          { label: 'Min OI',    val: minOI,    set: setMinOI,    w: 60, ph: '100' },
+        ].map(f => (
+          <div key={f.label}>
+            <div style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{f.label}</div>
+            <input value={f.val} onChange={e => f.set(e.target.value)} type="number" placeholder={f.ph} style={{ ...inSt, width: f.w }} />
+          </div>
+        ))}
+      </div>
+
+      {/* Row 3: Presets + Search button */}
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Presets:</span>
+        {[
+          { label: '30Δ CC',    fn: () => { setOptionType('CALL'); setDeltaMin('0.25'); setDeltaMax('0.35') } },
+          { label: '30Δ CSP',   fn: () => { setOptionType('PUT');  setDeltaMin('0.25'); setDeltaMax('0.35') } },
+          { label: 'ATM ±5%',   fn: () => { setStrikeMin(Math.round(spot*0.95).toString()); setStrikeMax(Math.round(spot*1.05).toString()) } },
+          { label: 'OTM',       fn: () => { setDeltaMin('0'); setDeltaMax('0.45') } },
+          { label: 'Liquid OI', fn: () => setMinOI('500') },
+        ].map(p => (
+          <button key={p.label} onClick={p.fn} style={{ fontSize: 9, padding: '2px 7px', borderRadius: 20, border: '1px solid var(--border)', background: 'none', color: 'var(--text-4)', cursor: 'pointer', fontFamily: 'inherit' }}>
+            {p.label}
+          </button>
+        ))}
+        <button onClick={search} disabled={searching}
+          style={{ marginLeft: 'auto', padding: '4px 14px', fontWeight: 600, fontFamily: 'inherit', fontSize: 11, borderRadius: 'var(--r-md)', cursor: searching ? 'not-allowed' : 'pointer', opacity: searching ? 0.5 : 1, background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.35)', color: 'var(--color-info)' }}>
+          {searching ? 'Searching…' : '🔍 Search'}
+        </button>
+      </div>
+      {error && <div style={{ fontSize: 10, color: 'var(--signal-bear)' }}>{error}</div>}
+    </div>
+  )
+}
+
+
 // ── Option Search Modal ───────────────────────────────────────────────────────
 
 function OptionSearchModal({ ticker, spot, expiries, onClose, onResults, searching, setSearching }: {
@@ -687,7 +838,7 @@ export default function WorkspaceClient() {
   const [holdings,    setHoldings]    = useState<Holding[]>([])
   const [selected,    setSelected]    = useState<Holding | null>(null)
   const [loading,     setLoading]     = useState(true)
-  const [centerTab,   setCenterTab]   = useState<'overview' | 'chain' | 'strategies' | 'dca'>('overview')
+  const [centerTab,   setCenterTab]   = useState<'overview' | 'chain' | 'builder' | 'strategies' | 'dca'>('overview')
   const [expiryIdx,   setExpiryIdx]   = useState(0)
   const [staged,      setStaged]      = useState<StagedTrade | null>(null)
   const [selStrat,    setSelStrat]    = useState<number | null>(null)
@@ -1120,9 +1271,9 @@ export default function WorkspaceClient() {
 
               {/* Tabs */}
               <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 16px', flexShrink: 0, alignItems: 'center' }}>
-                {(['overview', 'chain', 'strategies', 'dca'] as const).map(t => (
+                {(['overview', 'chain', 'builder', 'strategies', 'dca'] as const).map(t => (
                   <button key={t} onClick={() => setCenterTab(t)} style={{ padding: '7px 11px', fontSize: 'var(--fs-sm)', cursor: 'pointer', border: 'none', borderBottom: `2px solid ${centerTab === t ? 'var(--color-info)' : 'transparent'}`, color: centerTab === t ? 'var(--text)' : 'var(--text-4)', fontWeight: centerTab === t ? 500 : 400, background: 'none', fontFamily: 'inherit', transition: 'all 0.15s' }}>
-                    {t === 'overview' ? 'Overview' : t === 'chain' ? 'Option Chain' : t === 'strategies' ? 'Strategies' : 'DCA'}
+                    {t === 'overview' ? 'Overview' : t === 'chain' ? 'Option Chain' : t === 'builder' ? 'Trade Builder' : t === 'strategies' ? 'Strategies' : 'DCA'}
                   </button>
                 ))}
                 <div style={{ flex: 1 }} />
@@ -1303,6 +1454,72 @@ export default function WorkspaceClient() {
                           </div>
                         )
                       })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Trade Builder */}
+                {centerTab === 'builder' && h && (
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                    {/* Search panel always visible */}
+                    <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500 }}>Option Trade Builder</span>
+                        <span style={{ fontSize: 9, color: 'var(--text-4)' }}>{h.ticker} · ${price.toFixed(2)} · IV {iv}%{ivRank !== null ? ` · IVR ${ivRank}` : ''}</span>
+                        {searchResults && (
+                          <button onClick={() => setSearchResults(null)}
+                            style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: 9, fontFamily: 'inherit', cursor: 'pointer', borderRadius: 'var(--r-md)', background: 'none', border: '1px solid var(--border)', color: 'var(--text-4)' }}>
+                            Clear results
+                          </button>
+                        )}
+                      </div>
+                      <BuilderSearchPanel
+                        ticker={h.ticker}
+                        spot={price}
+                        expiries={realExpiries}
+                        onResults={(rows) => setSearchResults(rows)}
+                        searching={searching}
+                        setSearching={setSearching}
+                      />
+                    </div>
+                    {/* Results */}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px' }}>
+                      {searching && (
+                        <div style={{ padding: 20, textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>Searching…</div>
+                      )}
+                      {!searching && searchResults && searchResults.length === 0 && (
+                        <div style={{ padding: 20, textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>No contracts matched your criteria</div>
+                      )}
+                      {!searching && searchResults && searchResults.length > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-4)', marginBottom: 4 }}>
+                            {searchResults.length} contracts · click to place order
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '60px 45px 55px 55px 55px 55px 55px 55px 55px', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', padding: '3px 0', borderBottom: '1px solid var(--border)', gap: 2 }}>
+                            {['Expiry','Type','Strike','Delta','IV%','Bid','Ask','Vol','OI'].map(c => <div key={c} style={{ textAlign: 'right' }}>{c}</div>)}
+                          </div>
+                          {searchResults.map((row, i) => (
+                            <div key={i} onClick={() => {
+                              if (row.code) setOptionOrder({ code: row.code, strike: row.strike, type: row.type === 'CALL' ? 'call' : 'put', bid: row.bid ?? 0, ask: row.ask ?? 0, expiry: row.expiry, ticker: h.ticker })
+                            }} style={{ display: 'grid', gridTemplateColumns: '60px 45px 55px 55px 55px 55px 55px 55px 55px', fontSize: 10, fontFamily: 'var(--font-mono)', padding: '4px 0', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer', gap: 2, background: row.type === 'CALL' ? 'rgba(21,128,61,0.02)' : 'rgba(185,28,28,0.02)' }}>
+                              <div style={{ textAlign: 'right', color: 'var(--text-4)', fontSize: 9 }}>{row.expiry?.slice(5)}</div>
+                              <div style={{ textAlign: 'right', color: row.type === 'CALL' ? 'var(--signal-bull)' : 'var(--signal-bear)', fontWeight: 600, fontSize: 9 }}>{row.type}</div>
+                              <div style={{ textAlign: 'right' }}>${row.strike}</div>
+                              <div style={{ textAlign: 'right', color: 'var(--text-3)' }}>{Number(row.delta).toFixed(3)}</div>
+                              <div style={{ textAlign: 'right', color: 'var(--text-3)' }}>{Number(row.iv).toFixed(1)}%</div>
+                              <div style={{ textAlign: 'right' }}>${Number(row.bid).toFixed(2)}</div>
+                              <div style={{ textAlign: 'right' }}>${Number(row.ask).toFixed(2)}</div>
+                              <div style={{ textAlign: 'right', color: 'var(--text-4)' }}>{(row.vol ?? 0).toLocaleString()}</div>
+                              <div style={{ textAlign: 'right', color: 'var(--text-4)' }}>{(row.oi ?? 0).toLocaleString()}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!searching && !searchResults && (
+                        <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>
+                          Set your criteria above and search for contracts
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
