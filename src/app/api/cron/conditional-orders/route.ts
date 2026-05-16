@@ -174,6 +174,8 @@ export async function GET(req: NextRequest) {
         trading_mode: tradingMode,
         status:       'EXECUTING...',
       })
+
+      const orderBody: any = {
         symbol:       order.option_code ?? `US.${order.ticker}`,
         side:         order.side,
         qty:          order.qty,
