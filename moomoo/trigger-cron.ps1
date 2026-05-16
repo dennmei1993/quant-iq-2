@@ -15,7 +15,6 @@ try {
 
     if ($response.skipped) {
         $minute = (Get-Date).Minute
-	Add-Content -Path $logFile -Value ($timestamp + " | skipped - " + $response.reason)
 #        if ($minute -eq 0) {
 	if ($true) {
             Add-Content -Path $logFile -Value ($timestamp + " | skipped - " + $response.reason)
