@@ -1516,7 +1516,7 @@ export default function WorkspaceClient() {
                     </div>
 
                     {/* Right — strategy advisory */}
-                    <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
                       <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
                         <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 500, marginBottom: 1 }}>Strategy Advisory</div>
                         <div style={{ fontSize: 9, color: 'var(--text-4)' }}>{h.ticker} · IV {iv}%{ivRank !== null ? ` · IVR ${ivRank}` : ''}{hv30 ? ` · HV ${hv30.toFixed(1)}%` : ''}</div>
