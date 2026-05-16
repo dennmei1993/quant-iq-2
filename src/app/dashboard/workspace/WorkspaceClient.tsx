@@ -1614,6 +1614,7 @@ export default function WorkspaceClient() {
             </>
           )}
         </div>
+      </div>
 
         {/* Floating AI button */}
       <button onClick={() => setShowAI(true)}
@@ -1699,8 +1700,6 @@ export default function WorkspaceClient() {
           </div>
         </>
       )}
-        </div>
-      </div>
 
       {showSearch && h && (
         <OptionSearchModal
