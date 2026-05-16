@@ -108,6 +108,226 @@ const quickChips: Record<string, string[]> = {
   DEFAULT: ['Review this position', 'Best income strategy', 'Risk analysis'],
 }
 
+// ── Option Search Modal ───────────────────────────────────────────────────────
+
+function OptionSearchModal({ ticker, spot, expiries, onClose, onResults, searching, setSearching }: {
+  ticker:      string
+  spot:        number
+  expiries:    string[]
+  onClose:     () => void
+  onResults:   (rows: any[]) => void
+  searching:   boolean
+  setSearching: (v: boolean) => void
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const futureExpiries = expiries.filter(e => e.slice(0, 10) > today)
+
+  const [expiryFrom,  setExpiryFrom]  = useState(futureExpiries[0]?.slice(0, 10) ?? '')
+  const [expiryTo,    setExpiryTo]    = useState(futureExpiries[Math.min(3, futureExpiries.length - 1)]?.slice(0, 10) ?? '')
+  const [optionType,  setOptionType]  = useState<'ALL'|'CALL'|'PUT'>('ALL')
+  const [strikeMin,   setStrikeMin]   = useState(Math.round(spot * 0.85).toString())
+  const [strikeMax,   setStrikeMax]   = useState(Math.round(spot * 1.15).toString())
+  const [deltaMin,    setDeltaMin]    = useState('')
+  const [deltaMax,    setDeltaMax]    = useState('')
+  const [ivMin,       setIvMin]       = useState('')
+  const [ivMax,       setIvMax]       = useState('')
+  const [minOI,       setMinOI]       = useState('')
+  const [error,       setError]       = useState('')
+
+  const inSt: React.CSSProperties = {
+    padding: '4px 7px', background: 'var(--bg-subtle)', border: '1px solid var(--border)',
+    borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)',
+    fontFamily: 'inherit', width: '100%', outline: 'none', boxSizing: 'border-box',
+  }
+  const lbSt: React.CSSProperties = {
+    fontSize: 9, fontWeight: 500, color: 'var(--text-4)',
+    textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 3,
+  }
+
+  async function search() {
+    if (!expiryFrom) { setError('Select at least a start expiry'); return }
+    setSearching(true); setError('')
+    try {
+      // Find expiries in range
+      const targetExpiries = futureExpiries.filter(e => {
+        const d = e.slice(0, 10)
+        return d >= expiryFrom && (!expiryTo || d <= expiryTo)
+      })
+      if (!targetExpiries.length) { setError('No expiries in selected range'); setSearching(false); return }
+
+      // Fetch chain for each expiry in range
+      const allRows: any[] = []
+      for (const expiry of targetExpiries.slice(0, 4)) { // limit to 4 expiries
+        const res = await fetch(`/api/broker/options/chain?symbol=US.${ticker}&expiry=${expiry.slice(0, 10)}&strike_count=0`)
+        if (!res.ok) continue
+        const d = await res.json()
+        for (const row of (d.rows ?? [])) {
+          // Strike filter
+          if (strikeMin && row.strike < parseFloat(strikeMin)) continue
+          if (strikeMax && row.strike > parseFloat(strikeMax)) continue
+
+          // Process call side
+          if (optionType !== 'PUT') {
+            const delta = parseFloat(String(row.call_delta ?? 0))
+            const iv    = parseFloat(String(row.call_iv ?? 0))
+            const oi    = parseInt(String(row.call_oi ?? 0))
+            if (deltaMin && delta < parseFloat(deltaMin)) {} else
+            if (deltaMax && delta > parseFloat(deltaMax)) {} else
+            if (ivMin    && iv    < parseFloat(ivMin))    {} else
+            if (ivMax    && iv    > parseFloat(ivMax))    {} else
+            if (minOI    && oi    < parseInt(minOI))      {} else
+            if (row.call_bid > 0 || row.call_ask > 0) {
+              allRows.push({ ...row, type: 'CALL', expiry: expiry.slice(0, 10),
+                delta, iv, bid: row.call_bid, ask: row.call_ask,
+                vol: row.call_volume, oi, code: row.call_code })
+            }
+          }
+
+          // Process put side
+          if (optionType !== 'CALL') {
+            const delta = Math.abs(parseFloat(String(row.put_delta ?? 0)))
+            const iv    = parseFloat(String(row.put_iv ?? 0))
+            const oi    = parseInt(String(row.put_oi ?? 0))
+            if (deltaMin && delta < parseFloat(deltaMin)) {} else
+            if (deltaMax && delta > parseFloat(deltaMax)) {} else
+            if (ivMin    && iv    < parseFloat(ivMin))    {} else
+            if (ivMax    && iv    > parseFloat(ivMax))    {} else
+            if (minOI    && oi    < parseInt(minOI))      {} else
+            if (row.put_bid > 0 || row.put_ask > 0) {
+              allRows.push({ ...row, type: 'PUT', expiry: expiry.slice(0, 10),
+                delta: -delta, iv, bid: row.put_bid, ask: row.put_ask,
+                vol: row.put_volume, oi, code: row.put_code })
+            }
+          }
+        }
+      }
+
+      // Sort by expiry then strike
+      allRows.sort((a, b) => a.expiry.localeCompare(b.expiry) || a.strike - b.strike)
+
+      if (!allRows.length) { setError('No contracts matched your criteria'); setSearching(false); return }
+      onResults(allRows)
+    } catch (e: any) { setError(e.message) }
+    finally { setSearching(false) }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.5)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '1.2rem', width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Option Search</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 600 }}>{ticker} · ${spot.toFixed(2)}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {/* Expiry range */}
+          <div>
+            <label style={lbSt}>Expiry range</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 6, alignItems: 'center' }}>
+              <select value={expiryFrom} onChange={e => setExpiryFrom(e.target.value)} style={inSt}>
+                {futureExpiries.map(exp => {
+                  const d = Math.round((new Date(exp.slice(0,10)).getTime() - Date.now()) / 86400000)
+                  return <option key={exp} value={exp.slice(0,10)}>{exp.slice(0,10)} ({d}d)</option>
+                })}
+              </select>
+              <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>to</span>
+              <select value={expiryTo} onChange={e => setExpiryTo(e.target.value)} style={inSt}>
+                <option value="">Any</option>
+                {futureExpiries.map(exp => {
+                  const d = Math.round((new Date(exp.slice(0,10)).getTime() - Date.now()) / 86400000)
+                  return <option key={exp} value={exp.slice(0,10)}>{exp.slice(0,10)} ({d}d)</option>
+                })}
+              </select>
+            </div>
+          </div>
+
+          {/* Call / Put */}
+          <div>
+            <label style={lbSt}>Option type</label>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(['ALL','CALL','PUT'] as const).map(t => (
+                <button key={t} onClick={() => setOptionType(t)}
+                  style={{ flex: 1, padding: '5px', borderRadius: 'var(--r-md)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--fs-sm)', fontWeight: optionType === t ? 600 : 400, background: optionType === t ? 'rgba(37,99,235,0.1)' : 'none', border: `1px solid ${optionType === t ? 'rgba(37,99,235,0.4)' : 'var(--border)'}`, color: optionType === t ? 'var(--color-info)' : 'var(--text-4)' }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Strike range */}
+          <div>
+            <label style={lbSt}>Strike range ($)</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 6, alignItems: 'center' }}>
+              <input value={strikeMin} onChange={e => setStrikeMin(e.target.value)} type="number" placeholder="Min" style={inSt} />
+              <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>–</span>
+              <input value={strikeMax} onChange={e => setStrikeMax(e.target.value)} type="number" placeholder="Max" style={inSt} />
+            </div>
+          </div>
+
+          {/* Delta range */}
+          <div>
+            <label style={lbSt}>Delta range (absolute, e.g. 0.2 – 0.5)</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 6, alignItems: 'center' }}>
+              <input value={deltaMin} onChange={e => setDeltaMin(e.target.value)} type="number" step="0.01" min="0" max="1" placeholder="Min (e.g. 0.20)" style={inSt} />
+              <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>–</span>
+              <input value={deltaMax} onChange={e => setDeltaMax(e.target.value)} type="number" step="0.01" min="0" max="1" placeholder="Max (e.g. 0.50)" style={inSt} />
+            </div>
+          </div>
+
+          {/* IV range */}
+          <div>
+            <label style={lbSt}>IV range (%)</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 6, alignItems: 'center' }}>
+              <input value={ivMin} onChange={e => setIvMin(e.target.value)} type="number" placeholder="Min (e.g. 20)" style={inSt} />
+              <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)' }}>–</span>
+              <input value={ivMax} onChange={e => setIvMax(e.target.value)} type="number" placeholder="Max (e.g. 60)" style={inSt} />
+            </div>
+          </div>
+
+          {/* Min open interest */}
+          <div>
+            <label style={lbSt}>Min open interest</label>
+            <input value={minOI} onChange={e => setMinOI(e.target.value)} type="number" placeholder="e.g. 100" style={inSt} />
+          </div>
+
+          {/* Quick presets */}
+          <div>
+            <label style={lbSt}>Quick presets</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {[
+                { label: '30Δ Calls (CC)', fn: () => { setOptionType('CALL'); setDeltaMin('0.25'); setDeltaMax('0.35') } },
+                { label: '30Δ Puts (CSP)', fn: () => { setOptionType('PUT');  setDeltaMin('0.25'); setDeltaMax('0.35') } },
+                { label: 'ATM ±5%',        fn: () => { setStrikeMin(Math.round(spot*0.95).toString()); setStrikeMax(Math.round(spot*1.05).toString()) } },
+                { label: 'OTM only',       fn: () => { setDeltaMin('0'); setDeltaMax('0.45') } },
+                { label: 'High OI (500+)', fn: () => setMinOI('500') },
+              ].map(p => (
+                <button key={p.label} onClick={p.fn}
+                  style={{ fontSize: 9, padding: '2px 8px', borderRadius: 20, border: '1px solid var(--border)', background: 'none', color: 'var(--text-4)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {error && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--signal-bear)', padding: '6px 8px', background: 'rgba(185,28,28,0.05)', border: '1px solid rgba(185,28,28,0.15)', borderRadius: 'var(--r-md)' }}>{error}</div>}
+
+          <button onClick={search} disabled={searching}
+            style={{ padding: '7px', fontWeight: 600, fontFamily: 'inherit', fontSize: 'var(--fs-sm)', borderRadius: 'var(--r-md)', cursor: searching ? 'not-allowed' : 'pointer', opacity: searching ? 0.5 : 1, background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.35)', color: 'var(--color-info)' }}>
+            {searching ? 'Searching…' : 'Search options'}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+
 // ── Conditional Order Modal ──────────────────────────────────────────────────
 
 // Create a conditional order that executes when market conditions are met
@@ -482,6 +702,9 @@ export default function WorkspaceClient() {
   const [signals,     setSignals]     = useState<Record<string, { price_usd: number | null; change_pct: number | null; iv_rank?: number | null }>>({})
   const [realChain,   setRealChain]   = useState<any[] | null>(null)
   const [chainLoading,setChainLoading] = useState(false)
+  const [showSearch,  setShowSearch]   = useState(false)
+  const [searchResults,setSearchResults] = useState<any[] | null>(null)
+  const [searching,   setSearching]    = useState(false)
   const [realExpiries,setRealExpiries] = useState<string[]>([])
   const [brokerOnline,setBrokerOnline] = useState(false)
   const [moomooFunds, setMoomooFunds]  = useState<any>(null)
@@ -972,7 +1195,17 @@ export default function WorkspaceClient() {
                           : <option value={0}>{chainLoading ? 'Loading…' : 'No expiries'}</option>
                         }
                       </select>
-                      <span style={{ marginLeft: 'auto', fontSize: 'var(--fs-xs)', color: 'var(--text-4)', fontFamily: 'var(--font-mono)' }}>
+                      <button onClick={() => setShowSearch(true)}
+                        style={{ marginLeft: 'auto', padding: '3px 10px', fontSize: 'var(--fs-xs)', fontFamily: 'inherit', cursor: 'pointer', borderRadius: 'var(--r-md)', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.25)', color: 'var(--color-info)', fontWeight: 500 }}>
+                        🔍 Search
+                      </button>
+                      {searchResults && (
+                        <button onClick={() => setSearchResults(null)}
+                          style={{ padding: '3px 8px', fontSize: 'var(--fs-xs)', fontFamily: 'inherit', cursor: 'pointer', borderRadius: 'var(--r-md)', background: 'none', border: '1px solid var(--border)', color: 'var(--text-4)' }}>
+                          Clear search
+                        </button>
+                      )}
+                      <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', fontFamily: 'var(--font-mono)' }}>
                         {h.ticker} · ${price.toFixed(2)} · IV {iv}%
                       </span>
                     </div>
@@ -987,7 +1220,40 @@ export default function WorkspaceClient() {
                           {(usingRealChain ? ['OI','Vol','Bid','Ask','IV%','Delta'] : ['Vol','Bid','Ask','IV%','Delta']).map(c => <div key={c} style={{ fontSize: 8, color: 'var(--text-4)', textAlign: 'right', padding: '0 3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</div>)}
                         </div>
                       </div>
-                      {chain.map((row: any, i: number) => {
+                      {searchResults && (
+                        <div style={{ padding: '4px 0 6px', fontSize: 9, color: 'var(--text-4)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{ background: 'rgba(37,99,235,0.08)', color: 'var(--color-info)', border: '1px solid rgba(37,99,235,0.2)', padding: '1px 6px', borderRadius: 3 }}>
+                            {searchResults.length} results
+                          </span>
+                          <span>Showing search results across {[...new Set(searchResults.map(r => r.expiry))].length} expiries</span>
+                        </div>
+                      )}
+
+                      {/* Search results — flat row with expiry + type column */}
+                      {searchResults && (
+                        <div style={{ marginTop: 4 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '60px 45px 55px 55px 55px 55px 55px 55px 55px', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', padding: '3px 0', borderBottom: '1px solid var(--border)', gap: 2 }}>
+                            {['Expiry','Type','Strike','Delta','IV%','Bid','Ask','Vol','OI'].map(c => <div key={c} style={{ textAlign: 'right' }}>{c}</div>)}
+                          </div>
+                          {searchResults.map((row, i) => (
+                            <div key={i} onClick={() => {
+                              if (row.code) setOptionOrder({ code: row.code, strike: row.strike, type: row.type === 'CALL' ? 'call' : 'put', bid: row.bid ?? 0, ask: row.ask ?? 0, expiry: row.expiry, ticker: h.ticker })
+                            }} style={{ display: 'grid', gridTemplateColumns: '60px 45px 55px 55px 55px 55px 55px 55px 55px', fontSize: 10, fontFamily: 'var(--font-mono)', padding: '4px 0', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer', gap: 2, background: row.type === 'CALL' ? 'rgba(21,128,61,0.02)' : 'rgba(185,28,28,0.02)' }}>
+                              <div style={{ textAlign: 'right', color: 'var(--text-4)', fontSize: 9 }}>{row.expiry?.slice(5)}</div>
+                              <div style={{ textAlign: 'right', color: row.type === 'CALL' ? 'var(--signal-bull)' : 'var(--signal-bear)', fontWeight: 600, fontSize: 9 }}>{row.type}</div>
+                              <div style={{ textAlign: 'right' }}>${row.strike}</div>
+                              <div style={{ textAlign: 'right', color: 'var(--text-3)' }}>{Number(row.delta).toFixed(3)}</div>
+                              <div style={{ textAlign: 'right', color: 'var(--text-3)' }}>{Number(row.iv).toFixed(1)}%</div>
+                              <div style={{ textAlign: 'right' }}>${Number(row.bid).toFixed(2)}</div>
+                              <div style={{ textAlign: 'right' }}>${Number(row.ask).toFixed(2)}</div>
+                              <div style={{ textAlign: 'right', color: 'var(--text-4)' }}>{(row.vol ?? 0).toLocaleString()}</div>
+                              <div style={{ textAlign: 'right', color: 'var(--text-4)' }}>{(row.oi ?? 0).toLocaleString()}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Regular chain — shown when no search active */}
+                      {!searchResults && chain.map((row: any, i: number) => {
                         // Normalise field names — real chain uses snake_case, simulated uses camelCase
                         const cDelta = row.call_delta  ?? row.callDelta ?? 0
                         const cIV    = row.call_iv     ?? row.callIV    ?? 0
@@ -1203,6 +1469,17 @@ export default function WorkspaceClient() {
         </div>
       </div>
 
+      {showSearch && h && (
+        <OptionSearchModal
+          ticker={h.ticker}
+          spot={price}
+          expiries={realExpiries}
+          onClose={() => setShowSearch(false)}
+          onResults={(rows) => { setSearchResults(rows); setShowSearch(false) }}
+          searching={searching}
+          setSearching={setSearching}
+        />
+      )}
       {showConditional && h && (
         <ConditionalOrderModal
           ticker={h.ticker}
