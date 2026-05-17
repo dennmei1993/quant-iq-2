@@ -91,7 +91,8 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (!existing) {
-      // Add to assets table — price engine will bootstrap on next run
+      // Add to assets with bootstrapped: false and track_price: true
+      // The nightly bootstrap cron (quant-iq-engine) will fetch full price history
       await serviceClient
         .from('assets')
         .upsert({
@@ -100,31 +101,21 @@ export async function POST(req: NextRequest) {
           asset_type:   'stock',
           is_active:    true,
           bootstrapped: false,
+          track_price:  true,   // required for bootstrap cron to pick it up
           added_at:     new Date().toISOString(),
         }, { onConflict: 'ticker', ignoreDuplicates: true })
-    } else if (!existing.bootstrapped) {
-      // Already in assets but not yet bootstrapped — try to get today's price immediately
-      try {
-        const BRIDGE = process.env.BROKER_BRIDGE_URL
-        if (BRIDGE) {
-          const priceRes = await fetch(
-            `${BRIDGE}/options/volatility?symbol=US.${cleanTicker}`,
-            { signal: AbortSignal.timeout(5000) }
-          )
-          if (priceRes.ok) {
-            const pd = await priceRes.json()
-            if (pd.last_price) {
-              const today = new Date().toISOString().slice(0, 10)
-              await serviceClient
-                .from('daily_prices')
-                .upsert(
-                  { ticker: cleanTicker, date: today, close: pd.last_price },
-                  { onConflict: 'ticker,date' }
-                )
-            }
-          }
-        }
-      } catch {} // best-effort — don't fail the watchlist add
+
+      // Trigger the bootstrap engine immediately — fills historical prices from FMP
+      // Engine URL is in quant-iq-engine project
+      const engineUrl = process.env.ENGINE_BOOTSTRAP_URL // e.g. https://your-engine.vercel.app/api/cron/bootstrap/stocks
+      const engineSecret = process.env.CRON_SECRET
+      if (engineUrl && engineSecret) {
+        // Fire and forget — don't await, watchlist add should not wait for bootstrap
+        fetch(engineUrl, {
+          headers: { Authorization: `Bearer ${engineSecret}` },
+          signal: AbortSignal.timeout(5000),
+        }).catch(() => {}) // best-effort
+      }
     }
 
     return NextResponse.json({ entry: data, bootstrapped: !!existing?.bootstrapped }, { status: 201 })
