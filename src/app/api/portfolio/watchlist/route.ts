@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (!existing) {
-      // Add to assets with bootstrapped: false and track_price: true
+      // Add to assets
       await serviceClient
         .from('assets')
         .upsert({
@@ -104,66 +104,61 @@ export async function POST(req: NextRequest) {
           added_at:     new Date().toISOString(),
         }, { onConflict: 'ticker', ignoreDuplicates: true })
 
-      // Bootstrap price history directly from FMP — don't wait for nightly cron
+      // Bootstrap price history from FMP — await so UI knows when it's done
       const fmpKey = process.env.FMP_API_KEY
+      let bootstrapped = false
+      let priceRows    = 0
+
       if (fmpKey) {
-        // Fire and forget — runs in background, watchlist add returns immediately
-        ;(async () => {
-          try {
-            const from = '2024-01-01'
-            const to   = new Date().toISOString().slice(0, 10)
-            const url  = `https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${cleanTicker}&from=${from}&to=${to}&apikey=${fmpKey}`
-            const res  = await fetch(url, { signal: AbortSignal.timeout(15000) })
-            if (!res.ok) return
+        try {
+          const from = '2024-01-01'
+          const to   = new Date().toISOString().slice(0, 10)
+          const url  = `https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${cleanTicker}&from=${from}&to=${to}&apikey=${fmpKey}`
+          const res  = await fetch(url, { signal: AbortSignal.timeout(20000) })
 
-            const json = await res.json()
-            // FMP returns { historical: [{date, open, high, low, close, volume}] }
-            const prices: { date: string; open: number; high: number; low: number; close: number; volume: number }[] =
-              json.historical ?? (Array.isArray(json) ? json : [])
+          if (res.ok) {
+            const json   = await res.json()
+            const prices = json.historical ?? (Array.isArray(json) ? json : [])
 
-            if (!prices.length) return
+            if (prices.length > 0) {
+              const rows = prices.map((p: any) => ({
+                ticker:    cleanTicker,
+                date:      p.date,
+                open:      p.open   ?? null,
+                high:      p.high   ?? null,
+                low:       p.low    ?? null,
+                close:     p.close  ?? null,
+                adj_close: null,
+                volume:    p.volume ?? null,
+                source:    'fmp',
+              }))
 
-            const rows = prices.map(p => ({
-              ticker,
-              date:      p.date,
-              open:      p.open   ?? null,
-              high:      p.high   ?? null,
-              low:       p.low    ?? null,
-              close:     p.close  ?? null,
-              adj_close: null,
-              volume:    p.volume ?? null,
-              source:    'fmp',
-            }))
+              // Upsert in batches of 500
+              for (let i = 0; i < rows.length; i += 500) {
+                await serviceClient
+                  .from('daily_prices')
+                  .upsert(rows.slice(i, i + 500), { onConflict: 'ticker,date', ignoreDuplicates: false })
+              }
 
-            // Upsert in batches of 500
-            for (let i = 0; i < rows.length; i += 500) {
-              await serviceClient
-                .from('daily_prices')
-                .upsert(rows.slice(i, i + 500), { onConflict: 'ticker,date', ignoreDuplicates: false })
+              await serviceClient.from('assets').update({ bootstrapped: true }).eq('ticker', cleanTicker)
+              bootstrapped = true
+              priceRows    = rows.length
+              console.log(`[watchlist] Bootstrapped ${cleanTicker}: ${priceRows} rows`)
             }
-
-            // Mark as bootstrapped
-            await serviceClient
-              .from('assets')
-              .update({ bootstrapped: true })
-              .eq('ticker', cleanTicker)
-
-            console.log(`[watchlist] Bootstrapped ${cleanTicker}: ${rows.length} price rows`)
-          } catch (e) {
-            console.warn(`[watchlist] Bootstrap failed for ${cleanTicker}:`, e)
           }
-        })()
-      } else {
-        // No FMP key — trigger engine if URL is set
-        const engineUrl    = process.env.ENGINE_BOOTSTRAP_URL
-        const engineSecret = process.env.CRON_SECRET
-        if (engineUrl && engineSecret) {
-          fetch(engineUrl, {
-            headers: { Authorization: `Bearer ${engineSecret}` },
-            signal: AbortSignal.timeout(5000),
-          }).catch(() => {})
+        } catch (e) {
+          console.warn(`[watchlist] Bootstrap failed for ${cleanTicker}:`, e)
         }
       }
+
+      return NextResponse.json({
+        entry: data,
+        bootstrapped,
+        price_rows: priceRows,
+        message: bootstrapped
+          ? `Added ${cleanTicker} and bootstrapped ${priceRows} days of price history`
+          : `Added ${cleanTicker} — price history will load on next nightly sync`,
+      }, { status: 201 })
     }
 
     return NextResponse.json({ entry: data, bootstrapped: !!existing?.bootstrapped }, { status: 201 })

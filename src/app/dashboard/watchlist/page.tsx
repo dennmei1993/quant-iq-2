@@ -409,6 +409,7 @@ export default function WatchlistPage() {
   const [listLoad,   setListLoad]   = useState(true)
   const [removing,   setRemoving]   = useState<string | null>(null)
   const [adding,     setAdding]     = useState(false)
+  const [bootstrapping, setBootstrapping] = useState<string | null>(null) // ticker being bootstrapped
 
   const [txModal,  setTxModal]  = useState<{ ticker: string; name: string | null } | null>(null)
   const [txQty,    setTxQty]    = useState('')
@@ -487,13 +488,25 @@ export default function WatchlistPage() {
     if (!portfolio) return
     setAdding(true)
     try {
-      await fetch('/api/portfolio/watchlist', {
+      const res  = await fetch('/api/portfolio/watchlist', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ portfolio_id: portfolio.id, ticker, name, notes: notes?.trim() || null }),
       })
+      const data = await res.json()
+
+      // Show bootstrap overlay if price history is being loaded
+      if (!data.bootstrapped && data.bootstrapped !== undefined) {
+        setBootstrapping(ticker.toUpperCase())
+      }
+
+      // data.bootstrapped means the route waited and completed bootstrap
+      // Either way reload entries to show the new ticker
       await loadEntries(portfolio.id)
     } catch {}
-    finally { setAdding(false) }
+    finally {
+      setAdding(false)
+      setBootstrapping(null)
+    }
   }
 
   async function handleRemove(ticker: string) {
@@ -555,6 +568,29 @@ export default function WatchlistPage() {
         </div>
         <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-4)' }}>{entries.length} {entries.length === 1 ? 'ticker' : 'tickers'}</span>
       </div>
+
+      {/* Bootstrap / adding overlay */}
+      {(adding || bootstrapping) && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '2rem 2.5rem', textAlign: 'center', maxWidth: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+            <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
+              {bootstrapping ? `Bootstrapping ${bootstrapping}` : 'Adding ticker…'}
+            </div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', lineHeight: 1.7 }}>
+              {bootstrapping
+                ? 'Fetching price history from 2024 onwards.\nThis may take 10–20 seconds…'
+                : 'Please wait…'}
+            </div>
+            <div style={{ marginTop: 16, display: 'flex', gap: 6, justifyContent: 'center' }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-info)', animation: 'blink 1.2s ease-in-out infinite', animationDelay: `${i * 0.2}s` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      <style>{`@keyframes blink{0%,80%,100%{opacity:0.2}40%{opacity:1}}`}</style>
 
       <div style={{ display: 'grid', gridTemplateColumns: '30% 1fr', gap: 'var(--sp-5)', alignItems: 'start' }}>
         <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>

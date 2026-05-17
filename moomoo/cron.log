@@ -331,3 +331,15 @@
   DETAIL: {"checked":1,"executed":0,"et_time":"01:03","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
 2026-05-17 15:04:47 | checked=1 executed=0 et=01:04
   DETAIL: {"checked":1,"executed":0,"et_time":"01:04","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 15:05:47 | checked=1 executed=0 et=01:05
+  DETAIL: {"checked":1,"executed":0,"et_time":"01:05","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 15:06:47 | checked=1 executed=0 et=01:06
+  DETAIL: {"checked":1,"executed":0,"et_time":"01:06","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 15:07:47 | checked=1 executed=0 et=01:07
+  DETAIL: {"checked":1,"executed":0,"et_time":"01:07","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 15:08:47 | checked=1 executed=0 et=01:08
+  DETAIL: {"checked":1,"executed":0,"et_time":"01:08","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 15:09:47 | checked=1 executed=0 et=01:09
+  DETAIL: {"checked":1,"executed":0,"et_time":"01:09","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 15:10:47 | checked=1 executed=0 et=01:10
+  DETAIL: {"checked":1,"executed":0,"et_time":"01:10","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
