@@ -86,23 +86,22 @@ export async function POST(req: NextRequest) {
     // Check if already in assets
     const { data: existing } = await serviceClient
       .from('assets')
-      .select('ticker, bootstrapped')
+      .select('ticker, bootstrapped, asset_type')
       .eq('ticker', cleanTicker)
       .maybeSingle()
 
-    if (!existing) {
-      // Add to assets — engine will bootstrap price history
+    if (!existing || !existing.bootstrapped) {
+      // Add to assets if new, or update track_price if existing but not bootstrapped
       await serviceClient
         .from('assets')
         .upsert({
           ticker:       cleanTicker,
           name:         name ?? null,
-          asset_type:   name?.toLowerCase().includes('etf') || name?.toLowerCase().includes('fund') || name?.toLowerCase().includes('trust') ? 'etf' : 'stock',
+          asset_type:   name?.toLowerCase().match(/etf|fund|trust|index|shares/) ? 'etf' : (existing?.asset_type ?? 'stock'),
           is_active:    true,
           bootstrapped: false,
           track_price:  true,
-          added_at:     new Date().toISOString(),
-        }, { onConflict: 'ticker', ignoreDuplicates: true })
+        }, { onConflict: 'ticker', ignoreDuplicates: false })
 
       // Call quant-iq-engine bootstrap endpoint — it fetches FMP history and marks bootstrapped
       const engineUrl    = process.env.ENGINE_BOOTSTRAP_URL
