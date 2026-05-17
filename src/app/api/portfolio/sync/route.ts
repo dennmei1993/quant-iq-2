@@ -117,6 +117,58 @@ export async function POST(req: NextRequest) {
         .not('ticker', 'in', `(${liveTickers.map(t => `"${t}"`).join(',')})`)
     }
 
+    // ── Bootstrap any holdings not yet in daily_prices ────────────────────────
+    const engineUrl    = process.env.ENGINE_BOOTSTRAP_URL
+    const engineSecret = process.env.ENGINE_CRON_SECRET
+    if (engineUrl && engineSecret && liveTickers.length > 0) {
+      try {
+        // Find which tickers are missing or not bootstrapped
+        const { data: assetRows } = await supabase
+          .from('assets')
+          .select('ticker, bootstrapped, asset_type')
+          .in('ticker', liveTickers)
+
+        const assetMap = Object.fromEntries((assetRows ?? []).map((a: any) => [a.ticker, a]))
+
+        const toBootstrap = liveTickers.filter(t => !assetMap[t] || !assetMap[t].bootstrapped)
+
+        if (toBootstrap.length > 0) {
+          // Upsert missing tickers into assets first
+          const missing = toBootstrap.filter(t => !assetMap[t])
+          if (missing.length > 0) {
+            await supabase
+              .from('assets')
+              .upsert(
+                missing.map(t => ({
+                  ticker:       t,
+                  asset_type:   'stock',
+                  is_active:    true,
+                  bootstrapped: false,
+                  track_price:  true,
+                  name:         t,
+                })),
+                { onConflict: 'ticker', ignoreDuplicates: true }
+              )
+          }
+
+          // Bootstrap each unbootstrapped ticker via engine — fire and forget
+          const baseUrl = engineUrl.replace('/stocks', '')
+          for (const t of toBootstrap) {
+            const isEtf    = assetMap[t]?.asset_type === 'etf'
+            const endpoint = isEtf ? `${baseUrl}/etf` : `${baseUrl}/stocks`
+            fetch(`${endpoint}?ticker=${encodeURIComponent(t)}`, {
+              headers: { Authorization: `Bearer ${engineSecret}` },
+              signal:  AbortSignal.timeout(60_000),
+            }).catch(() => {})
+          }
+
+          console.log(`[sync] Triggered bootstrap for: ${toBootstrap.join(', ')}`)
+        }
+      } catch (e: any) {
+        console.warn('[sync] Bootstrap check failed:', e.message)
+      }
+    }
+
     // Fetch multi-currency buying power
     let fundsData: any = null
     try {
