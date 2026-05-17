@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
         .upsert({
           ticker:       cleanTicker,
           name:         name ?? null,
-          asset_type:   'stock',
+          asset_type:   name?.toLowerCase().includes('etf') || name?.toLowerCase().includes('fund') || name?.toLowerCase().includes('trust') ? 'etf' : 'stock',
           is_active:    true,
           bootstrapped: false,
           track_price:  true,
@@ -105,18 +105,30 @@ export async function POST(req: NextRequest) {
         }, { onConflict: 'ticker', ignoreDuplicates: true })
 
       // Call quant-iq-engine bootstrap endpoint — it fetches FMP history and marks bootstrapped
-      const engineUrl    = process.env.ENGINE_BOOTSTRAP_URL  // https://quant-iq-engine.vercel.app/api/cron/bootstrap/stocks
-      const engineSecret = process.env.CRON_SECRET
+      const engineUrl    = process.env.ENGINE_BOOTSTRAP_URL
+      const engineSecret = process.env.ENGINE_CRON_SECRET  // separate from main app CRON_SECRET
 
       if (engineUrl && engineSecret) {
         try {
-          const engineRes = await fetch(engineUrl, {
-            method:  'GET',
-            headers: { Authorization: `Bearer ${engineSecret}` },
-            signal:  AbortSignal.timeout(280_000), // engine can run up to 280s
-          })
-          const engineData = await engineRes.json().catch(() => ({}))
-          console.log(`[watchlist] Engine bootstrap for ${cleanTicker}:`, engineData)
+          // Detect asset type — ETFs/funds/trusts use the ETF endpoint, others use stocks
+          const isEtf = name?.toLowerCase().match(/etf|fund|trust|index|shares/) || false
+          const baseUrl  = engineUrl.replace('/stocks', '')  // strip /stocks suffix
+          const stockUrl = `${baseUrl}/stocks`
+          const etfUrl   = `${baseUrl}/etf?ticker=${encodeURIComponent(cleanTicker)}`
+          const stockUrlWithTicker = `${baseUrl}/stocks` // stocks endpoint doesn't support ticker param yet
+
+          // Use targeted ETF endpoint or stock endpoint
+          const targetUrl = isEtf ? etfUrl : stockUrlWithTicker
+
+          const [res1, res2] = await Promise.allSettled([
+            fetch(targetUrl, { method: 'GET', headers: { Authorization: `Bearer ${engineSecret}` }, signal: AbortSignal.timeout(280_000) }),
+            // Also call the other endpoint in case asset_type is misidentified
+            fetch(isEtf ? stockUrl : etfUrl, { method: 'GET', headers: { Authorization: `Bearer ${engineSecret}` }, signal: AbortSignal.timeout(30_000) }),
+          ])
+          const stockData = res1.status === 'fulfilled' && res1.value.ok ? await res1.value.json().catch(() => ({})) : {}
+          const etfData   = res2.status === 'fulfilled' && res2.value.ok ? await res2.value.json().catch(() => ({})) : {}
+          console.log(`[watchlist] Bootstrap primary:`, stockData)
+          console.log(`[watchlist] Bootstrap secondary:`, etfData)
 
           // Check if our ticker got bootstrapped
           const { data: afterBootstrap } = await serviceClient
