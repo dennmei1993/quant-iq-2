@@ -110,25 +110,24 @@ export async function POST(req: NextRequest) {
 
       if (engineUrl && engineSecret) {
         try {
-          // Detect asset type — ETFs/funds/trusts use the ETF endpoint, others use stocks
-          const isEtf = name?.toLowerCase().match(/etf|fund|trust|index|shares/) || false
-          const baseUrl  = engineUrl.replace('/stocks', '')  // strip /stocks suffix
-          const stockUrl = `${baseUrl}/stocks`
-          const etfUrl   = `${baseUrl}/etf?ticker=${encodeURIComponent(cleanTicker)}`
-          const stockUrlWithTicker = `${baseUrl}/stocks` // stocks endpoint doesn't support ticker param yet
+          // Determine asset type and call the right bootstrap endpoint with specific ticker
+          // ETF endpoint: supports ?ticker= param, processes only that ticker
+          // Stock endpoint: supports ?ticker= param, processes only that ticker
+          const isEtf    = name?.toLowerCase().match(/etf|fund|trust|index|shares/) ?? false
+          const endpoint = isEtf
+            ? engineUrl.replace('/stocks', '/etf')
+            : engineUrl  // engineUrl already points to /stocks
 
-          // Use targeted ETF endpoint or stock endpoint
-          const targetUrl = isEtf ? etfUrl : stockUrlWithTicker
+          const targetUrl = `${endpoint}?ticker=${encodeURIComponent(cleanTicker)}`
+          console.log(`[watchlist] Bootstrapping ${cleanTicker} via ${targetUrl}`)
 
-          const [res1, res2] = await Promise.allSettled([
-            fetch(targetUrl, { method: 'GET', headers: { Authorization: `Bearer ${engineSecret}` }, signal: AbortSignal.timeout(280_000) }),
-            // Also call the other endpoint in case asset_type is misidentified
-            fetch(isEtf ? stockUrl : etfUrl, { method: 'GET', headers: { Authorization: `Bearer ${engineSecret}` }, signal: AbortSignal.timeout(30_000) }),
-          ])
-          const stockData = res1.status === 'fulfilled' && res1.value.ok ? await res1.value.json().catch(() => ({})) : {}
-          const etfData   = res2.status === 'fulfilled' && res2.value.ok ? await res2.value.json().catch(() => ({})) : {}
-          console.log(`[watchlist] Bootstrap primary:`, stockData)
-          console.log(`[watchlist] Bootstrap secondary:`, etfData)
+          const engineRes = await fetch(targetUrl, {
+            method:  'GET',
+            headers: { Authorization: `Bearer ${engineSecret}` },
+            signal:  AbortSignal.timeout(60_000), // single ticker should finish in < 60s
+          })
+          const engineData = await engineRes.json().catch(() => ({}))
+          console.log(`[watchlist] Bootstrap result for ${cleanTicker}:`, engineData)
 
           // Check if our ticker got bootstrapped
           const { data: afterBootstrap } = await serviceClient
@@ -137,7 +136,7 @@ export async function POST(req: NextRequest) {
             .eq('ticker', cleanTicker)
             .maybeSingle()
 
-          const bootstrapped = afterBootstrap?.bootstrapped ?? false
+          const bootstrapped = afterBootstrap?.bootstrapped ?? (engineData.rowsWritten > 0)
 
           // Count rows inserted
           const { count } = await serviceClient
