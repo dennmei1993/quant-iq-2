@@ -100,7 +100,6 @@ export async function POST(req: NextRequest) {
           asset_type:   name?.toLowerCase().match(/etf|fund|trust|index|shares/) ? 'etf' : (existing?.asset_type ?? 'stock'),
           is_active:    true,
           bootstrapped: false,
-          track_price:  true,
         }, { onConflict: 'ticker', ignoreDuplicates: false })
 
       // Call quant-iq-engine bootstrap endpoint — it fetches FMP history and marks bootstrapped

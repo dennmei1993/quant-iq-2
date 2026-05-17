@@ -144,7 +144,6 @@ export async function POST(req: NextRequest) {
                   asset_type:   'stock',
                   is_active:    true,
                   bootstrapped: false,
-                  track_price:  true,
                   name:         t,
                 })),
                 { onConflict: 'ticker', ignoreDuplicates: true }
