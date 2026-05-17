@@ -92,7 +92,6 @@ export async function POST(req: NextRequest) {
 
     if (!existing) {
       // Add to assets with bootstrapped: false and track_price: true
-      // The nightly bootstrap cron (quant-iq-engine) will fetch full price history
       await serviceClient
         .from('assets')
         .upsert({
@@ -101,20 +100,69 @@ export async function POST(req: NextRequest) {
           asset_type:   'stock',
           is_active:    true,
           bootstrapped: false,
-          track_price:  true,   // required for bootstrap cron to pick it up
+          track_price:  true,
           added_at:     new Date().toISOString(),
         }, { onConflict: 'ticker', ignoreDuplicates: true })
 
-      // Trigger the bootstrap engine immediately — fills historical prices from FMP
-      // Engine URL is in quant-iq-engine project
-      const engineUrl = process.env.ENGINE_BOOTSTRAP_URL // e.g. https://your-engine.vercel.app/api/cron/bootstrap/stocks
-      const engineSecret = process.env.CRON_SECRET
-      if (engineUrl && engineSecret) {
-        // Fire and forget — don't await, watchlist add should not wait for bootstrap
-        fetch(engineUrl, {
-          headers: { Authorization: `Bearer ${engineSecret}` },
-          signal: AbortSignal.timeout(5000),
-        }).catch(() => {}) // best-effort
+      // Bootstrap price history directly from FMP — don't wait for nightly cron
+      const fmpKey = process.env.FMP_API_KEY
+      if (fmpKey) {
+        // Fire and forget — runs in background, watchlist add returns immediately
+        ;(async () => {
+          try {
+            const from = '2024-01-01'
+            const to   = new Date().toISOString().slice(0, 10)
+            const url  = `https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${cleanTicker}&from=${from}&to=${to}&apikey=${fmpKey}`
+            const res  = await fetch(url, { signal: AbortSignal.timeout(15000) })
+            if (!res.ok) return
+
+            const json = await res.json()
+            // FMP returns { historical: [{date, open, high, low, close, volume}] }
+            const prices: { date: string; open: number; high: number; low: number; close: number; volume: number }[] =
+              json.historical ?? (Array.isArray(json) ? json : [])
+
+            if (!prices.length) return
+
+            const rows = prices.map(p => ({
+              ticker,
+              date:      p.date,
+              open:      p.open   ?? null,
+              high:      p.high   ?? null,
+              low:       p.low    ?? null,
+              close:     p.close  ?? null,
+              adj_close: null,
+              volume:    p.volume ?? null,
+              source:    'fmp',
+            }))
+
+            // Upsert in batches of 500
+            for (let i = 0; i < rows.length; i += 500) {
+              await serviceClient
+                .from('daily_prices')
+                .upsert(rows.slice(i, i + 500), { onConflict: 'ticker,date', ignoreDuplicates: false })
+            }
+
+            // Mark as bootstrapped
+            await serviceClient
+              .from('assets')
+              .update({ bootstrapped: true })
+              .eq('ticker', cleanTicker)
+
+            console.log(`[watchlist] Bootstrapped ${cleanTicker}: ${rows.length} price rows`)
+          } catch (e) {
+            console.warn(`[watchlist] Bootstrap failed for ${cleanTicker}:`, e)
+          }
+        })()
+      } else {
+        // No FMP key — trigger engine if URL is set
+        const engineUrl    = process.env.ENGINE_BOOTSTRAP_URL
+        const engineSecret = process.env.CRON_SECRET
+        if (engineUrl && engineSecret) {
+          fetch(engineUrl, {
+            headers: { Authorization: `Bearer ${engineSecret}` },
+            signal: AbortSignal.timeout(5000),
+          }).catch(() => {})
+        }
       }
     }
 
