@@ -548,7 +548,8 @@ export default function WatchlistPage() {
       const ports  = portRes.data ?? []
       const active = (saved && ports.find(p => p.id === saved)) ? ports.find(p => p.id === saved)! : ports[0]
       setThemes(themeRes.data ?? [])
-      setPortfolio(active ?? null)
+      setPortfolio(active ? { ...active, universe: active.universe ?? [] } : null)
+
       setLoading(false)
 
       // Load entries directly — don't rely on a second useEffect
@@ -672,7 +673,7 @@ export default function WatchlistPage() {
           </div>
           <div style={{ padding: '14px', position: 'relative', minHeight: 320, maxHeight: '70vh', overflowY: 'auto' }}>
             <SelectionPanel
-              universe={portfolio.universe ?? []}
+              universe={portfolio.universe}
               themes={themes}
               watchedTickers={watchedTickers}
               onAdd={handleAdd}
