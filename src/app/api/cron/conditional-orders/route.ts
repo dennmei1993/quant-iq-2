@@ -39,7 +39,70 @@ function timeToMinutes(t: string): number {
   return h * 60 + m
 }
 
-export async function GET(req: NextRequest) {
+// ── MACD helpers ──────────────────────────────────────────────────────────────
+
+function ema(values: number[], period: number): number[] {
+  const k = 2 / (period + 1)
+  const result: number[] = []
+  let prev = values[0]
+  result.push(prev)
+  for (let i = 1; i < values.length; i++) {
+    prev = values[i] * k + prev * (1 - k)
+    result.push(prev)
+  }
+  return result
+}
+
+function calcMACD(closes: number[]): { macd: number; signal: number; hist: number } | null {
+  if (closes.length < 35) return null  // need at least 26 + 9 candles
+  const fast   = ema(closes, 12)
+  const slow   = ema(closes, 26)
+  const macdLine = fast.map((f, i) => f - slow[i])
+  const signalLine = ema(macdLine.slice(25), 9)  // signal starts after 26 periods
+  const last   = signalLine.length - 1
+  return {
+    macd:   macdLine[macdLine.length - 1],
+    signal: signalLine[last],
+    hist:   macdLine[macdLine.length - 1] - signalLine[last],
+  }
+}
+
+function calcMACDCross(closes: number[]): { isBullish: boolean; isBearish: boolean; macd: number; signal: number } | null {
+  if (closes.length < 36) return null
+  const prev = calcMACD(closes.slice(0, -1))
+  const curr = calcMACD(closes)
+  if (!prev || !curr) return null
+  return {
+    isBullish: prev.macd < prev.signal && curr.macd > curr.signal,  // crossed above
+    isBearish: prev.macd > prev.signal && curr.macd < curr.signal,  // crossed below
+    macd:   curr.macd,
+    signal: curr.signal,
+  }
+}
+
+// Fetch intraday candles from bridge and return closes
+async function fetchIntradayCloses(ticker: string, period: '1h' | '4h' | '1d', bridgeUrl: string): Promise<number[]> {
+  // Map period to kline type for Moomoo
+  const klType = period === '1h' ? '60M' : period === '4h' ? '4H' : 'DAY'
+  const count  = 50  // enough candles for MACD (need 35+)
+  const res = await fetch(
+    `${bridgeUrl}/kline?symbol=US.${ticker}&kl_type=${klType}&count=${count}`,
+    { signal: AbortSignal.timeout(8000) }
+  )
+  if (!res.ok) throw new Error(`Kline fetch failed: ${res.status}`)
+  const d = await res.json()
+  // Bridge returns { klines: [{close, ...}] } sorted oldest first
+  return (d.klines ?? []).map((k: any) => parseFloat(k.close)).filter((c: number) => !isNaN(c))
+}
+
+// Parse MACD params from order notes
+// Notes format: "DCA #N — MACD bullish cross on 1h · ..."
+function parseMACDNote(notes: string | null): { type: 'bullish' | 'bearish'; period: '1h' | '4h' | '1d' } | null {
+  if (!notes) return null
+  const match = notes.match(/MACD (bullish|bearish) cross on (1h|4h|1d)/i)
+  if (!match) return null
+  return { type: match[1].toLowerCase() as 'bullish' | 'bearish', period: match[2] as '1h' | '4h' | '1d' }
+}
   // Verify cron secret
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -152,6 +215,43 @@ export async function GET(req: NextRequest) {
     if (order.price_below !== null && price >= order.price_below) {
       results.push({ id: order.id, ticker: order.ticker, skip: `price ${price} not below ${order.price_below}` })
       continue
+    }
+
+    // 4. MACD condition — parse from notes field
+    const macdParams = parseMACDNote(order.notes)
+    if (macdParams) {
+      try {
+        const closes = await fetchIntradayCloses(order.ticker, macdParams.period, BRIDGE_URL)
+        const cross  = calcMACDCross(closes)
+
+        if (!cross) {
+          results.push({ id: order.id, ticker: order.ticker, skip: `MACD: not enough candles (got ${closes.length}, need 36)` })
+          continue
+        }
+
+        const triggered = macdParams.type === 'bullish' ? cross.isBullish : cross.isBearish
+
+        if (!triggered) {
+          results.push({
+            id:     order.id,
+            ticker: order.ticker,
+            skip:   `MACD ${macdParams.type} cross not detected (MACD ${cross.macd.toFixed(4)} vs Signal ${cross.signal.toFixed(4)})`,
+            macd:   cross.macd.toFixed(4),
+            signal: cross.signal.toFixed(4),
+          })
+          continue
+        }
+
+        // Log MACD trigger
+        results.push({
+          id:      order.id,
+          ticker:  order.ticker,
+          macd_trigger: `MACD ${macdParams.type} cross on ${macdParams.period} — MACD ${cross.macd.toFixed(4)} crossed ${macdParams.type === 'bullish' ? 'above' : 'below'} Signal ${cross.signal.toFixed(4)}`,
+        })
+      } catch (e: any) {
+        results.push({ id: order.id, ticker: order.ticker, skip: `MACD fetch failed: ${e.message}` })
+        continue
+      }
     }
 
     // ── All conditions met — execute order ────────────────────────────────────
