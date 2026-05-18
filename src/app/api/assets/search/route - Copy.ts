@@ -4,16 +4,18 @@
  * Returns matching assets ordered: ticker-match first, then name-match.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
   const q         = req.nextUrl.searchParams.get('q')?.trim().toUpperCase() ?? ''
   const limit     = Math.min(parseInt(req.nextUrl.searchParams.get('limit') ?? '8'), 20)
   const assetType = req.nextUrl.searchParams.get('asset_type') ?? ''
 
-  if (!q || q.length < 1) return NextResponse.json({ assets: [] })
+  if (!q || q.length < 1) {
+    return NextResponse.json({ assets: [] })
+  }
 
-  const db = createClient()
+  const db = createServiceClient()
 
   // Query 1: ticker starts with q (highest priority)
   let tickerQuery = db
@@ -41,9 +43,6 @@ export async function GET(req: NextRequest) {
     tickerQuery as any,
     nameQuery   as any,
   ])
-
-  if (tickerRes.error) console.error('[search] ticker query error:', tickerRes.error.message)
-  if (nameRes.error)   console.error('[search] name query error:',   nameRes.error.message)
 
   const tickerHits: any[] = tickerRes.data ?? []
   const nameHits:   any[] = nameRes.data   ?? []
