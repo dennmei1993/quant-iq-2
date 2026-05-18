@@ -640,3 +640,190 @@
   DETAIL: {"checked":1,"executed":0,"et_time":"03:39","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
 2026-05-17 17:40:47 | checked=1 executed=0 et=03:40
   DETAIL: {"checked":1,"executed":0,"et_time":"03:40","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 17:41:47 | checked=1 executed=0 et=03:41
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:41","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 17:42:47 | checked=1 executed=0 et=03:42
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:42","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 17:43:47 | ERROR: The operation has timed out.
+2026-05-17 17:44:47 | checked=1 executed=0 et=03:44
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:44","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 17:45:47 | checked=1 executed=0 et=03:45
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:45","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 17:46:47 | checked=1 executed=0 et=03:46
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:46","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 17:47:47 | checked=1 executed=0 et=03:47
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:47","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 17:48:47 | checked=1 executed=0 et=03:48
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:48","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 17:49:47 | checked=1 executed=0 et=03:49
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:49","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 17:50:47 | checked=1 executed=0 et=03:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:50","prices":{"GLD":"$417.29"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"price 417.29 not below 405"}]}
+2026-05-17 20:02:56 | checked=1 executed=0 et=06:02
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:02","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:03:47 | checked=1 executed=0 et=06:03
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:03","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:04:48 | checked=1 executed=0 et=06:04
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:04","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:05:48 | checked=1 executed=0 et=06:05
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:05","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:06:48 | checked=1 executed=0 et=06:06
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:06","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:07:47 | checked=1 executed=0 et=06:07
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:07","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:08:48 | checked=1 executed=0 et=06:08
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:08","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:09:48 | checked=1 executed=0 et=06:09
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:09","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:10:48 | checked=1 executed=0 et=06:10
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:10","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:11:48 | checked=1 executed=0 et=06:11
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:11","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:12:47 | checked=1 executed=0 et=06:12
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:12","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:13:48 | checked=1 executed=0 et=06:13
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:13","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:14:47 | checked=1 executed=0 et=06:14
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:14","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:15:48 | checked=1 executed=0 et=06:15
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:15","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:16:48 | checked=1 executed=0 et=06:16
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:16","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:17:47 | checked=1 executed=0 et=06:17
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:17","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:18:48 | checked=1 executed=0 et=06:18
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:18","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:19:48 | checked=1 executed=0 et=06:19
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:19","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:20:48 | checked=1 executed=0 et=06:20
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:20","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:21:48 | checked=1 executed=0 et=06:21
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:21","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:22:48 | checked=1 executed=0 et=06:22
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:22","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:23:48 | checked=1 executed=0 et=06:23
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:23","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:24:48 | checked=1 executed=0 et=06:24
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:24","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:25:48 | checked=1 executed=0 et=06:25
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:25","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:26:48 | checked=1 executed=0 et=06:26
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:26","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:27:48 | checked=1 executed=0 et=06:27
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:27","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:28:48 | checked=1 executed=0 et=06:28
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:28","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:29:48 | checked=1 executed=0 et=06:29
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:29","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:30:48 | checked=1 executed=0 et=06:30
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:30","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:31:48 | checked=1 executed=0 et=06:31
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:31","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:32:48 | checked=1 executed=0 et=06:32
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:32","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:33:48 | checked=1 executed=0 et=06:33
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:33","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:34:48 | checked=1 executed=0 et=06:34
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:34","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:35:48 | checked=1 executed=0 et=06:35
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:35","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:36:47 | checked=1 executed=0 et=06:36
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:36","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:37:48 | checked=1 executed=0 et=06:37
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:37","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:38:48 | checked=1 executed=0 et=06:38
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:38","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:39:48 | checked=1 executed=0 et=06:39
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:39","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:40:48 | checked=1 executed=0 et=06:40
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:40","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:41:48 | checked=1 executed=0 et=06:41
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:41","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:42:48 | checked=1 executed=0 et=06:42
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:42","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:43:48 | checked=1 executed=0 et=06:43
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:43","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:44:48 | checked=1 executed=0 et=06:44
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:44","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:45:48 | checked=1 executed=0 et=06:45
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:45","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:46:47 | checked=1 executed=0 et=06:46
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:46","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:47:48 | checked=1 executed=0 et=06:47
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:47","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:48:48 | checked=1 executed=0 et=06:48
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:48","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:49:48 | checked=1 executed=0 et=06:49
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:49","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:50:48 | checked=1 executed=0 et=06:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:50","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:51:48 | checked=1 executed=0 et=06:51
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:51","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:52:48 | checked=1 executed=0 et=06:52
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:52","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:53:48 | checked=1 executed=0 et=06:53
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:53","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:54:48 | checked=1 executed=0 et=06:54
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:54","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:55:48 | checked=1 executed=0 et=06:55
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:55","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:56:48 | checked=1 executed=0 et=06:56
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:56","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:57:48 | checked=1 executed=0 et=06:57
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:57","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:58:48 | checked=1 executed=0 et=06:58
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:58","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 20:59:48 | checked=1 executed=0 et=06:59
+  DETAIL: {"checked":1,"executed":0,"et_time":"06:59","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:00:48 | checked=1 executed=0 et=07:00
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:00","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:01:47 | checked=1 executed=0 et=07:01
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:01","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:02:48 | checked=1 executed=0 et=07:02
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:02","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:03:48 | checked=1 executed=0 et=07:03
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:03","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:04:48 | checked=1 executed=0 et=07:04
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:04","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:05:48 | checked=1 executed=0 et=07:05
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:05","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:06:48 | checked=1 executed=0 et=07:06
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:06","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:07:48 | checked=1 executed=0 et=07:07
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:07","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:08:48 | checked=1 executed=0 et=07:08
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:08","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:09:48 | checked=1 executed=0 et=07:09
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:09","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:10:48 | checked=1 executed=0 et=07:10
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:10","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:11:48 | checked=1 executed=0 et=07:11
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:11","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:12:48 | checked=1 executed=0 et=07:12
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:12","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:13:48 | checked=1 executed=0 et=07:13
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:13","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:14:48 | checked=1 executed=0 et=07:14
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:14","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:15:48 | checked=1 executed=0 et=07:15
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:15","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:16:48 | checked=1 executed=0 et=07:16
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:16","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:17:47 | checked=1 executed=0 et=07:17
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:17","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:18:48 | checked=1 executed=0 et=07:18
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:18","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:18:54 | checked=1 executed=0 et=07:18
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:18","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 21:50:48 | checked=1 executed=0 et=07:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"07:50","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-17 22:50:48 | checked=1 executed=0 et=08:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"08:50","prices":{"GLD":"bridge error: fetch failed"},"results":[{"id":"6e496047-9fd5-4ea5-a876-c425b8c23a57","ticker":"GLD","skip":"no price available â?? bridge may be offline"}]}
+2026-05-18 09:50:48 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-18 10:50:48 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-18 11:50:48 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-18 12:50:48 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}

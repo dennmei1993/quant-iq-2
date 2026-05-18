@@ -23,6 +23,20 @@ interface Portfolio { id: string; name: string; total_capital: number; cash_pct:
 interface WatchlistItem { id: string; ticker: string; name: string | null }
 interface ChatMessage { role: 'user' | 'assistant'; content: string }
 interface StagedTrade { ticker: string; type: string; description: string; premium?: string; strike?: string; expiry?: string; legs?: string }
+interface DCAOrder {
+  id:        string
+  ticker:    string
+  num:       number
+  date:      string
+  amount:    number
+  estPrice:  number
+  shares:    string
+  condition: 'immediate' | 'macd_cross' | 'price_below' | 'price_above'
+  conditionValue?: number
+  macdPeriod?: '1h' | '4h' | '1d'
+  status:    'pending' | 'triggered' | 'cancelled'
+  createdAt: string
+}
 
 // ── Option chain ──────────────────────────────────────────────────────────────
 
@@ -259,7 +273,313 @@ function BuilderSearchPanel({ ticker, spot, expiries, onResults, searching, setS
 }
 
 
-// ── Option Search Modal ───────────────────────────────────────────────────────
+// ── DCA Stage Modal ──────────────────────────────────────────────────────────
+
+function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
+  row:          any
+  idx:          number
+  ticker:       string
+  currentPrice: number
+  onClose:      () => void
+  onStaged:     (order: DCAOrder) => void
+}) {
+  const [condition,      setCondition]      = useState<'immediate' | 'macd_cross' | 'price_below' | 'price_above'>('immediate')
+  const [conditionValue, setConditionValue] = useState(Math.round(currentPrice * 0.97).toString())
+  const [macdPeriod,     setMacdPeriod]     = useState<'1h' | '4h' | '1d'>('1h')
+  const [macdType,       setMacdType]       = useState<'bullish' | 'bearish'>('bullish')
+  const [notBefore,      setNotBefore]      = useState('09:30')
+  const [orderType,      setOrderType]      = useState<'MARKET' | 'LIMIT'>('MARKET')
+  const [limitPrice,     setLimitPrice]     = useState(Math.round(currentPrice * 0.97).toString())
+  const [saving,         setSaving]         = useState(false)
+  const [error,          setError]          = useState('')
+
+  const inSt: React.CSSProperties = { padding: '5px 8px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', width: '100%', outline: 'none', boxSizing: 'border-box' }
+  const lbSt: React.CSSProperties = { fontSize: 9, fontWeight: 500, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 3 }
+
+  const conditionLabels = {
+    immediate:   '⚡ Immediate — next market open',
+    macd_cross:  '📈 MACD crossover signal',
+    price_below: '📉 Price drops below target',
+    price_above: '📈 Price rises above target',
+  }
+
+  async function stage() {
+    if ((condition === 'price_below' || condition === 'price_above') && !conditionValue) {
+      setError('Enter a price target'); return
+    }
+    if (condition === 'macd_cross') {
+      // Register as conditional order via API
+    }
+    setSaving(true); setError('')
+    try {
+      const payload: any = {
+        ticker,
+        side:            'BUY',
+        qty:             Math.max(1, Math.floor(row.amount / currentPrice)),
+        order_type:      orderType,
+        limit_price:     orderType === 'LIMIT' ? parseFloat(limitPrice) : null,
+        not_before_time: notBefore,
+        expires_at:      new Date(Date.now() + 30 * 86400000).toISOString(),
+        notes:           `DCA #${row.num} — ${conditionLabels[condition]}`,
+      }
+
+      if (condition === 'price_below') payload.price_below = parseFloat(conditionValue)
+      if (condition === 'price_above') payload.price_above = parseFloat(conditionValue)
+      if (condition === 'macd_cross') {
+        // Store MACD condition in notes — cron will evaluate
+        payload.notes = `DCA #${row.num} — MACD ${macdType} cross on ${macdPeriod} · ${payload.notes}`
+        // For now, also set price trigger as safety gate
+        payload.price_below = condition === 'macd_cross' && macdType === 'bullish'
+          ? parseFloat(limitPrice) * 1.02  // trigger zone
+          : null
+      }
+
+      const res  = await fetch('/api/orders/conditional', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body:   JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'Failed to create order'); return }
+
+      const order: DCAOrder = {
+        id:             data.id ?? String(Date.now()),
+        ticker,
+        num:            row.num,
+        date:           row.date,
+        amount:         row.amount,
+        estPrice:       row.estPrice,
+        shares:         row.shares,
+        condition,
+        conditionValue: conditionValue ? parseFloat(conditionValue) : undefined,
+        macdPeriod:     condition === 'macd_cross' ? macdPeriod : undefined,
+        status:         'pending',
+        createdAt:      new Date().toISOString(),
+      }
+      onStaged(order)
+    } catch (e: any) { setError(e.message) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.5)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '1.2rem', width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Stage DCA Order</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600 }}>{ticker} · DCA #{row.num}</div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', marginTop: 1 }}>
+              ${fmtN(row.amount)} · ~{row.shares} shares · scheduled {row.date}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Condition type */}
+          <div>
+            <label style={lbSt}>Entry condition</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+              {([
+                ['immediate',   '⚡ Immediate',     'Execute at market open'],
+                ['price_below', '📉 Price below',   'Buy when price dips'],
+                ['price_above', '📈 Price above',   'Buy on breakout'],
+                ['macd_cross',  '📊 MACD cross',    'Buy on MACD signal'],
+              ] as const).map(([val, label, desc]) => (
+                <button key={val} onClick={() => setCondition(val as any)}
+                  style={{ padding: '7px 9px', borderRadius: 'var(--r-md)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--fs-xs)', textAlign: 'left', background: condition === val ? 'rgba(37,99,235,0.08)' : 'none', border: `1px solid ${condition === val ? 'rgba(37,99,235,0.35)' : 'var(--border)'}`, color: condition === val ? 'var(--color-info)' : 'var(--text-4)' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 1 }}>{label}</div>
+                  <div style={{ fontSize: 8, opacity: 0.8 }}>{desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Price condition */}
+          {(condition === 'price_below' || condition === 'price_above') && (
+            <div>
+              <label style={lbSt}>Target price ($) — current ${currentPrice.toFixed(2)}</label>
+              <input value={conditionValue} onChange={e => setConditionValue(e.target.value)}
+                type="number" step="0.01" style={inSt} />
+              <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 3 }}>
+                {condition === 'price_below'
+                  ? `${((parseFloat(conditionValue) - currentPrice) / currentPrice * 100).toFixed(1)}% from current`
+                  : `+${((parseFloat(conditionValue) - currentPrice) / currentPrice * 100).toFixed(1)}% from current`}
+              </div>
+            </div>
+          )}
+
+          {/* MACD condition */}
+          {condition === 'macd_cross' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ padding: '8px 10px', background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.15)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)', color: 'var(--text-3)', lineHeight: 1.6 }}>
+                MACD (12/26/9) is calculated from intraday prices fetched every 5 minutes via Moomoo bridge. A crossover signal triggers the buy order via the conditional order monitor.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={lbSt}>Timeframe</label>
+                  <select value={macdPeriod} onChange={e => setMacdPeriod(e.target.value as any)} style={inSt}>
+                    <option value="1h">1 Hour</option>
+                    <option value="4h">4 Hour</option>
+                    <option value="1d">Daily</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={lbSt}>Signal type</label>
+                  <select value={macdType} onChange={e => setMacdType(e.target.value as any)} style={inSt}>
+                    <option value="bullish">Bullish cross (MACD → Signal)</option>
+                    <option value="bearish">Bearish cross (sell signal)</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ fontSize: 9, color: 'var(--text-4)', padding: '6px 8px', background: 'var(--bg-subtle)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                Triggers when MACD line crosses {macdType === 'bullish' ? 'above' : 'below'} signal line on {macdPeriod} candles. Requires Moomoo bridge to be online.
+              </div>
+            </div>
+          )}
+
+          {/* Order type + limit */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <label style={lbSt}>Order type</label>
+              <select value={orderType} onChange={e => setOrderType(e.target.value as any)} style={inSt}>
+                <option value="MARKET">Market</option>
+                <option value="LIMIT">Limit</option>
+              </select>
+            </div>
+            {orderType === 'LIMIT' && (
+              <div>
+                <label style={lbSt}>Limit price ($)</label>
+                <input value={limitPrice} onChange={e => setLimitPrice(e.target.value)} type="number" step="0.01" style={inSt} />
+              </div>
+            )}
+            <div>
+              <label style={lbSt}>Not before (ET)</label>
+              <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
+                <option value="09:30">09:30 market open</option>
+                <option value="10:00">10:00</option>
+                <option value="10:30">10:30</option>
+                <option value="11:00">11:00</option>
+                <option value="14:00">14:00</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div style={{ padding: '8px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)', color: 'var(--text-3)', lineHeight: 1.7 }}>
+            <strong style={{ color: 'var(--text)' }}>Summary: </strong>
+            BUY ~{row.shares} {ticker} {orderType === 'LIMIT' ? `@ $${limitPrice}` : 'at market'}
+            {condition === 'immediate' && ' at next market open'}
+            {condition === 'price_below' && ` when price drops below $${conditionValue}`}
+            {condition === 'price_above' && ` when price rises above $${conditionValue}`}
+            {condition === 'macd_cross' && ` on MACD ${macdType} crossover (${macdPeriod})`}
+            {` · not before ${notBefore} ET`}
+          </div>
+
+          {error && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--signal-bear)', padding: '6px 8px', background: 'rgba(185,28,28,0.05)', border: '1px solid rgba(185,28,28,0.15)', borderRadius: 'var(--r-md)' }}>{error}</div>}
+
+          <button onClick={stage} disabled={saving}
+            style={{ padding: '7px', fontWeight: 600, fontFamily: 'inherit', fontSize: 'var(--fs-sm)', borderRadius: 'var(--r-md)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.5 : 1, background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.35)', color: 'var(--signal-bull)' }}>
+            {saving ? 'Staging…' : 'Stage DCA order →'}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+
+// ── DCA Manager Modal ─────────────────────────────────────────────────────────
+
+function DCAManagerModal({ orders, onClose, onCancel }: {
+  orders:   DCAOrder[]
+  onClose:  () => void
+  onCancel: (id: string) => void
+}) {
+  const conditionLabel: Record<string, string> = {
+    immediate:   '⚡ Immediate',
+    price_below: '📉 Price below',
+    price_above: '📈 Price above',
+    macd_cross:  '📊 MACD cross',
+  }
+  const statusColor: Record<string, string> = {
+    pending:   'var(--signal-neut)',
+    triggered: 'var(--signal-bull)',
+    cancelled: 'var(--text-4)',
+  }
+
+  const pending   = orders.filter(o => o.status === 'pending')
+  const completed = orders.filter(o => o.status !== 'pending')
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.5)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '1.2rem', width: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Staged DCA Orders</div>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>{pending.length} pending · {completed.length} completed</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+        </div>
+
+        {/* Pending orders */}
+        {pending.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Pending</div>
+            {pending.map(o => (
+              <div key={o.id} style={{ display: 'grid', gridTemplateColumns: '40px 70px 1fr 1fr auto', gap: 8, padding: '8px 10px', borderRadius: 'var(--r-md)', border: '1px solid var(--border)', marginBottom: 4, alignItems: 'center', background: 'var(--bg-subtle)' }}>
+                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600 }}>#{o.num}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-4)' }}>{o.date}</div>
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)' }}>{o.ticker} · ${fmtN(o.amount)}</div>
+                  <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 1 }}>~{o.shares} shares</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 9, color: 'var(--color-info)', marginBottom: 1 }}>{conditionLabel[o.condition]}</div>
+                  {o.conditionValue && <div style={{ fontSize: 9, color: 'var(--text-4)', fontFamily: 'var(--font-mono)' }}>${o.conditionValue.toFixed(2)}</div>}
+                  {o.macdPeriod && <div style={{ fontSize: 9, color: 'var(--text-4)' }}>{o.macdPeriod} candles</div>}
+                </div>
+                <button onClick={() => onCancel(o.id)}
+                  style={{ padding: '3px 8px', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--signal-bear)', fontSize: 9, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  Cancel
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Completed orders */}
+        {completed.length > 0 && (
+          <div>
+            <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>History</div>
+            {completed.map(o => (
+              <div key={o.id} style={{ display: 'grid', gridTemplateColumns: '40px 70px 1fr 1fr 60px', gap: 8, padding: '6px 10px', borderRadius: 'var(--r-md)', border: '1px solid var(--border-subtle)', marginBottom: 3, alignItems: 'center', opacity: 0.6 }}>
+                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)' }}>#{o.num}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-4)' }}>{o.date}</div>
+                <div style={{ fontSize: 10 }}>{o.ticker} · ${fmtN(o.amount)}</div>
+                <div style={{ fontSize: 9, color: 'var(--text-4)' }}>{conditionLabel[o.condition]}</div>
+                <div style={{ fontSize: 9, fontWeight: 600, color: statusColor[o.status], textTransform: 'uppercase' }}>{o.status}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {orders.length === 0 && (
+          <div style={{ textAlign: 'center', color: 'var(--text-4)', fontSize: 'var(--fs-sm)', padding: '20px 0' }}>No staged orders yet</div>
+        )}
+
+        <div style={{ marginTop: 12, fontSize: 9, color: 'var(--text-4)', lineHeight: 1.6, padding: '8px 10px', background: 'var(--bg-subtle)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+          <strong style={{ color: 'var(--text-3)' }}>How it works:</strong> Staged orders are saved as conditional orders and monitored every minute during market hours (9:30–16:00 ET). MACD conditions require the Moomoo bridge to be online for intraday price data.
+        </div>
+      </div>
+    </>
+  )
+}
 
 function OptionSearchModal({ ticker, spot, expiries, onClose, onResults, searching, setSearching }: {
   ticker:      string
@@ -846,6 +1166,9 @@ export default function WorkspaceClient() {
   const [dcaN,        setDcaN]        = useState('6')
   const [dcaSched,    setDcaSched]    = useState<any[]>([])
   const [stagedDCA,   setStagedDCA]   = useState<Set<number>>(new Set())
+  const [dcaOrders,   setDcaOrders]   = useState<DCAOrder[]>([])
+  const [showDCAStage, setShowDCAStage] = useState<{ row: any; idx: number } | null>(null)
+  const [showDCAManager, setShowDCAManager] = useState(false)
   const [messages,    setMessages]    = useState<ChatMessage[]>([])
   const [chatInput,   setChatInput]   = useState('')
   const [chatLoading, setChatLoading] = useState(false)
@@ -1590,6 +1913,15 @@ export default function WorkspaceClient() {
                     </button>
                     {dcaSched.length > 0 && (
                       <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>DCA Schedule</div>
+                          {dcaOrders.length > 0 && (
+                            <button onClick={() => setShowDCAManager(true)}
+                              style={{ fontSize: 9, padding: '2px 8px', borderRadius: 'var(--r-md)', border: '1px solid var(--border)', background: 'none', color: 'var(--color-info)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Manage staged ({dcaOrders.filter(o => o.status === 'pending').length})
+                            </button>
+                          )}
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '24px 60px 72px 72px 60px 1fr', gap: 4, padding: '4px 0', borderBottom: '1px solid var(--border)', fontSize: 8, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {['#','Date','Amount','Est. Price','Shares',''].map(c => <div key={c}>{c}</div>)}
                         </div>
@@ -1600,9 +1932,9 @@ export default function WorkspaceClient() {
                             <div>${fmtN(row.amount)}</div>
                             <div>${row.estPrice.toFixed(2)}</div>
                             <div>{row.shares}</div>
-                            <button onClick={() => { setStagedDCA(prev => new Set(prev).add(i)); setStaged({ ticker: h.ticker, type: 'Market Buy', description: `DCA #${row.num}`, premium: `$${fmtN(row.amount)}`, expiry: row.date }) }}
+                            <button onClick={() => setShowDCAStage({ row, idx: i })}
                               style={{ padding: '2px 7px', background: stagedDCA.has(i) ? 'rgba(21,128,61,0.1)' : 'var(--bg-subtle)', border: `1px solid ${stagedDCA.has(i) ? 'rgba(21,128,61,0.3)' : 'var(--border)'}`, borderRadius: 3, color: stagedDCA.has(i) ? 'var(--signal-bull)' : 'var(--text-4)', fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
-                              {stagedDCA.has(i) ? '✓' : 'Stage'}
+                              {stagedDCA.has(i) ? '✓ Staged' : 'Stage →'}
                             </button>
                           </div>
                         ))}
@@ -1701,7 +2033,30 @@ export default function WorkspaceClient() {
         </>
       )}
 
-      {showSearch && h && (
+      {/* DCA Stage Order Modal */}
+      {showDCAStage && h && (
+        <DCAStageModal
+          row={showDCAStage.row}
+          idx={showDCAStage.idx}
+          ticker={h.ticker}
+          currentPrice={price}
+          onClose={() => setShowDCAStage(null)}
+          onStaged={(order) => {
+            setDcaOrders(prev => [...prev, order])
+            setStagedDCA(prev => new Set(prev).add(showDCAStage.idx))
+            setShowDCAStage(null)
+          }}
+        />
+      )}
+
+      {/* DCA Orders Manager */}
+      {showDCAManager && (
+        <DCAManagerModal
+          orders={dcaOrders}
+          onClose={() => setShowDCAManager(false)}
+          onCancel={(id) => setDcaOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' } : o))}
+        />
+      )}
         <OptionSearchModal
           ticker={h.ticker}
           spot={price}
