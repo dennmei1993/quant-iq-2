@@ -53,30 +53,41 @@ function ema(values: number[], period: number): number[] {
   return result
 }
 
-function calcMACD(closes: number[]): { macd: number; signal: number; hist: number } | null {
-  if (closes.length < 35) return null  // need at least 26 + 9 candles
-  const fast   = ema(closes, 12)
-  const slow   = ema(closes, 26)
+function calcMACDSeries(closes: number[]): { macdLine: number[]; signalLine: number[] } | null {
+  if (closes.length < 36) return null  // need 26 (slow EMA) + 9 (signal) + 1 (prev candle)
+
+  const fast     = ema(closes, 12)
+  const slow     = ema(closes, 26)
   const macdLine = fast.map((f, i) => f - slow[i])
-  const signalLine = ema(macdLine.slice(25), 9)  // signal starts after 26 periods
-  const last   = signalLine.length - 1
-  return {
-    macd:   macdLine[macdLine.length - 1],
-    signal: signalLine[last],
-    hist:   macdLine[macdLine.length - 1] - signalLine[last],
-  }
+
+  // Signal line: EMA(9) of MACD, starting from index 25 (first valid slow EMA)
+  const macdForSignal = macdLine.slice(25)
+  const signalLine    = ema(macdForSignal, 9)
+
+  return { macdLine: macdLine.slice(25), signalLine }
 }
 
-function calcMACDCross(closes: number[]): { isBullish: boolean; isBearish: boolean; macd: number; signal: number } | null {
-  if (closes.length < 36) return null
-  const prev = calcMACD(closes.slice(0, -1))
-  const curr = calcMACD(closes)
-  if (!prev || !curr) return null
+function calcMACDCross(closes: number[]): { isBullish: boolean; isBearish: boolean; macd: number; signal: number; prevMacd: number; prevSignal: number } | null {
+  const series = calcMACDSeries(closes)
+  if (!series) return null
+
+  const { macdLine, signalLine } = series
+  const n = Math.min(macdLine.length, signalLine.length)
+  if (n < 2) return null
+
+  // Compare last two aligned values
+  const prevMacd   = macdLine[n - 2]
+  const prevSignal = signalLine[n - 2]
+  const currMacd   = macdLine[n - 1]
+  const currSignal = signalLine[n - 1]
+
   return {
-    isBullish: prev.macd < prev.signal && curr.macd > curr.signal,  // crossed above
-    isBearish: prev.macd > prev.signal && curr.macd < curr.signal,  // crossed below
-    macd:   curr.macd,
-    signal: curr.signal,
+    isBullish:  prevMacd < prevSignal && currMacd > currSignal,  // MACD crossed above signal
+    isBearish:  prevMacd > prevSignal && currMacd < currSignal,  // MACD crossed below signal
+    macd:       currMacd,
+    signal:     currSignal,
+    prevMacd,
+    prevSignal,
   }
 }
 
@@ -238,9 +249,8 @@ export async function GET(req: NextRequest) {
           results.push({
             id:     order.id,
             ticker: order.ticker,
-            skip:   `MACD ${macdParams.type} cross not detected (MACD ${cross.macd.toFixed(4)} vs Signal ${cross.signal.toFixed(4)})`,
-            macd:   cross.macd.toFixed(4),
-            signal: cross.signal.toFixed(4),
+            skip:   `MACD ${macdParams.type} cross not detected`,
+            detail: `prev MACD ${cross.prevMacd.toFixed(4)} vs Signal ${cross.prevSignal.toFixed(4)} → curr MACD ${cross.macd.toFixed(4)} vs Signal ${cross.signal.toFixed(4)}`,
           })
           continue
         }
