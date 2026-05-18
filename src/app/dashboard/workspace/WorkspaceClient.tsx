@@ -290,7 +290,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
   const [notBefore,      setNotBefore]      = useState('09:30')
   const [orderType,      setOrderType]      = useState<'MARKET' | 'LIMIT'>('MARKET')
   const [limitPrice,     setLimitPrice]     = useState(Math.round(currentPrice * 0.97).toString())
-  const [saving,         setSaving]         = useState(false)
+  const [qty, setQty] = useState(String(Math.max(1, Math.floor(row.amount / currentPrice))))
   const [error,          setError]          = useState('')
 
   const inSt: React.CSSProperties = { padding: '5px 8px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', width: '100%', outline: 'none', boxSizing: 'border-box' }
@@ -315,7 +315,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
       const payload: any = {
         ticker,
         side:            'BUY',
-        qty:             Math.max(1, Math.floor(row.amount / currentPrice)),
+        qty:             Math.max(1, parseInt(qty) || 1),
         order_type:      orderType,
         limit_price:     orderType === 'LIMIT' ? parseFloat(limitPrice) : null,
         not_before_time: notBefore,
@@ -441,8 +441,15 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
             </div>
           )}
 
-          {/* Order type + limit */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {/* Order type + qty + limit */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div>
+              <label style={lbSt}>Shares (qty)</label>
+              <input value={qty} onChange={e => setQty(e.target.value)} type="number" min="1" style={inSt} />
+              <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 3 }}>
+                ≈ ${(parseFloat(qty || '0') * currentPrice).toFixed(0)} value
+              </div>
+            </div>
             <div>
               <label style={lbSt}>Order type</label>
               <select value={orderType} onChange={e => setOrderType(e.target.value as any)} style={inSt}>
@@ -450,12 +457,25 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
                 <option value="LIMIT">Limit</option>
               </select>
             </div>
-            {orderType === 'LIMIT' && (
+            {orderType === 'LIMIT' ? (
               <div>
                 <label style={lbSt}>Limit price ($)</label>
                 <input value={limitPrice} onChange={e => setLimitPrice(e.target.value)} type="number" step="0.01" style={inSt} />
               </div>
+            ) : (
+              <div>
+                <label style={lbSt}>Not before (ET)</label>
+                <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
+                  <option value="09:30">09:30 market open</option>
+                  <option value="10:00">10:00</option>
+                  <option value="10:30">10:30</option>
+                  <option value="11:00">11:00</option>
+                  <option value="14:00">14:00</option>
+                </select>
+              </div>
             )}
+          </div>
+          {orderType === 'LIMIT' && (
             <div>
               <label style={lbSt}>Not before (ET)</label>
               <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
@@ -466,12 +486,12 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
                 <option value="14:00">14:00</option>
               </select>
             </div>
-          </div>
+          )}
 
           {/* Summary */}
           <div style={{ padding: '8px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)', color: 'var(--text-3)', lineHeight: 1.7 }}>
             <strong style={{ color: 'var(--text)' }}>Summary: </strong>
-            BUY ~{row.shares} {ticker} {orderType === 'LIMIT' ? `@ $${limitPrice}` : 'at market'}
+            BUY {qty} {ticker} {orderType === 'LIMIT' ? `@ $${limitPrice}` : 'at market'}
             {condition === 'immediate' && ' at next market open'}
             {condition === 'price_below' && ` when price drops below $${conditionValue}`}
             {condition === 'price_above' && ` when price rises above $${conditionValue}`}
