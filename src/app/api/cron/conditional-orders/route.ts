@@ -42,29 +42,39 @@ function timeToMinutes(t: string): number {
 // ── MACD helpers ──────────────────────────────────────────────────────────────
 
 function ema(values: number[], period: number): number[] {
+  if (values.length < period) return values.map(() => values[0])
   const k = 2 / (period + 1)
-  const result: number[] = []
-  let prev = values[0]
-  result.push(prev)
-  for (let i = 1; i < values.length; i++) {
-    prev = values[i] * k + prev * (1 - k)
-    result.push(prev)
+
+  // Seed with SMA of first `period` values — standard MACD initialisation
+  const seed = values.slice(0, period).reduce((a, b) => a + b, 0) / period
+  const result: number[] = new Array(period - 1).fill(null)
+  result.push(seed)
+
+  for (let i = period; i < values.length; i++) {
+    const prev = result[result.length - 1]
+    result.push(values[i] * k + prev * (1 - k))
   }
   return result
 }
 
 function calcMACDSeries(closes: number[]): { macdLine: number[]; signalLine: number[] } | null {
-  if (closes.length < 36) return null  // need 26 (slow EMA) + 9 (signal) + 1 (prev candle)
+  if (closes.length < 36) return null
 
-  const fast     = ema(closes, 12)
-  const slow     = ema(closes, 26)
-  const macdLine = fast.map((f, i) => f - slow[i])
+  const fast = ema(closes, 12)
+  const slow = ema(closes, 26)
 
-  // Signal line: EMA(9) of MACD, starting from index 25 (first valid slow EMA)
-  const macdForSignal = macdLine.slice(25)
-  const signalLine    = ema(macdForSignal, 9)
+  // MACD line — only valid from index 25 onwards (where slow EMA is seeded)
+  const macdLine: number[] = []
+  for (let i = 25; i < closes.length; i++) {
+    macdLine.push(fast[i] - slow[i])
+  }
 
-  return { macdLine: macdLine.slice(25), signalLine }
+  if (macdLine.length < 9) return null
+
+  // Signal line — EMA(9) of macdLine, seeded with SMA of first 9 MACD values
+  const signalLine = ema(macdLine, 9)
+
+  return { macdLine, signalLine }
 }
 
 function calcMACDCross(closes: number[]): { isBullish: boolean; isBearish: boolean; macd: number; signal: number; prevMacd: number; prevSignal: number } | null {
@@ -72,18 +82,25 @@ function calcMACDCross(closes: number[]): { isBullish: boolean; isBearish: boole
   if (!series) return null
 
   const { macdLine, signalLine } = series
-  const n = Math.min(macdLine.length, signalLine.length)
-  if (n < 2) return null
 
-  // Compare last two aligned values
-  const prevMacd   = macdLine[n - 2]
-  const prevSignal = signalLine[n - 2]
-  const currMacd   = macdLine[n - 1]
-  const currSignal = signalLine[n - 1]
+  // Find last two indices where both macdLine and signalLine are valid (non-null)
+  const valid: number[] = []
+  for (let i = 0; i < Math.min(macdLine.length, signalLine.length); i++) {
+    if (macdLine[i] !== null && signalLine[i] !== null) valid.push(i)
+  }
+  if (valid.length < 2) return null
+
+  const prevIdx = valid[valid.length - 2]
+  const currIdx = valid[valid.length - 1]
+
+  const prevMacd   = macdLine[prevIdx]
+  const prevSignal = signalLine[prevIdx]
+  const currMacd   = macdLine[currIdx]
+  const currSignal = signalLine[currIdx]
 
   return {
-    isBullish:  prevMacd < prevSignal && currMacd > currSignal,  // MACD crossed above signal
-    isBearish:  prevMacd > prevSignal && currMacd < currSignal,  // MACD crossed below signal
+    isBullish:  prevMacd < prevSignal && currMacd > currSignal,
+    isBearish:  prevMacd > prevSignal && currMacd < currSignal,
     macd:       currMacd,
     signal:     currSignal,
     prevMacd,
