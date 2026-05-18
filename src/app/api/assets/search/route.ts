@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   if (!q || q.length < 1) return NextResponse.json({ assets: [] })
 
-  const db = createClient()
+  const db = await createClient()
 
   // Query 1: ticker starts with q (highest priority)
   let tickerQuery = db
