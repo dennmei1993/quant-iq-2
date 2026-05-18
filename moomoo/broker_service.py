@@ -1374,7 +1374,108 @@ def get_kline(symbol: str = "US.AAPL", kl_type: str = "60M", count: int = 50):
         raise HTTPException(500, str(e))
 
 
-@app.get("/options/debug_snapshot")
+@app.get("/kline/macd")
+def get_macd(symbol: str = "US.AAPL", kl_type: str = "60M"):
+    """
+    Fetch MACD values directly from Moomoo's built-in technical indicator engine.
+    Returns the last 2 candles with MACD, signal and histogram values.
+    """
+    import math
+    from datetime import datetime, timedelta
+    from moomoo import KLType
+
+    kl_map = {
+        "60M": KLType.K_60M, "1H": KLType.K_60M,
+        "DAY": KLType.K_DAY, "1D": KLType.K_DAY,
+        "4H":  KLType.K_4H if hasattr(KLType, "K_4H") else KLType.K_60M,
+        "15M": KLType.K_15M, "30M": KLType.K_30M,
+    }
+    kl = kl_map.get(kl_type.upper(), KLType.K_60M)
+
+    try:
+        # Fetch max history so Moomoo's own EMA is fully warmed up
+        start_date = (datetime.now() - timedelta(days=365 * 3)).strftime('%Y-%m-%d')
+        end_date   = datetime.now().strftime('%Y-%m-%d')
+
+        ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+        try:
+            ret, data, _ = ctx.request_history_kline(
+                symbol,
+                start=start_date,
+                end=end_date,
+                ktype=kl,
+                autype=ft.AuType.QFQ,  # forward-adjusted prices
+            )
+        finally:
+            ctx.close()
+
+        if ret != ft.RET_OK:
+            raise HTTPException(400, f"Kline error: {data}")
+
+        def sf(v):
+            try:
+                f = float(v)
+                return None if math.isnan(f) or math.isinf(f) else round(f, 4)
+            except Exception:
+                return None
+
+        # Check if Moomoo returned MACD columns directly
+        cols = list(data.columns)
+        has_macd = any('macd' in c.lower() for c in cols)
+
+        if has_macd:
+            # Use Moomoo's built-in MACD values
+            macd_col   = next(c for c in cols if c.lower() == 'macd')
+            signal_col = next(c for c in cols if 'signal' in c.lower() or 'dea' in c.lower())
+            hist_col   = next((c for c in cols if 'hist' in c.lower() or 'dif' in c.lower()), None)
+
+            rows = data.tail(3)
+            candles = []
+            for _, row in rows.iterrows():
+                candles.append({
+                    "time":   str(row.get("time_key", "")),
+                    "close":  sf(row.get("close", 0)),
+                    "macd":   sf(row.get(macd_col, 0)),
+                    "signal": sf(row.get(signal_col, 0)),
+                    "hist":   sf(row.get(hist_col, 0)) if hist_col else None,
+                })
+            return { "symbol": symbol, "kl_type": kl_type, "source": "moomoo_builtin", "candles": candles, "columns": cols }
+        else:
+            # Moomoo didn't return MACD — fall back to our own calculation
+            closes = [sf(row["close"]) for _, row in data.iterrows() if sf(row["close"]) is not None]
+
+            def ema_calc(values, period):
+                k    = 2.0 / (period + 1)
+                seed = sum(values[:period]) / period
+                result = [None] * (period - 1) + [seed]
+                for i in range(period, len(values)):
+                    result.append(values[i] * k + result[-1] * (1 - k))
+                return result
+
+            fast = ema_calc(closes, 12)
+            slow = ema_calc(closes, 26)
+            macd_line = [fast[i] - slow[i] for i in range(25, len(closes))]
+            signal_line = ema_calc(macd_line, 9)
+            n = min(len(macd_line), len(signal_line))
+
+            return {
+                "symbol":   symbol,
+                "kl_type":  kl_type,
+                "source":   "calculated",
+                "candles":  len(closes),
+                "columns":  cols,
+                "curr": { "macd": round(macd_line[n-1], 4), "signal": round(signal_line[n-1], 4), "hist": round(macd_line[n-1] - signal_line[n-1], 4) },
+                "prev": { "macd": round(macd_line[n-2], 4), "signal": round(signal_line[n-2], 4), "hist": round(macd_line[n-2] - signal_line[n-2], 4) },
+                "bullish_cross": macd_line[n-2] < signal_line[n-2] and macd_line[n-1] > signal_line[n-1],
+                "bearish_cross": macd_line[n-2] > signal_line[n-2] and macd_line[n-1] < signal_line[n-1],
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+
 def debug_option_snapshot(code: str = "US.GOOG260522C380000"):
     """Debug: test live snapshot for a single option contract."""
     try:
