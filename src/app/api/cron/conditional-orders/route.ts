@@ -103,6 +103,8 @@ function parseMACDNote(notes: string | null): { type: 'bullish' | 'bearish'; per
   if (!match) return null
   return { type: match[1].toLowerCase() as 'bullish' | 'bearish', period: match[2] as '1h' | '4h' | '1d' }
 }
+
+export async function GET(req: NextRequest) {
   // Verify cron secret
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
