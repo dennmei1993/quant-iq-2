@@ -86,6 +86,8 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: e?.message ?? 'Failed' }, { status: 500 })
   }
 }
+
+export async function PATCH(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser()
     const id   = req.nextUrl.searchParams.get('id')
