@@ -331,12 +331,9 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
       if (condition === 'price_below') payload.price_below = parseFloat(conditionValue)
       if (condition === 'price_above') payload.price_above = parseFloat(conditionValue)
       if (condition === 'macd_cross') {
-        // Store MACD condition in notes — cron will evaluate
-        payload.notes = `DCA #${row.num} — MACD ${macdType} cross on ${macdPeriod} · ${payload.notes}`
-        // For now, also set price trigger as safety gate
-        payload.price_below = condition === 'macd_cross' && macdType === 'bullish'
-          ? parseFloat(limitPrice) * 1.02  // trigger zone
-          : null
+        payload.notes = `DCA #${row.num} — MACD ${macdType} cross on ${macdPeriod}`
+        // price_below acts as an additional gate even with MACD
+        if (conditionValue) payload.price_below = parseFloat(conditionValue)
       }
 
       const res  = await fetch('/api/orders/conditional', {
@@ -442,6 +439,11 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
               </div>
               <div style={{ fontSize: 9, color: 'var(--text-4)', padding: '6px 8px', background: 'var(--bg-subtle)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
                 Triggers when MACD line crosses {macdType === 'bullish' ? 'above' : 'below'} signal line on {macdPeriod} candles. Requires Moomoo bridge to be online.
+              </div>
+              <div>
+                <label style={lbSt}>Also require price below ($) — optional safety gate</label>
+                <input value={conditionValue} onChange={e => setConditionValue(e.target.value)}
+                  type="number" step="0.01" placeholder="e.g. 290.00 — leave blank to skip" style={inSt} />
               </div>
             </div>
           )}
@@ -2070,7 +2072,12 @@ export default function WorkspaceClient() {
         <DCAManagerModal
           orders={dcaOrders}
           onClose={() => setShowDCAManager(false)}
-          onCancel={(id) => setDcaOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' } : o))}
+          onCancel={async (id) => {
+            try {
+              await fetch(`/api/orders/conditional?id=${id}`, { method: 'DELETE' })
+            } catch {}
+            setDcaOrders(prev => prev.filter(o => o.id !== id))
+          }}
         />
       )}
       {showSearch && h && (
