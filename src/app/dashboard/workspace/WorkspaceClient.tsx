@@ -2057,6 +2057,7 @@ export default function WorkspaceClient() {
           onCancel={(id) => setDcaOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' } : o))}
         />
       )}
+      {showSearch && h && (
         <OptionSearchModal
           ticker={h.ticker}
           spot={price}
