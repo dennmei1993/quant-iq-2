@@ -290,7 +290,8 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
   const [notBefore,      setNotBefore]      = useState('09:30')
   const [orderType,      setOrderType]      = useState<'MARKET' | 'LIMIT'>('MARKET')
   const [limitPrice,     setLimitPrice]     = useState(Math.round(currentPrice * 0.97).toString())
-  const [qty, setQty] = useState(String(Math.max(1, Math.floor(row.amount / currentPrice))))
+  const [qty,            setQty]            = useState(String(Math.max(1, Math.floor(row.amount / currentPrice))))
+  const [saving,         setSaving]         = useState(false)
   const [error,          setError]          = useState('')
 
   const inSt: React.CSSProperties = { padding: '5px 8px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', width: '100%', outline: 'none', boxSizing: 'border-box' }
