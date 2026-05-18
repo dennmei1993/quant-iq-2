@@ -1316,9 +1316,9 @@ def get_kline(symbol: str = "US.AAPL", kl_type: str = "60M", count: int = 50):
     kl = kl_map.get(kl_type.upper(), KLType.K_60M)
 
     # Calculate lookback window — need 35+ candles for MACD
-    # Need 200+ hourly candles for proper EMA warm-up (26 periods + 9 signal + buffer)
-    # 1H: ~7 candles/day × 120 days = ~840 candles (more than enough)
-    days_back = 120 if kl_type in ('60M', '30M', '15M', '5M', '3M', '1M') else 200
+    # Use maximum history for EMA warm-up — more data = values closer to charting platforms
+    # Moomoo stores years of hourly data; fetch as much as possible
+    days_back = 365 * 3  # 3 years for intraday, ensures EMA fully converges
 
     try:
         start_date = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')
@@ -1356,8 +1356,8 @@ def get_kline(symbol: str = "US.AAPL", kl_type: str = "60M", count: int = 50):
                 "volume": sf(row.get("volume", row.get("turnover", 0))),
             })
 
-        # Trim to requested count (most recent N candles)
-        klines = klines[-count:] if len(klines) > count else klines
+        # Return all candles — more history = better EMA warm-up
+        # Caller trims if needed
 
         return {
             "symbol":        symbol,
