@@ -110,17 +110,19 @@ function calcMACDCross(closes: number[]): { isBullish: boolean; isBearish: boole
 
 // Fetch intraday candles from bridge and return closes
 async function fetchIntradayCloses(ticker: string, period: '1h' | '4h' | '1d', bridgeUrl: string): Promise<number[]> {
-  // Map period to kline type for Moomoo
   const klType = period === '1h' ? '60M' : period === '4h' ? '4H' : 'DAY'
-  const count  = 50  // enough candles for MACD (need 35+)
+  // Request 500 candles — broker_service fetches 120 days of 1H = ~840 candles
+  // More history = better EMA warm-up = values closer to charting platform
+  const count  = 500
   const res = await fetch(
     `${bridgeUrl}/kline?symbol=US.${ticker}&kl_type=${klType}&count=${count}`,
-    { signal: AbortSignal.timeout(8000) }
+    { signal: AbortSignal.timeout(10000) }
   )
   if (!res.ok) throw new Error(`Kline fetch failed: ${res.status}`)
   const d = await res.json()
-  // Bridge returns { klines: [{close, ...}] } sorted oldest first
-  return (d.klines ?? []).map((k: any) => parseFloat(k.close)).filter((c: number) => !isNaN(c))
+  const closes = (d.klines ?? []).map((k: any) => parseFloat(k.close)).filter((c: number) => !isNaN(c))
+  console.log(`[MACD] ${ticker} ${period}: ${closes.length} candles from ${d.start} to ${d.end}`)
+  return closes
 }
 
 // Parse MACD params from order notes
