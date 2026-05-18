@@ -12,6 +12,7 @@ interface Profile {
   moomoo_account:     string | null
   moomoo_password:    string | null
   trading_mode:       string | null
+  trading_24h:        boolean | null
   data_account:       string | null
   trade_account:      string | null
   anthropic_api_key:  string | null
@@ -37,6 +38,7 @@ export default function SettingsPage() {
   const [moomooAccount,  setMoomooAccount]   = useState('')
   const [moomooPassword, setMoomooPassword]  = useState('')
   const [tradingMode,    setTradingMode]     = useState<'paper' | 'live'>('paper')
+  const [trading24h,     setTrading24h]      = useState(false)
   const [dataAccount,    setDataAccount]     = useState('')
   const [tradeAccount,   setTradeAccount]    = useState('')
   const [anthropicKey,   setAnthropicKey]    = useState('')
@@ -60,6 +62,7 @@ export default function SettingsPage() {
         setMoomooAccount(d.profile?.moomoo_account    ?? '')
         setMoomooPassword(d.profile?.moomoo_password  ?? '')
         setTradingMode(d.profile?.trading_mode        ?? 'paper')
+        setTrading24h(d.profile?.trading_24h           ?? false)
         setDataAccount(d.profile?.data_account        ?? d.profile?.moomoo_account ?? '')
         setTradeAccount(d.profile?.trade_account      ?? '')
         setAnthropicKey(d.profile?.anthropic_api_key  ?? '')
@@ -84,6 +87,7 @@ export default function SettingsPage() {
           moomoo_account:             moomooAccount.trim()  || null,
           moomoo_password:            moomooPassword.trim() || null,
           trading_mode:               tradingMode,
+          trading_24h:                trading24h,
           data_account:               dataAccount.trim()    || null,
           trade_account:              tradeAccount.trim()   || null,
           anthropic_api_key:          anthropicKey.trim()   || null,
@@ -229,6 +233,21 @@ export default function SettingsPage() {
                 ? 'Orders go to simulate account — no real money. Holdings data read from real account.'
                 : '⚠ Orders go to real account — real money at risk. Confirm your PIN is correct.'}
             </div>
+          </div>
+
+          {/* 24H trading */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: trading24h ? 'rgba(37,99,235,0.04)' : 'var(--bg-subtle)', border: `1px solid ${trading24h ? 'rgba(37,99,235,0.2)' : 'var(--border)'}`, borderRadius: 'var(--r-md)' }}>
+            <div>
+              <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>🕐 24-Hour trading</div>
+              <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-4)', lineHeight: 1.6 }}>
+                Allow conditional orders to trigger outside regular market hours (pre/after market).<br/>
+                <span style={{ color: 'var(--text-3)' }}>Note: Time gate (9:30, 10:00 etc) still applies to US ET regardless.</span>
+              </div>
+            </div>
+            <button onClick={() => setTrading24h(v => !v)}
+              style={{ flexShrink: 0, marginLeft: 16, width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', background: trading24h ? 'var(--color-info)' : 'var(--border)', position: 'relative', transition: 'background 0.2s' }}>
+              <span style={{ position: 'absolute', top: 2, left: trading24h ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+            </button>
           </div>
 
           {/* Data + Trade accounts */}

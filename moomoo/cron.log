@@ -56,3 +56,149 @@
   DETAIL: {"checked":1,"executed":0,"et_time":"11:05","prices":{"TQQQ":"$74.01"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.4614 vs Signal 0.4436 â?? curr MACD 0.4413 vs Signal 0.4431"}]}
 2026-05-19 01:10:47 | checked=1 executed=0 et=11:10
   DETAIL: {"checked":1,"executed":0,"et_time":"11:10","prices":{"TQQQ":"$73.8"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 01:15:47 | checked=1 executed=0 et=11:15
+  DETAIL: {"checked":1,"executed":0,"et_time":"11:15","prices":{"TQQQ":"$73.97"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 01:20:47 | checked=1 executed=0 et=11:20
+  DETAIL: {"checked":1,"executed":0,"et_time":"11:20","prices":{"TQQQ":"$73.59"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 01:25:47 | checked=1 executed=0 et=11:25
+  DETAIL: {"checked":1,"executed":0,"et_time":"11:25","prices":{"TQQQ":"$73.64"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 01:30:47 | checked=1 executed=0 et=11:30
+  DETAIL: {"checked":1,"executed":0,"et_time":"11:30","prices":{"TQQQ":"$73.125"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 01:35:47 | checked=1 executed=0 et=11:35
+  DETAIL: {"checked":1,"executed":0,"et_time":"11:35","prices":{"TQQQ":"$73.705"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 01:40:47 | checked=1 executed=0 et=11:40
+  DETAIL: {"checked":1,"executed":0,"et_time":"11:40","prices":{"TQQQ":"$73.8603"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 01:45:47 | checked=1 executed=0 et=11:45
+  DETAIL: {"checked":1,"executed":0,"et_time":"11:45","prices":{"TQQQ":"$73.4999"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 01:50:47 | checked=1 executed=0 et=11:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"11:50","prices":{"TQQQ":"$73.54"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 01:55:47 | checked=1 executed=0 et=11:55
+  DETAIL: {"checked":1,"executed":0,"et_time":"11:55","prices":{"TQQQ":"$73.77"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:00:47 | checked=1 executed=0 et=12:00
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:00","prices":{"TQQQ":"$73.3799"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:05:47 | checked=1 executed=0 et=12:05
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:05","prices":{"TQQQ":"$73.2899"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:10:47 | checked=1 executed=0 et=12:10
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:10","prices":{"TQQQ":"$73.575"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:15:47 | checked=1 executed=0 et=12:15
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:15","prices":{"TQQQ":"$73.74"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:20:47 | checked=1 executed=0 et=12:20
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:20","prices":{"TQQQ":"$73.96"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:25:47 | checked=1 executed=0 et=12:25
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:25","prices":{"TQQQ":"$73.195"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:30:47 | checked=1 executed=0 et=12:30
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:30","prices":{"TQQQ":"$72.38"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:35:47 | checked=1 executed=0 et=12:35
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:35","prices":{"TQQQ":"$73.005"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:40:47 | checked=1 executed=0 et=12:40
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:40","prices":{"TQQQ":"$73.03"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:45:47 | checked=1 executed=0 et=12:45
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:45","prices":{"TQQQ":"$72.935"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:50:47 | checked=1 executed=0 et=12:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:50","prices":{"TQQQ":"$72.98"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 02:55:47 | checked=1 executed=0 et=12:55
+  DETAIL: {"checked":1,"executed":0,"et_time":"12:55","prices":{"TQQQ":"$73.7752"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:00:47 | checked=1 executed=0 et=13:00
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:00","prices":{"TQQQ":"$73.345"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:05:47 | checked=1 executed=0 et=13:05
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:05","prices":{"TQQQ":"$73.61"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:10:47 | checked=1 executed=0 et=13:10
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:10","prices":{"TQQQ":"$73.745"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:15:47 | checked=1 executed=0 et=13:15
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:15","prices":{"TQQQ":"$73.5182"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:20:47 | checked=1 executed=0 et=13:20
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:20","prices":{"TQQQ":"$73.51"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:25:47 | checked=1 executed=0 et=13:25
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:25","prices":{"TQQQ":"$73.31"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:30:47 | checked=1 executed=0 et=13:30
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:30","prices":{"TQQQ":"$73.56"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:35:47 | checked=1 executed=0 et=13:35
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:35","prices":{"TQQQ":"$73.33"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:40:47 | checked=1 executed=0 et=13:40
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:40","prices":{"TQQQ":"$73.425"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:45:47 | checked=1 executed=0 et=13:45
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:45","prices":{"TQQQ":"$73.57"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:50:47 | checked=1 executed=0 et=13:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:50","prices":{"TQQQ":"$73.505"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 03:55:47 | checked=1 executed=0 et=13:55
+  DETAIL: {"checked":1,"executed":0,"et_time":"13:55","prices":{"TQQQ":"$73.54"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:00:47 | checked=1 executed=0 et=14:00
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:00","prices":{"TQQQ":"$73.6001"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:05:47 | checked=1 executed=0 et=14:05
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:05","prices":{"TQQQ":"$73.23"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:10:47 | checked=1 executed=0 et=14:10
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:10","prices":{"TQQQ":"$73.08"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:15:47 | checked=1 executed=0 et=14:15
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:15","prices":{"TQQQ":"$72.859"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:20:47 | checked=1 executed=0 et=14:20
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:20","prices":{"TQQQ":"$72.471"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:25:47 | checked=1 executed=0 et=14:25
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:25","prices":{"TQQQ":"$72.42"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:30:47 | checked=1 executed=0 et=14:30
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:30","prices":{"TQQQ":"$72.745"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:35:47 | checked=1 executed=0 et=14:35
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:35","prices":{"TQQQ":"$72.759"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:40:47 | checked=1 executed=0 et=14:40
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:40","prices":{"TQQQ":"$72.4303"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:45:47 | checked=1 executed=0 et=14:45
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:45","prices":{"TQQQ":"$72.5007"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:50:47 | checked=1 executed=0 et=14:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:50","prices":{"TQQQ":"$72.145"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 04:55:47 | checked=1 executed=0 et=14:55
+  DETAIL: {"checked":1,"executed":0,"et_time":"14:55","prices":{"TQQQ":"$72.305"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:00:47 | checked=1 executed=0 et=15:00
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:00","prices":{"TQQQ":"$72.53"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:05:47 | checked=1 executed=0 et=15:05
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:05","prices":{"TQQQ":"$73.4535"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:10:47 | checked=1 executed=0 et=15:10
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:10","prices":{"TQQQ":"$73.375"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:15:47 | checked=1 executed=0 et=15:15
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:15","prices":{"TQQQ":"$73.17"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:20:47 | checked=1 executed=0 et=15:20
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:20","prices":{"TQQQ":"$73.155"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:25:47 | checked=1 executed=0 et=15:25
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:25","prices":{"TQQQ":"$72.735"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:30:47 | checked=1 executed=0 et=15:30
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:30","prices":{"TQQQ":"$72.8798"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:35:47 | checked=1 executed=0 et=15:35
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:35","prices":{"TQQQ":"$73.295"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:40:47 | checked=1 executed=0 et=15:40
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:40","prices":{"TQQQ":"$73.72"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:45:47 | checked=1 executed=0 et=15:45
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:45","prices":{"TQQQ":"$73.98"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:50:47 | checked=1 executed=0 et=15:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:50","prices":{"TQQQ":"$74.05"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 05:55:47 | checked=1 executed=0 et=15:55
+  DETAIL: {"checked":1,"executed":0,"et_time":"15:55","prices":{"TQQQ":"$74.0799"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 06:00:47 | checked=1 executed=0 et=16:00
+  DETAIL: {"checked":1,"executed":0,"et_time":"16:00","prices":{"TQQQ":"$74.32"},"results":[{"id":"399e2dda-53ab-4011-91b1-fe6ca1d1d0de","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 06:05:47 | skipped - Outside market hours
+2026-05-19 06:10:47 | skipped - Outside market hours
+2026-05-19 06:15:47 | skipped - Outside market hours
+2026-05-19 06:20:47 | skipped - Outside market hours
+2026-05-19 06:25:47 | skipped - Outside market hours
+2026-05-19 06:30:47 | skipped - Outside market hours
+2026-05-19 06:35:47 | skipped - Outside market hours
+2026-05-19 06:40:47 | skipped - Outside market hours
+2026-05-19 06:45:47 | skipped - Outside market hours
+2026-05-19 06:50:47 | skipped - Outside market hours
+2026-05-19 06:55:47 | skipped - Outside market hours
+2026-05-19 07:00:47 | skipped - Outside market hours
+2026-05-19 07:05:47 | skipped - Outside market hours
+2026-05-19 07:10:47 | skipped - Outside market hours
+2026-05-19 07:15:47 | skipped - Outside market hours
+2026-05-19 07:20:47 | skipped - Outside market hours
+2026-05-19 07:25:47 | skipped - Outside market hours
+2026-05-19 07:30:47 | skipped - Outside market hours
+2026-05-19 07:35:47 | skipped - Outside market hours
+2026-05-19 07:40:47 | skipped - Outside market hours
+2026-05-19 08:55:48 | skipped - Outside market hours
+2026-05-19 09:00:48 | skipped - Outside market hours
+2026-05-19 09:05:49 | skipped - Outside market hours
+2026-05-19 09:10:48 | skipped - Outside market hours
+2026-05-19 09:15:48 | skipped - Outside market hours
+2026-05-19 09:20:47 | skipped - Outside market hours
+2026-05-19 09:30:48 | skipped - Outside market hours
+2026-05-19 09:35:47 | skipped - Outside market hours
+2026-05-19 09:40:47 | skipped - Outside market hours
+2026-05-19 09:45:47 | skipped - Outside market hours

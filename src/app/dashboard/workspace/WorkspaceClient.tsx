@@ -841,6 +841,7 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
   const [notBeforeTime, setNotBeforeTime] = useState(suggestion?.not_before_time ?? '10:00')
   const [expiresIn,     setExpiresIn]     = useState('1d')
   const [notes,         setNotes]         = useState(suggestion?.rationale ?? '')
+  const [allow24h,      setAllow24h]      = useState(suggestion?.allow_24h ?? false)
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState('')
 
@@ -873,6 +874,7 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
           price_below:     mode === 'conditional' && priceBelow ? parseFloat(priceBelow) : null,
           not_before_time: notBeforeTime,
           expires_at:      expiresAt,
+          allow_24h:       allow24h,
           notes:           notes || (mode === 'immediate' ? 'Immediate — execute at market open' : null),
         }),
       })
@@ -988,32 +990,47 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
               </div>
             )}
 
-            {/* Time gate */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={lbSt}>Not before (ET time)</label>
-                <select value={notBeforeTime} onChange={e => setNotBeforeTime(e.target.value)} style={inSt}>
-                  <option value="09:30">09:30 (market open)</option>
-                  <option value="10:00">10:00 (30 min after open)</option>
-                  <option value="10:30">10:30 (1 hr after open)</option>
-                  <option value="11:00">11:00</option>
-                  <option value="12:00">12:00 (noon)</option>
-                  <option value="14:00">14:00</option>
-                  <option value="15:00">15:00 (1 hr before close)</option>
-                  <option value="15:30">15:30 (30 min before close)</option>
-                </select>
-              </div>
-              <div>
-                <label style={lbSt}>Expires in</label>
-                <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} style={inSt}>
-                  <option value="1d">1 day</option>
-                  <option value="3d">3 days</option>
-                  <option value="1w">1 week</option>
-                  <option value="1m">1 month</option>
-                  <option value="never">Never</option>
-                </select>
+          {/* Time gate + 24H override */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <label style={lbSt}>Not before (ET time)</label>
+              <select value={notBeforeTime} onChange={e => setNotBeforeTime(e.target.value)} style={inSt}>
+                <option value="09:30">09:30 (market open)</option>
+                <option value="10:00">10:00 (30 min after open)</option>
+                <option value="10:30">10:30 (1 hr after open)</option>
+                <option value="11:00">11:00</option>
+                <option value="12:00">12:00 (noon)</option>
+                <option value="14:00">14:00</option>
+                <option value="15:00">15:00 (1 hr before close)</option>
+                <option value="15:30">15:30 (30 min before close)</option>
+              </select>
+            </div>
+            <div>
+              <label style={lbSt}>Expires in</label>
+              <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} style={inSt}>
+                <option value="1d">1 day</option>
+                <option value="3d">3 days</option>
+                <option value="1w">1 week</option>
+                <option value="1m">1 month</option>
+                <option value="never">Never</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 24H override */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: allow24h ? 'rgba(37,99,235,0.04)' : 'var(--bg-subtle)', border: `1px solid ${allow24h ? 'rgba(37,99,235,0.2)' : 'var(--border)'}`, borderRadius: 'var(--r-md)' }}>
+            <div>
+              <div style={{ fontSize: 'var(--fs-xs)', fontWeight: 500, color: 'var(--text)', marginBottom: 1 }}>🕐 Allow 24H trading</div>
+              <div style={{ fontSize: 9, color: 'var(--text-4)', lineHeight: 1.5 }}>
+                Trigger outside market hours (pre/after market)<br/>
+                <span style={{ color: 'var(--text-3)' }}>Time gate above still applies to US ET</span>
               </div>
             </div>
+            <button onClick={() => setAllow24h((v: boolean) => !v)}
+              style={{ flexShrink: 0, marginLeft: 12, width: 40, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer', background: allow24h ? 'var(--color-info)' : 'var(--border)', position: 'relative', transition: 'background 0.2s' }}>
+              <span style={{ position: 'absolute', top: 1, left: allow24h ? 19 : 1, width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+            </button>
+          </div>
           </div>
 
           {/* Summary */}

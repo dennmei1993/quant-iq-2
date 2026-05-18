@@ -39,90 +39,25 @@ function timeToMinutes(t: string): number {
   return h * 60 + m
 }
 
-// ── MACD helpers ──────────────────────────────────────────────────────────────
-
-function ema(values: number[], period: number): number[] {
-  if (values.length < period) return values.map(() => values[0])
-  const k = 2 / (period + 1)
-
-  // Seed with SMA of first `period` values — standard MACD initialisation
-  const seed = values.slice(0, period).reduce((a, b) => a + b, 0) / period
-  const result: number[] = new Array(period - 1).fill(null)
-  result.push(seed)
-
-  for (let i = period; i < values.length; i++) {
-    const prev = result[result.length - 1]
-    result.push(values[i] * k + prev * (1 - k))
-  }
-  return result
-}
-
-function calcMACDSeries(closes: number[]): { macdLine: number[]; signalLine: number[] } | null {
-  if (closes.length < 36) return null
-
-  const fast = ema(closes, 12)
-  const slow = ema(closes, 26)
-
-  // MACD line — only valid from index 25 onwards (where slow EMA is seeded)
-  const macdLine: number[] = []
-  for (let i = 25; i < closes.length; i++) {
-    macdLine.push(fast[i] - slow[i])
-  }
-
-  if (macdLine.length < 9) return null
-
-  // Signal line — EMA(9) of macdLine, seeded with SMA of first 9 MACD values
-  const signalLine = ema(macdLine, 9)
-
-  return { macdLine, signalLine }
-}
-
-function calcMACDCross(closes: number[]): { isBullish: boolean; isBearish: boolean; macd: number; signal: number; prevMacd: number; prevSignal: number } | null {
-  const series = calcMACDSeries(closes)
-  if (!series) return null
-
-  const { macdLine, signalLine } = series
-
-  // Find last two indices where both macdLine and signalLine are valid (non-null)
-  const valid: number[] = []
-  for (let i = 0; i < Math.min(macdLine.length, signalLine.length); i++) {
-    if (macdLine[i] !== null && signalLine[i] !== null) valid.push(i)
-  }
-  if (valid.length < 2) return null
-
-  const prevIdx = valid[valid.length - 2]
-  const currIdx = valid[valid.length - 1]
-
-  const prevMacd   = macdLine[prevIdx]
-  const prevSignal = signalLine[prevIdx]
-  const currMacd   = macdLine[currIdx]
-  const currSignal = signalLine[currIdx]
-
-  return {
-    isBullish:  prevMacd < prevSignal && currMacd > currSignal,
-    isBearish:  prevMacd > prevSignal && currMacd < currSignal,
-    macd:       currMacd,
-    signal:     currSignal,
-    prevMacd,
-    prevSignal,
-  }
-}
+// ── MACD helpers — calculation done in broker_service.py via /kline/macd ────
 
 // Fetch intraday candles from bridge and return closes
-async function fetchIntradayCloses(ticker: string, period: '1h' | '4h' | '1d', bridgeUrl: string): Promise<number[]> {
-  const klType = period === '1h' ? '60M' : period === '4h' ? '4H' : 'DAY'
-  // Request 500 candles — broker_service fetches 120 days of 1H = ~840 candles
-  // More history = better EMA warm-up = values closer to charting platform
-  const count  = 500
+async function fetchMACD(ticker: string, period: '1h' | '4h' | '1d', bridgeUrl: string): Promise<{
+  curr: { macd: number; signal: number; hist: number }
+  prev: { macd: number; signal: number; hist: number }
+  bullish_cross: boolean
+  bearish_cross: boolean
+  candles: number
+}> {
+  const klType = period === '1h' ? '1H' : period === '4h' ? '4H' : 'DAY'
   const res = await fetch(
-    `${bridgeUrl}/kline?symbol=US.${ticker}&kl_type=${klType}&count=${count}`,
-    { signal: AbortSignal.timeout(10000) }
+    `${bridgeUrl}/kline/macd?symbol=US.${ticker}&kl_type=${klType}`,
+    { signal: AbortSignal.timeout(30000) }  // longer timeout — fetches 3 years of data
   )
-  if (!res.ok) throw new Error(`Kline fetch failed: ${res.status}`)
+  if (!res.ok) throw new Error(`MACD fetch failed: ${res.status}`)
   const d = await res.json()
-  const closes = (d.klines ?? []).map((k: any) => parseFloat(k.close)).filter((c: number) => !isNaN(c))
-  console.log(`[MACD] ${ticker} ${period}: ${closes.length} candles from ${d.start} to ${d.end}`)
-  return closes
+  if (d.error) throw new Error(d.error)
+  return d
 }
 
 // Parse MACD params from order notes
@@ -143,8 +78,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorised', hint: 'Check CRON_SECRET env var' }, { status: 401 })
   }
 
-  if (!isMarketHours()) {
-    return NextResponse.json({ skipped: true, reason: 'Outside market hours', et_time: getETTime() })
+  const inMarketHours = isMarketHours()
+
+  // If outside market hours, only process orders that have allow_24h = true
+  // We'll filter per-order below rather than skipping entirely
+  if (!inMarketHours) {
+    // Check if any 24H orders exist before proceeding
+    const supabaseCheck = createServiceClient()
+    const { data: has24h } = await (supabaseCheck as any)
+      .from('conditional_orders')
+      .select('id')
+      .eq('status', 'active')
+      .eq('allow_24h', true)
+      .limit(1)
+    if (!has24h?.length) {
+      return NextResponse.json({ skipped: true, reason: 'Outside market hours — no 24H orders active', et_time: getETTime() })
+    }
   }
 
   const supabase = createServiceClient()
@@ -165,7 +114,7 @@ export async function GET(req: NextRequest) {
   const userIds = [...new Set((orders as any[]).map((o: any) => o.user_id))]
   const { data: profiles } = await (supabase as any)
     .from('profiles')
-    .select('id, moomoo_password, trading_mode, trade_account')
+    .select('id, moomoo_password, trading_mode, trade_account, trading_24h')
     .in('id', userIds)
 
   const profileMap: Record<string, any> = {}
@@ -213,6 +162,14 @@ export async function GET(req: NextRequest) {
       continue
     }
 
+    // 0. Market hours check — skip if outside hours unless order or profile allows 24H
+    const profile24h = order.profile?.trading_24h ?? false
+    const order24h   = order.allow_24h            ?? false
+    if (!inMarketHours && !profile24h && !order24h) {
+      results.push({ id: order.id, ticker: order.ticker, skip: `outside market hours — enable 24H trading in settings or order` })
+      continue
+    }
+
     // Update last_checked_at and last_price_seen
     await (supabase as any)
       .from('conditional_orders')
@@ -254,31 +211,25 @@ export async function GET(req: NextRequest) {
     const macdParams = parseMACDNote(order.notes)
     if (macdParams) {
       try {
-        const closes = await fetchIntradayCloses(order.ticker, macdParams.period, BRIDGE_URL)
-        const cross  = calcMACDCross(closes)
+        const macd = await fetchMACD(order.ticker, macdParams.period, BRIDGE_URL)
+        console.log(`[MACD] ${order.ticker} ${macdParams.period}: ${JSON.stringify(macd.curr)} | prev: ${JSON.stringify(macd.prev)} | candles: ${macd.candles}`)
 
-        if (!cross) {
-          results.push({ id: order.id, ticker: order.ticker, skip: `MACD: not enough candles (got ${closes.length}, need 36)` })
-          continue
-        }
-
-        const triggered = macdParams.type === 'bullish' ? cross.isBullish : cross.isBearish
+        const triggered = macdParams.type === 'bullish' ? macd.bullish_cross : macd.bearish_cross
 
         if (!triggered) {
           results.push({
             id:     order.id,
             ticker: order.ticker,
             skip:   `MACD ${macdParams.type} cross not detected`,
-            detail: `prev MACD ${cross.prevMacd.toFixed(4)} vs Signal ${cross.prevSignal.toFixed(4)} → curr MACD ${cross.macd.toFixed(4)} vs Signal ${cross.signal.toFixed(4)}`,
+            detail: `prev MACD ${macd.prev.macd} vs Signal ${macd.prev.signal} → curr MACD ${macd.curr.macd} vs Signal ${macd.curr.signal}`,
           })
           continue
         }
 
-        // Log MACD trigger
         results.push({
-          id:      order.id,
-          ticker:  order.ticker,
-          macd_trigger: `MACD ${macdParams.type} cross on ${macdParams.period} — MACD ${cross.macd.toFixed(4)} crossed ${macdParams.type === 'bullish' ? 'above' : 'below'} Signal ${cross.signal.toFixed(4)}`,
+          id:          order.id,
+          ticker:      order.ticker,
+          macd_trigger: `MACD ${macdParams.type} cross on ${macdParams.period} — MACD ${macd.curr.macd} crossed ${macdParams.type === 'bullish' ? 'above' : 'below'} Signal ${macd.curr.signal}`,
         })
       } catch (e: any) {
         results.push({ id: order.id, ticker: order.ticker, skip: `MACD fetch failed: ${e.message}` })
