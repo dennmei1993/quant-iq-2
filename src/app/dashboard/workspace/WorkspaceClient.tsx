@@ -347,7 +347,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
       if (!res.ok) { setError(data.error ?? 'Failed to create order'); return }
 
       const order: DCAOrder = {
-        id:             data.id ?? String(Date.now()),
+        id:             data.order?.id ?? String(Date.now()),
         ticker,
         num:            row.num,
         date:           row.date,
