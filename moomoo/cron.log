@@ -827,3 +827,7 @@
   DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
 2026-05-18 12:50:48 | checked=0 executed=0 et=
   DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-18 13:50:47 | checked=1 executed=0 et=23:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"23:50","prices":{"QQQM":"$291.89"},"results":[{"id":"58124379-0262-4c03-957f-32d475f99e31","ticker":"QQQM","skip":"price 291.89 not below 288.66"}]}
+2026-05-18 14:50:47 | checked=1 executed=0 et=00:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"00:50","prices":{"QQQM":"$291.89"},"results":[{"id":"58124379-0262-4c03-957f-32d475f99e31","ticker":"QQQM","skip":"price 291.89 not below 288.66"}]}

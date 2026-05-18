@@ -291,6 +291,10 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
   const [orderType,      setOrderType]      = useState<'MARKET' | 'LIMIT'>('MARKET')
   const [limitPrice,     setLimitPrice]     = useState(Math.round(currentPrice * 0.97).toString())
   const [qty,            setQty]            = useState(String(Math.max(1, Math.floor(row.amount / currentPrice))))
+  const [expireDate,     setExpireDate]     = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 30)
+    return d.toISOString().slice(0, 10)
+  })
   const [saving,         setSaving]         = useState(false)
   const [error,          setError]          = useState('')
 
@@ -320,7 +324,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
         order_type:      orderType,
         limit_price:     orderType === 'LIMIT' ? parseFloat(limitPrice) : null,
         not_before_time: notBefore,
-        expires_at:      new Date(Date.now() + 30 * 86400000).toISOString(),
+        expires_at:      expireDate ? new Date(expireDate).toISOString() : new Date(Date.now() + 30 * 86400000).toISOString(),
         notes:           `DCA #${row.num} — ${conditionLabels[condition]}`,
       }
 
@@ -442,8 +446,8 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
             </div>
           )}
 
-          {/* Order type + qty + limit */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          {/* Order type + qty + limit + timing */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
               <label style={lbSt}>Shares (qty)</label>
               <input value={qty} onChange={e => setQty(e.target.value)} type="number" min="1" style={inSt} />
@@ -458,25 +462,12 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
                 <option value="LIMIT">Limit</option>
               </select>
             </div>
-            {orderType === 'LIMIT' ? (
+            {orderType === 'LIMIT' && (
               <div>
                 <label style={lbSt}>Limit price ($)</label>
                 <input value={limitPrice} onChange={e => setLimitPrice(e.target.value)} type="number" step="0.01" style={inSt} />
               </div>
-            ) : (
-              <div>
-                <label style={lbSt}>Not before (ET)</label>
-                <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
-                  <option value="09:30">09:30 market open</option>
-                  <option value="10:00">10:00</option>
-                  <option value="10:30">10:30</option>
-                  <option value="11:00">11:00</option>
-                  <option value="14:00">14:00</option>
-                </select>
-              </div>
             )}
-          </div>
-          {orderType === 'LIMIT' && (
             <div>
               <label style={lbSt}>Not before (ET)</label>
               <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
@@ -487,7 +478,11 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
                 <option value="14:00">14:00</option>
               </select>
             </div>
-          )}
+            <div>
+              <label style={lbSt}>Expire date</label>
+              <input value={expireDate} onChange={e => setExpireDate(e.target.value)} type="date" style={inSt} />
+            </div>
+          </div>
 
           {/* Summary */}
           <div style={{ padding: '8px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)', color: 'var(--text-3)', lineHeight: 1.7 }}>
@@ -497,7 +492,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
             {condition === 'price_below' && ` when price drops below $${conditionValue}`}
             {condition === 'price_above' && ` when price rises above $${conditionValue}`}
             {condition === 'macd_cross' && ` on MACD ${macdType} crossover (${macdPeriod})`}
-            {` · not before ${notBefore} ET`}
+            {` · not before ${notBefore} ET · expires ${expireDate}`}
           </div>
 
           {error && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--signal-bear)', padding: '6px 8px', background: 'rgba(185,28,28,0.05)', border: '1px solid rgba(185,28,28,0.15)', borderRadius: 'var(--r-md)' }}>{error}</div>}

@@ -1294,40 +1294,41 @@ def get_stock_volatility(symbol: str):
 @app.get("/kline")
 def get_kline(symbol: str = "US.AAPL", kl_type: str = "60M", count: int = 50):
     """
-    Fetch historical kline (OHLCV) data for MACD and other indicator calculations.
-    kl_type: 1M, 3M, 5M, 15M, 30M, 60M, 4H, DAY, WEEK, MON
+    Fetch historical kline (OHLCV) data for MACD and indicator calculations.
+    kl_type: 1M, 3M, 5M, 15M, 30M, 60M, DAY, WEEK, MON
     Returns candles sorted oldest first.
     """
+    import math
+    from datetime import datetime, timedelta
+    from moomoo import KLType
+
+    kl_map = {
+        "1M":   KLType.K_1M,
+        "3M":   KLType.K_3M,
+        "5M":   KLType.K_5M,
+        "15M":  KLType.K_15M,
+        "30M":  KLType.K_30M,
+        "60M":  KLType.K_60M,
+        "DAY":  KLType.K_DAY,
+        "WEEK": KLType.K_WEEK,
+        "MON":  KLType.K_MON,
+    }
+    kl = kl_map.get(kl_type.upper(), KLType.K_60M)
+
+    # Calculate lookback window — need 35+ candles for MACD
+    days_back = 10 if kl_type in ('60M', '30M', '15M', '5M', '3M', '1M') else 90
+
     try:
-        from moomoo import KLType
-        kl_map = {
-            "1M":   KLType.K_1M,
-            "3M":   KLType.K_3M,
-            "5M":   KLType.K_5M,
-            "15M":  KLType.K_15M,
-            "30M":  KLType.K_30M,
-            "60M":  KLType.K_60M,
-            "4H":   KLType.K_4H  if hasattr(KLType, "K_4H") else KLType.K_60M,
-            "DAY":  KLType.K_DAY,
-            "WEEK": KLType.K_WEEK,
-            "MON":  KLType.K_MON,
-        }
-        kl = kl_map.get(kl_type.upper(), KLType.K_60M)
+        start_date = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')
+        end_date   = datetime.now().strftime('%Y-%m-%d')
 
         ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
         try:
             ret, data, _ = ctx.request_history_kline(
                 symbol,
+                start=start_date,
+                end=end_date,
                 ktype=kl,
-                count=count,
-                fields=[
-                    ft.KL_FIELD.DATE_TIME,
-                    ft.KL_FIELD.OPEN,
-                    ft.KL_FIELD.HIGH,
-                    ft.KL_FIELD.LOW,
-                    ft.KL_FIELD.CLOSE,
-                    ft.KL_FIELD.VOLUME,
-                ],
             )
         finally:
             ctx.close()
@@ -1335,27 +1336,26 @@ def get_kline(symbol: str = "US.AAPL", kl_type: str = "60M", count: int = 50):
         if ret != ft.RET_OK:
             raise HTTPException(400, f"Kline error: {data}")
 
-        import math
+        def sf(v):
+            try:
+                f = float(v)
+                return None if math.isnan(f) or math.isinf(f) else round(f, 4)
+            except Exception:
+                return None
+
         klines = []
         for _, row in data.iterrows():
-            def sf(v):
-                try:
-                    f = float(v)
-                    return None if math.isnan(f) or math.isinf(f) else round(f, 4)
-                except:
-                    return None
-
             klines.append({
-                "time":   str(row.get("time_key", row.get("datetime", ""))),
-                "open":   sf(row.get("open", 0)),
-                "high":   sf(row.get("high", 0)),
-                "low":    sf(row.get("low", 0)),
-                "close":  sf(row.get("close", 0)),
-                "volume": sf(row.get("volume", 0)),
+                "time":   str(row.get("time_key", "")),
+                "open":   sf(row.get("open",   0)),
+                "high":   sf(row.get("high",   0)),
+                "low":    sf(row.get("low",    0)),
+                "close":  sf(row.get("close",  0)),
+                "volume": sf(row.get("volume", row.get("turnover", 0))),
             })
 
-        # Sort oldest first (Moomoo returns newest first by default)
-        klines.reverse()
+        # Trim to requested count (most recent N candles)
+        klines = klines[-count:] if len(klines) > count else klines
 
         return {
             "symbol":  symbol,
