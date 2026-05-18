@@ -1309,7 +1309,9 @@ def get_kline(symbol: str = "US.AAPL", kl_type: str = "60M", count: int = 50):
         "15M":  KLType.K_15M,
         "30M":  KLType.K_30M,
         "60M":  KLType.K_60M,
+        "1H":   KLType.K_60M,   # alias
         "DAY":  KLType.K_DAY,
+        "1D":   KLType.K_DAY,   # alias
         "WEEK": KLType.K_WEEK,
         "MON":  KLType.K_MON,
     }
@@ -1331,6 +1333,7 @@ def get_kline(symbol: str = "US.AAPL", kl_type: str = "60M", count: int = 50):
                 start=start_date,
                 end=end_date,
                 ktype=kl,
+                autype=ft.AuType.NONE,  # no price adjustment — matches Moomoo chart default for US stocks
             )
         finally:
             ctx.close()
@@ -1387,8 +1390,8 @@ def get_macd(symbol: str = "US.AAPL", kl_type: str = "60M"):
     kl_map = {
         "60M": KLType.K_60M, "1H": KLType.K_60M,
         "DAY": KLType.K_DAY, "1D": KLType.K_DAY,
-        "4H":  KLType.K_4H if hasattr(KLType, "K_4H") else KLType.K_60M,
         "15M": KLType.K_15M, "30M": KLType.K_30M,
+        "5M":  KLType.K_5M,  "4H": KLType.K_4H if hasattr(KLType, "K_4H") else KLType.K_60M,
     }
     kl = kl_map.get(kl_type.upper(), KLType.K_60M)
 
@@ -1404,7 +1407,7 @@ def get_macd(symbol: str = "US.AAPL", kl_type: str = "60M"):
                 start=start_date,
                 end=end_date,
                 ktype=kl,
-                autype=ft.AuType.QFQ,  # forward-adjusted prices
+                autype=ft.AuType.NONE,  # no adjustment
             )
         finally:
             ctx.close()
