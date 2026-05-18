@@ -78,13 +78,12 @@ export async function DELETE(req: NextRequest) {
       .from('conditional_orders')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)  // ensure user owns the order
+      .eq('user_id', user.id)
 
     if (error) throw error
     return NextResponse.json({ ok: true, deleted: id })
-  } catch (e) {
-    const { body, status } = errorResponse(e)
-    return NextResponse.json(body, { status })
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? 'Failed' }, { status: 500 })
   }
 }
   try {
