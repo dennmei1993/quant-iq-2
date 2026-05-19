@@ -295,6 +295,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
     const d = new Date(); d.setDate(d.getDate() + 30)
     return d.toISOString().slice(0, 10)
   })
+  const [allow24h,       setAllow24h]       = useState(false)
   const [saving,         setSaving]         = useState(false)
   const [error,          setError]          = useState('')
 
@@ -325,6 +326,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
         limit_price:     orderType === 'LIMIT' ? parseFloat(limitPrice) : null,
         not_before_time: notBefore,
         expires_at:      expireDate ? new Date(expireDate).toISOString() : new Date(Date.now() + 30 * 86400000).toISOString(),
+        allow_24h:       allow24h,
         notes:           `DCA #${row.num} — ${conditionLabels[condition]}`,
       }
 
@@ -484,6 +486,21 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
               <label style={lbSt}>Expire date</label>
               <input value={expireDate} onChange={e => setExpireDate(e.target.value)} type="date" style={inSt} />
             </div>
+          </div>
+
+          {/* 24H trading toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: allow24h ? 'rgba(37,99,235,0.04)' : 'var(--bg-subtle)', border: `1px solid ${allow24h ? 'rgba(37,99,235,0.2)' : 'var(--border)'}`, borderRadius: 'var(--r-md)' }}>
+            <div>
+              <div style={{ fontSize: 'var(--fs-xs)', fontWeight: 500, color: 'var(--text)', marginBottom: 1 }}>🕐 Allow 24H trading</div>
+              <div style={{ fontSize: 9, color: 'var(--text-4)', lineHeight: 1.5 }}>
+                Trigger outside market hours (pre/after market)<br/>
+                <span style={{ color: 'var(--text-3)' }}>Time gate still applies to US ET</span>
+              </div>
+            </div>
+            <button onClick={() => setAllow24h((v: boolean) => !v)}
+              style={{ flexShrink: 0, marginLeft: 12, width: 40, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer', background: allow24h ? 'var(--color-info)' : 'var(--border)', position: 'relative', transition: 'background 0.2s' }}>
+              <span style={{ position: 'absolute', top: 1, left: allow24h ? 19 : 1, width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+            </button>
           </div>
 
           {/* Summary */}
