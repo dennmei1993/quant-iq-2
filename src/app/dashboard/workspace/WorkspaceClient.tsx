@@ -85,6 +85,27 @@ function buildStrategies(h: Holding, price: number, iv: number) {
     const prem = (price * (iv / 100) * Math.sqrt(37 / 365) * 0.4 * 0.28).toFixed(2)
     strats.push({ name: 'Covered Call', type: 'Income', color: '#22c55e', desc: `Sell the $${strike} call (37 DTE) for ~$${prem}/share ($${(parseFloat(prem) * 100).toFixed(0)}/contract). Caps upside at $${strike}.`, risk: 'Capped upside', reward: `$${(parseFloat(prem) * 100).toFixed(0)}/contract`, prob: '~70% OTM', expiry: 'Jun 20', legs: `Sell 1× ${h.ticker} $${strike} Call Jun 20` })
   }
+
+  // PMCC — Poor Man's Covered Call: long deep ITM LEAP + short near-term OTM call
+  // Works as a low-cost alternative to owning 100 shares
+  const pmccLongStrike  = Math.round(price * 0.70 / step) * step  // deep ITM ~70% of price
+  const pmccShortStrike = Math.round(price * 1.05 / step) * step  // OTM ~5% above price
+  const pmccLongCost    = (price * (iv / 100) * Math.sqrt(365 / 365) * 0.4 * 0.85).toFixed(2) // ~365 DTE LEAP cost
+  const pmccShortPrem   = (price * (iv / 100) * Math.sqrt(37 / 365) * 0.4 * 0.28).toFixed(2)  // ~37 DTE short call
+  const pmccNetDebit    = (parseFloat(pmccLongCost) - parseFloat(pmccShortPrem)).toFixed(2)
+  const pmccMaxProfit   = ((pmccShortStrike - pmccLongStrike - parseFloat(pmccNetDebit)) * 100).toFixed(0)
+  strats.push({
+    name: 'PMCC',
+    type: 'Income / Leverage',
+    color: '#8b5cf6',
+    desc: `Buy $${pmccLongStrike} LEAP call (365 DTE) ~$${pmccLongCost}/share, sell $${pmccShortStrike} call (37 DTE) ~$${pmccShortPrem}. Net debit ~$${pmccNetDebit}/share. Roll short call monthly for income.`,
+    risk: `$${(parseFloat(pmccNetDebit) * 100).toFixed(0)} net debit`,
+    reward: `~$${pmccShortPrem}/share/month`,
+    prob: '~70% short OTM',
+    expiry: 'Jun 20 (short)',
+    legs: `Buy 1× ${h.ticker} $${pmccLongStrike} Call LEAP / Sell 1× ${h.ticker} $${pmccShortStrike} Call Jun 20`,
+  })
+
   const cspS = Math.round(price * 0.93 / step) * step
   const cspP = (price * (iv / 100) * Math.sqrt(65 / 365) * 0.4 * 0.32).toFixed(2)
   strats.push({ name: 'Cash-Secured Put', type: 'Accumulate', color: '#3b82f6', desc: `Sell $${cspS} put (65 DTE) for ~$${cspP}. Effective cost if assigned: $${(cspS - parseFloat(cspP)).toFixed(2)}.`, risk: `Must buy at $${cspS}`, reward: `$${(parseFloat(cspP) * 100).toFixed(0)}/contract`, prob: '~68% expire worthless', expiry: 'Jul 18', legs: `Sell 1× ${h.ticker} $${cspS} Put Jul 18` })

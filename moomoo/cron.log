@@ -14,3 +14,11 @@
   DETAIL: {"checked":1,"executed":0,"et_time":"20:52","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
 2026-05-19 10:54:47 | checked=1 executed=0 et=20:54
   DETAIL: {"checked":1,"executed":0,"et_time":"20:54","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
+2026-05-19 10:56:47 | checked=1 executed=1 et=20:56
+  DETAIL: {"checked":1,"executed":1,"et_time":"20:56","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","macd_trigger":"MACD bullish cross on 1d â?? MACD 6.2289 crossed above Signal 5.9905","status":"EXECUTED","order_id":"2146166","account":"327518","trd_env":"SIMULATE","price":74.89},{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","conditions":"ALL MET","price":74.32,"side":"BUY","qty":44,"order_type":"MARKET","account":"327518","trading_mode":"paper","status":"EXECUTING..."}]}
+2026-05-19 10:58:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-19 11:00:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-19 11:02:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-19 11:03:16 | skipped - Outside market hours â?? no 24H orders active
+2026-05-19 17:50:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-19 21:50:48 | skipped - Outside market hours â?? no 24H orders active
