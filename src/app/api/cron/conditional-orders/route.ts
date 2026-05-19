@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser()
     const body = await req.json()
+    console.log('[conditional-orders POST] allow_24h:', body.allow_24h, 'keys:', Object.keys(body))
 
     const { data, error } = await (supabase as any)
       .from('conditional_orders')
