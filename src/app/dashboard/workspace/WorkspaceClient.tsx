@@ -637,6 +637,307 @@ function DCAManagerModal({ orders, onClose, onCancel }: {
   )
 }
 
+// ── PMCC Stage Modal ──────────────────────────────────────────────────────────
+
+function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged }: {
+  ticker:   string
+  price:    number
+  iv:       number
+  ivRank:   number | null
+  expiries: string[]
+  onClose:  () => void
+  onStaged: () => void
+}) {
+  const step = price < 50 ? 1 : price < 200 ? 2.5 : price < 500 ? 5 : 10
+
+  // Leg 1 — LEAP buy criteria (ranges, not specific contracts)
+  const [leg1DteMin,     setLeg1DteMin]     = useState('180')
+  const [leg1DteMax,     setLeg1DteMax]     = useState('365')
+  const [leg1DeltaMin,   setLeg1DeltaMin]   = useState('0.75')
+  const [leg1DeltaMax,   setLeg1DeltaMax]   = useState('0.90')
+  const [leg1IvMax,      setLeg1IvMax]      = useState('20')     // max IVR to enter
+  const [leg1LimitPct,   setLeg1LimitPct]   = useState('2')      // % above ask as limit buffer
+  const [leg1ExpireDate, setLeg1ExpireDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().slice(0, 10) })
+
+  // Leg 2 — Short call sell criteria
+  const [leg2DteMin,     setLeg2DteMin]     = useState('21')
+  const [leg2DteMax,     setLeg2DteMax]     = useState('45')
+  const [leg2DeltaMin,   setLeg2DeltaMin]   = useState('0.25')
+  const [leg2DeltaMax,   setLeg2DeltaMax]   = useState('0.35')
+  const [leg2IvMin,      setLeg2IvMin]      = useState('18')     // min IVR to sell
+  const [leg2PremMin,    setLeg2PremMin]    = useState('0.50')   // min bid per share
+  const [leg2OiMin,      setLeg2OiMin]      = useState('100')    // min open interest
+  const [leg2ExpireDate, setLeg2ExpireDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().slice(0, 10) })
+
+  // Timing
+  const [notBefore, setNotBefore] = useState('10:00')
+  const [allow24h,  setAllow24h]  = useState(false)
+
+  const [saving,  setSaving]  = useState(false)
+  const [error,   setError]   = useState('')
+  const [success, setSuccess] = useState('')
+
+  const inSt: React.CSSProperties = { padding: '4px 7px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text)', fontSize: 11, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' as const, width: '100%' }
+  const lbSt: React.CSSProperties = { fontSize: 8, fontWeight: 500, color: 'var(--text-4)', textTransform: 'uppercase' as const, letterSpacing: '0.06em', display: 'block', marginBottom: 2 }
+
+  // Estimated LEAP cost for reference
+  const estLeapCost = (price * (iv / 100) * Math.sqrt(270 / 365) * 0.4 * 0.85).toFixed(2)
+  const estShortPrem = (price * (iv / 100) * Math.sqrt(33 / 365) * 0.4 * 0.30).toFixed(2)
+
+  async function stage() {
+    setSaving(true); setError('')
+    try {
+      // Leg 1 — conditional LEAP buy
+      // Criteria stored in notes as JSON for cron to parse
+      const leg1Criteria = {
+        dte_min:   parseInt(leg1DteMin),
+        dte_max:   parseInt(leg1DteMax),
+        delta_min: parseFloat(leg1DeltaMin),
+        delta_max: parseFloat(leg1DeltaMax),
+        limit_pct: parseFloat(leg1LimitPct),
+        select:    'best_delta',  // selection strategy: closest delta to midpoint
+      }
+
+      const leg1Res = await fetch('/api/orders/conditional', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticker,
+          asset_type:      'option',
+          side:            'BUY',
+          qty:             1,
+          order_type:      'LIMIT',         // cron sets limit at ask + buffer
+          iv_rank_below:   parseFloat(leg1IvMax),
+          not_before_time: notBefore,
+          expires_at:      new Date(leg1ExpireDate).toISOString(),
+          allow_24h:       allow24h,
+          notes:           `PMCC LEG1 CRITERIA:${JSON.stringify(leg1Criteria)} | ${ticker} LEAP δ${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE | Enter IVR≤${leg1IvMax}`,
+        }),
+      })
+      const leg1Data = await leg1Res.json()
+      if (!leg1Res.ok) throw new Error(leg1Data.error ?? 'Leg 1 failed')
+
+      // Leg 2 — short call sell (independent, waits for best premium)
+      const leg2Criteria = {
+        dte_min:     parseInt(leg2DteMin),
+        dte_max:     parseInt(leg2DteMax),
+        delta_min:   parseFloat(leg2DeltaMin),
+        delta_max:   parseFloat(leg2DeltaMax),
+        oi_min:      parseInt(leg2OiMin),
+        select:      'best_premium',  // selection: highest bid within delta range
+      }
+
+      const leg2Res = await fetch('/api/orders/conditional', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticker,
+          asset_type:      'option',
+          side:            'SELL',
+          qty:             1,
+          order_type:      'LIMIT',         // cron sets limit at bid - small buffer
+          iv_rank_above:   parseFloat(leg2IvMin),
+          premium_above:   parseFloat(leg2PremMin),
+          not_before_time: notBefore,
+          expires_at:      new Date(leg2ExpireDate).toISOString(),
+          allow_24h:       allow24h,
+          notes:           `PMCC LEG2 CRITERIA:${JSON.stringify(leg2Criteria)} | ${ticker} ShortCall δ${leg2DeltaMin}-${leg2DeltaMax} ${leg2DteMin}-${leg2DteMax}DTE | Min bid $${leg2PremMin} IVR≥${leg2IvMin}`,
+        }),
+      })
+      const leg2Data = await leg2Res.json()
+      if (!leg2Res.ok) throw new Error(leg2Data.error ?? 'Leg 2 failed')
+
+      // Link both legs in option_strategies
+      await fetch('/api/strategies/option', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type:   'pmcc', ticker,
+          leg1_order_id:     leg1Data.order?.id,
+          leg1_delta_target: (parseFloat(leg1DeltaMin) + parseFloat(leg1DeltaMax)) / 2,
+          leg1_iv_max:       parseFloat(leg1IvMax),
+          leg2_order_id:     leg2Data.order?.id,
+          leg2_delta_target: (parseFloat(leg2DeltaMin) + parseFloat(leg2DeltaMax)) / 2,
+          leg2_iv_min:       parseFloat(leg2IvMin),
+          leg2_premium_min:  parseFloat(leg2PremMin),
+          notes: `LEAP: δ${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE IVR≤${leg1IvMax} | Short: δ${leg2DeltaMin}-${leg2DeltaMax} ${leg2DteMin}-${leg2DteMax}DTE bid≥$${leg2PremMin}`,
+        }),
+      })
+
+      setSuccess(`PMCC staged ✓ — Cron will search live chain and select best contracts when conditions are met.\nLeg 1 fires when IVR ≤ ${leg1IvMax}. Leg 2 fires when IVR ≥ ${leg2IvMin} and bid ≥ $${leg2PremMin}.`)
+    } catch (e: any) { setError(e.message) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.5)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '1.2rem', width: 500, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Stage Strategy — Criteria Only</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600 }}>PMCC · {ticker}</div>
+            <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 2 }}>
+              ${price.toFixed(2)} · IV {iv.toFixed(1)}%{ivRank !== null ? ` · IVR ${ivRank}` : ''}
+              {ivRank !== null && ivRank <= 20
+                ? <span style={{ marginLeft: 6, color: 'var(--signal-bull)', fontWeight: 600 }}>✓ Good time to buy LEAP now</span>
+                : ivRank !== null
+                ? <span style={{ marginLeft: 6, color: 'var(--signal-neut)' }}>Waiting for IVR ≤ {leg1IvMax}</span>
+                : null}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+        </div>
+
+        {/* How it works */}
+        <div style={{ padding: '7px 10px', background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.15)', borderRadius: 'var(--r-md)', fontSize: 9, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 12 }}>
+          <strong style={{ color: 'var(--color-info)' }}>How it works:</strong> You define criteria ranges only. When conditions are met, the cron searches the live option chain, selects the best matching contract (by delta + liquidity), and places the order automatically — no manual confirmation needed.
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* LEG 1 — LEAP */}
+          <div style={{ padding: '10px 12px', background: 'rgba(21,128,61,0.03)', border: '1px solid rgba(21,128,61,0.2)', borderRadius: 'var(--r-lg)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--signal-bull)', background: 'rgba(21,128,61,0.1)', padding: '1px 7px', borderRadius: 10 }}>LEG 1 — BUY LEAP</span>
+              <span style={{ fontSize: 9, color: 'var(--text-4)' }}>Cron selects closest-delta contract</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, marginBottom: 6 }}>
+              <div>
+                <label style={lbSt}>Min DTE</label>
+                <input value={leg1DteMin} onChange={e => setLeg1DteMin(e.target.value)} type="number" min="90" max="730" style={inSt} />
+              </div>
+              <div>
+                <label style={lbSt}>Max DTE</label>
+                <input value={leg1DteMax} onChange={e => setLeg1DteMax(e.target.value)} type="number" min="90" max="730" style={inSt} />
+              </div>
+              <div>
+                <label style={lbSt}>Min delta</label>
+                <input value={leg1DeltaMin} onChange={e => setLeg1DeltaMin(e.target.value)} type="number" step="0.05" min="0.5" max="1" style={inSt} />
+              </div>
+              <div>
+                <label style={lbSt}>Max delta</label>
+                <input value={leg1DeltaMax} onChange={e => setLeg1DeltaMax(e.target.value)} type="number" step="0.05" min="0.5" max="1" style={inSt} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+              <div>
+                <label style={lbSt}>Max IV Rank to enter</label>
+                <input value={leg1IvMax} onChange={e => setLeg1IvMax(e.target.value)} type="number" step="1" min="5" max="50" style={inSt} />
+                <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Buy when IVR ≤ this</div>
+              </div>
+              <div>
+                <label style={lbSt}>Limit buffer (%)</label>
+                <input value={leg1LimitPct} onChange={e => setLeg1LimitPct(e.target.value)} type="number" step="0.5" min="0" max="10" style={inSt} />
+                <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Set limit at ask + this %</div>
+              </div>
+              <div>
+                <label style={lbSt}>Order expires</label>
+                <input value={leg1ExpireDate} onChange={e => setLeg1ExpireDate(e.target.value)} type="date" style={inSt} />
+              </div>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 9, color: 'var(--text-4)', background: 'rgba(21,128,61,0.05)', padding: '4px 8px', borderRadius: 'var(--r-md)' }}>
+              Est. LEAP cost at current IV: <strong style={{ color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>${estLeapCost}/share (~${(parseFloat(estLeapCost) * 100).toFixed(0)}/contract)</strong>
+            </div>
+          </div>
+
+          {/* LEG 2 — Short Call */}
+          <div style={{ padding: '10px 12px', background: 'rgba(185,28,28,0.03)', border: '1px solid rgba(185,28,28,0.2)', borderRadius: 'var(--r-lg)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--signal-bear)', background: 'rgba(185,28,28,0.1)', padding: '1px 7px', borderRadius: 10 }}>LEG 2 — SELL SHORT CALL</span>
+              <span style={{ fontSize: 9, color: 'var(--text-4)' }}>Cron selects highest premium within delta range</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, marginBottom: 6 }}>
+              <div>
+                <label style={lbSt}>Min DTE</label>
+                <input value={leg2DteMin} onChange={e => setLeg2DteMin(e.target.value)} type="number" min="7" max="60" style={inSt} />
+              </div>
+              <div>
+                <label style={lbSt}>Max DTE</label>
+                <input value={leg2DteMax} onChange={e => setLeg2DteMax(e.target.value)} type="number" min="7" max="60" style={inSt} />
+              </div>
+              <div>
+                <label style={lbSt}>Min delta</label>
+                <input value={leg2DeltaMin} onChange={e => setLeg2DeltaMin(e.target.value)} type="number" step="0.05" min="0.1" max="0.5" style={inSt} />
+              </div>
+              <div>
+                <label style={lbSt}>Max delta</label>
+                <input value={leg2DeltaMax} onChange={e => setLeg2DeltaMax(e.target.value)} type="number" step="0.05" min="0.1" max="0.5" style={inSt} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 }}>
+              <div>
+                <label style={lbSt}>Min IV Rank</label>
+                <input value={leg2IvMin} onChange={e => setLeg2IvMin(e.target.value)} type="number" step="1" min="5" max="80" style={inSt} />
+                <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Sell when IVR ≥ this</div>
+              </div>
+              <div>
+                <label style={lbSt}>Min bid ($/share)</label>
+                <input value={leg2PremMin} onChange={e => setLeg2PremMin(e.target.value)} type="number" step="0.05" min="0.10" style={inSt} />
+                <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Min premium to collect</div>
+              </div>
+              <div>
+                <label style={lbSt}>Min open interest</label>
+                <input value={leg2OiMin} onChange={e => setLeg2OiMin(e.target.value)} type="number" step="50" min="0" style={inSt} />
+                <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Liquidity filter</div>
+              </div>
+              <div>
+                <label style={lbSt}>Order expires</label>
+                <input value={leg2ExpireDate} onChange={e => setLeg2ExpireDate(e.target.value)} type="date" style={inSt} />
+              </div>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 9, color: 'var(--text-4)', background: 'rgba(185,28,28,0.05)', padding: '4px 8px', borderRadius: 'var(--r-md)' }}>
+              Est. monthly premium at current IV: <strong style={{ color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>${estShortPrem}/share (~${(parseFloat(estShortPrem) * 100).toFixed(0)}/contract)</strong>
+            </div>
+          </div>
+
+          {/* Timing */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <label style={lbSt}>Not before (ET) — both legs</label>
+              <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
+                <option value="09:30">09:30 market open</option>
+                <option value="10:00">10:00 (30 min in)</option>
+                <option value="10:30">10:30 (1 hr in)</option>
+                <option value="11:00">11:00</option>
+                <option value="14:00">14:00</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: allow24h ? 'rgba(37,99,235,0.04)' : 'var(--bg-subtle)', border: `1px solid ${allow24h ? 'rgba(37,99,235,0.2)' : 'var(--border)'}`, borderRadius: 'var(--r-md)' }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--text)' }}>🕐 24H trading</div>
+                <div style={{ fontSize: 8, color: 'var(--text-4)' }}>Allow pre/after market · time gate still applies</div>
+              </div>
+              <button onClick={() => setAllow24h((v: boolean) => !v)}
+                style={{ width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', background: allow24h ? 'var(--color-info)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <span style={{ position: 'absolute', top: 1, left: allow24h ? 17 : 1, width: 18, height: 18, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+              </button>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div style={{ padding: '8px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 9, lineHeight: 1.8, color: 'var(--text-3)' }}>
+            <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Execution summary</div>
+            <div><span style={{ color: 'var(--signal-bull)' }}>▶ Leg 1</span> — cron buys best LEAP (δ {leg1DeltaMin}–{leg1DeltaMax}, {leg1DteMin}–{leg1DteMax} DTE) when <strong style={{ fontFamily: 'var(--font-mono)' }}>IVR ≤ {leg1IvMax}</strong> after {notBefore} ET</div>
+            <div><span style={{ color: 'var(--signal-bear)' }}>▶ Leg 2</span> — cron sells best short call (δ {leg2DeltaMin}–{leg2DeltaMax}, {leg2DteMin}–{leg2DteMax} DTE) when <strong style={{ fontFamily: 'var(--font-mono)' }}>IVR ≥ {leg2IvMin}</strong> and <strong style={{ fontFamily: 'var(--font-mono)' }}>bid ≥ ${leg2PremMin}</strong> — independently, waits for best premium</div>
+            <div style={{ marginTop: 4, color: 'var(--text-4)' }}>Both legs validated: short strike must be above LEAP strike at execution time</div>
+          </div>
+
+          {error   && <div style={{ fontSize: 10, color: 'var(--signal-bear)', padding: '6px 8px', background: 'rgba(185,28,28,0.05)', border: '1px solid rgba(185,28,28,0.15)', borderRadius: 'var(--r-md)' }}>{error}</div>}
+          {success && <div style={{ fontSize: 10, color: 'var(--signal-bull)', padding: '6px 8px', background: 'rgba(21,128,61,0.05)', border: '1px solid rgba(21,128,61,0.15)', borderRadius: 'var(--r-md)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>{success}</div>}
+
+          {success
+            ? <button onClick={onStaged} style={{ padding: '7px', fontWeight: 600, fontFamily: 'inherit', fontSize: 11, borderRadius: 'var(--r-md)', cursor: 'pointer', background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.35)', color: 'var(--signal-bull)' }}>Done ✓</button>
+            : <button onClick={stage} disabled={saving}
+                style={{ padding: '7px', fontWeight: 600, fontFamily: 'inherit', fontSize: 11, borderRadius: 'var(--r-md)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.5 : 1, background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.35)', color: '#8b5cf6' }}>
+                {saving ? 'Staging…' : 'Stage PMCC — save criteria →'}
+              </button>
+          }
+        </div>
+      </div>
+    </>
+  )
+}
+
 function OptionSearchModal({ ticker, spot, expiries, onClose, onResults, searching, setSearching }: {
   ticker:      string
   spot:        number
@@ -1258,7 +1559,8 @@ export default function WorkspaceClient() {
   const [volData,     setVolData]      = useState<any>(null)
   const [chainError,  setChainError]   = useState('')
   const [showConditional, setShowConditional] = useState(false)
-  const [showAI,      setShowAI]      = useState(false)
+  const [showPMCC,        setShowPMCC]        = useState(false)
+  const [showAI,          setShowAI]          = useState(false)
   const [optionOrder, setOptionOrder]  = useState<{
     code: string; strike: number; type: 'call' | 'put'
     bid: number; ask: number; expiry: string; ticker: string
@@ -1943,7 +2245,10 @@ export default function WorkspaceClient() {
                               style={{ padding: '5px 0', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>Ask AI ✦</button>
                             <button onClick={() => setCenterTab('chain')}
                               style={{ padding: '5px 0', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-3)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>View Chain</button>
-                            <button onClick={() => setStaged({ ticker: h.ticker, type: strats[selStrat].name, description: strats[selStrat].desc, premium: strats[selStrat].reward, legs: strats[selStrat].legs, expiry: strats[selStrat].expiry })}
+                            <button onClick={() => {
+                              if (strats[selStrat].name === 'PMCC') { setShowPMCC(true) }
+                              else setStaged({ ticker: h.ticker, type: strats[selStrat].name, description: strats[selStrat].desc, premium: strats[selStrat].reward, legs: strats[selStrat].legs, expiry: strats[selStrat].expiry })
+                            }}
                               style={{ padding: '5px 0', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.25)', borderRadius: 'var(--r-md)', color: 'var(--color-info)', fontSize: 'var(--fs-sm)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>Stage →</button>
                           </div>
                         )}
@@ -2133,6 +2438,17 @@ export default function WorkspaceClient() {
             } catch {}
             setDcaOrders(prev => prev.filter(o => o.id !== id))
           }}
+        />
+      )}
+      {showPMCC && h && (
+        <PMCCStageModal
+          ticker={h.ticker}
+          price={price}
+          iv={iv}
+          ivRank={ivRank}
+          expiries={realExpiries}
+          onClose={() => setShowPMCC(false)}
+          onStaged={() => setShowPMCC(false)}
         />
       )}
       {showSearch && h && (

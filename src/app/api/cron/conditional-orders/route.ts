@@ -210,7 +210,162 @@ export async function GET(req: NextRequest) {
       continue
     }
 
-    // 4. MACD condition — parse from notes field
+    // 4. IV Rank conditions — fetch live IV rank from bridge
+    const needsIV = order.iv_rank_below !== null || order.iv_rank_above !== null || order.premium_above !== null
+    let liveIVRank: number | null = null
+    let livePremium: number | null = null
+
+    if (needsIV) {
+      try {
+        const ivRes = await fetch(`${BRIDGE_URL}/options/volatility?symbol=US.${order.ticker}`, { signal: AbortSignal.timeout(6000) })
+        if (ivRes.ok) {
+          const ivData = await ivRes.json()
+          liveIVRank  = ivData.iv_rank  ?? null
+          livePremium = ivData.atm_premium ?? ivData.last_price ?? null
+        }
+      } catch {}
+    }
+
+    if (order.iv_rank_below !== null) {
+      if (liveIVRank === null) {
+        results.push({ id: order.id, ticker: order.ticker, skip: `IV Rank unavailable — bridge offline?` })
+        continue
+      }
+      if (liveIVRank > order.iv_rank_below) {
+        results.push({ id: order.id, ticker: order.ticker, skip: `IV Rank ${liveIVRank} not below ${order.iv_rank_below}` })
+        continue
+      }
+    }
+
+    if (order.iv_rank_above !== null) {
+      if (liveIVRank === null) {
+        results.push({ id: order.id, ticker: order.ticker, skip: `IV Rank unavailable — bridge offline?` })
+        continue
+      }
+      if (liveIVRank < order.iv_rank_above) {
+        results.push({ id: order.id, ticker: order.ticker, skip: `IV Rank ${liveIVRank} not above ${order.iv_rank_above}` })
+        continue
+      }
+    }
+
+    if (order.premium_above !== null) {
+      if (livePremium === null) {
+        results.push({ id: order.id, ticker: order.ticker, skip: `Premium unavailable` })
+        continue
+      }
+      if (livePremium < order.premium_above) {
+        results.push({ id: order.id, ticker: order.ticker, skip: `Premium $${livePremium} below min $${order.premium_above}` })
+        continue
+      }
+    }
+
+    // 5. PMCC / option criteria — parse from notes, search live chain, select best contract
+    const isPMCCOrder = order.notes?.includes('PMCC LEG') && order.notes?.includes('CRITERIA:')
+    if (isPMCCOrder) {
+      try {
+        const criteriaMatch = order.notes?.match(/CRITERIA:(\{.*?\})/)
+        if (!criteriaMatch) { results.push({ id: order.id, ticker: order.ticker, skip: 'PMCC: could not parse criteria from notes' }); continue }
+
+        const criteria = JSON.parse(criteriaMatch[1]) as {
+          dte_min: number; dte_max: number
+          delta_min: number; delta_max: number
+          oi_min?: number; limit_pct?: number
+          select: 'best_delta' | 'best_premium'
+        }
+
+        const isSell = order.side === 'SELL'
+        const today  = new Date().toISOString().slice(0, 10)
+
+        // Fetch real expiries from bridge
+        const expRes = await fetch(`${BRIDGE_URL}/options/expiries?symbol=US.${order.ticker}`, { signal: AbortSignal.timeout(8000) })
+        if (!expRes.ok) { results.push({ id: order.id, ticker: order.ticker, skip: 'PMCC: expiry fetch failed' }); continue }
+        const expData = await expRes.json()
+
+        // Filter expiries by DTE range
+        const eligibleExpiries: string[] = (expData.expiries ?? []).filter((exp: string) => {
+          const dte = Math.round((new Date(exp.slice(0, 10)).getTime() - Date.now()) / 86400000)
+          return dte >= criteria.dte_min && dte <= criteria.dte_max && exp.slice(0, 10) > today
+        })
+
+        if (!eligibleExpiries.length) {
+          results.push({ id: order.id, ticker: order.ticker, skip: `PMCC: no expiries found in ${criteria.dte_min}–${criteria.dte_max} DTE range` })
+          continue
+        }
+
+        // Search chain across eligible expiries to find best contract
+        let bestContract: any = null
+
+        for (const expiry of eligibleExpiries.slice(0, 3)) {  // check up to 3 expiries
+          const chainRes = await fetch(`${BRIDGE_URL}/options/chain?symbol=US.${order.ticker}&expiry=${expiry.slice(0, 10)}&strike_count=0`, { signal: AbortSignal.timeout(10000) })
+          if (!chainRes.ok) continue
+          const chainData = await chainRes.json()
+
+          for (const row of (chainData.rows ?? [])) {
+            const prefix  = isSell ? 'put' : 'call'  // PMCC always uses calls
+            const delta    = Math.abs(parseFloat(String(row[`call_delta`] ?? row[`callDelta`] ?? 0)))
+            const bid      = parseFloat(String(row[`call_bid`]   ?? row[`callBid`]   ?? 0))
+            const ask      = parseFloat(String(row[`call_ask`]   ?? row[`callAsk`]   ?? 0))
+            const oi       = parseInt(String(row[`call_oi`]    ?? 0))
+            const code     = row[`call_code`] ?? ''
+
+            if (!code) continue
+            if (delta < criteria.delta_min || delta > criteria.delta_max) continue
+            if (criteria.oi_min && oi < criteria.oi_min) continue
+            if (bid <= 0 && ask <= 0) continue
+
+            const candidate = { code, strike: row.strike, delta, bid, ask, oi, expiry: expiry.slice(0, 10) }
+
+            if (!bestContract) { bestContract = candidate; continue }
+
+            if (criteria.select === 'best_premium') {
+              // For short call: highest bid within delta range
+              if (bid > bestContract.bid) bestContract = candidate
+            } else {
+              // For LEAP: closest delta to midpoint of range
+              const target = (criteria.delta_min + criteria.delta_max) / 2
+              if (Math.abs(delta - target) < Math.abs(bestContract.delta - target)) bestContract = candidate
+            }
+          }
+          if (bestContract && criteria.select === 'best_delta') break  // first expiry with match is fine for LEAP
+        }
+
+        if (!bestContract) {
+          results.push({ id: order.id, ticker: order.ticker, skip: `PMCC: no contract found matching δ${criteria.delta_min}-${criteria.delta_max} in ${criteria.dte_min}-${criteria.dte_max} DTE` })
+          continue
+        }
+
+        // Validate: for SELL leg, short strike must be above any held LEAP strikes
+        if (isSell) {
+          // Check premium meets minimum
+          if (bestContract.bid < (order.premium_above ?? 0)) {
+            results.push({ id: order.id, ticker: order.ticker, skip: `PMCC LEG2: best bid $${bestContract.bid} below min $${order.premium_above}` })
+            continue
+          }
+        }
+
+        // Override option_code and limit_price on the order for execution
+        const limitPrice = isSell
+          ? bestContract.bid - 0.01                                           // sell at bid
+          : bestContract.ask * (1 + (criteria.limit_pct ?? 2) / 100)         // buy at ask + buffer
+
+        // Update order with the selected contract
+        await supabase.from('conditional_orders').update({
+          option_code:  bestContract.code,
+          limit_price:  Math.round(limitPrice * 100) / 100,
+          last_price_seen: bestContract.bid,
+        }).eq('id', order.id)
+
+        // Set order fields for execution below
+        order.option_code  = bestContract.code
+        order.limit_price  = Math.round(limitPrice * 100) / 100
+
+        console.log(`[PMCC] ${order.ticker} ${isSell ? 'LEG2 SELL' : 'LEG1 BUY'}: selected ${bestContract.code} δ${bestContract.delta.toFixed(2)} bid=$${bestContract.bid} ask=$${bestContract.ask} expiry=${bestContract.expiry}`)
+
+      } catch (e: any) {
+        results.push({ id: order.id, ticker: order.ticker, skip: `PMCC chain search failed: ${e.message}` })
+        continue
+      }
+    }
     const macdParams = parseMACDNote(order.notes)
     if (macdParams) {
       try {
