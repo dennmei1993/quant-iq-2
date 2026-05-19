@@ -1519,44 +1519,83 @@ def debug_option_snapshot(code: str = "US.GOOG260522C380000"):
 def get_iv_rank(symbol: str, lookback_days: int = 252):
     """
     GET /options/iv_rank?symbol=US.GOOG
-    Approximates IV Rank from historical option chain IV data.
-    IV Rank = (current IV - 52w low IV) / (52w high IV - 52w low IV) * 100
+    Calculates IV Rank using Historical Volatility (HV) as proxy.
+    HV Rank = (current 30d HV - 52w low HV) / (52w high HV - 52w low HV) * 100
+    Uses Moomoo daily price history — works for any bootstrapped ticker.
     """
+    import math
+    from datetime import datetime, timedelta
+
     try:
-        # Get current ATM IV from latest chain
+        # Fetch 1 year + 30 days of daily prices from Moomoo
+        start_date = (datetime.now() - timedelta(days=lookback_days + 40)).strftime('%Y-%m-%d')
+        end_date   = datetime.now().strftime('%Y-%m-%d')
+
         ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
-
-        # Get expiry dates
-        ret, exp_data = ctx.get_option_expiration_date(symbol)
-        if ret != ft.RET_OK or len(exp_data) == 0:
+        try:
+            ret, data, _ = ctx.request_history_kline(
+                symbol,
+                start=start_date,
+                end=end_date,
+                ktype=ft.KLType.K_DAY,
+                autype=ft.AuType.NONE,
+            )
+        finally:
             ctx.close()
-            raise HTTPException(500, "Cannot get expiry dates")
 
-        # Use nearest expiry ~30 DTE
-        from datetime import datetime, timedelta
-        target = datetime.now() + timedelta(days=30)
-        expiries = exp_data['strike_time'].tolist()
-        nearest  = min(expiries, key=lambda d: abs((datetime.strptime(d[:10], '%Y-%m-%d') - target).days))
+        if ret != ft.RET_OK or data is None or len(data) < 32:
+            raise HTTPException(400, f"Not enough price data for {symbol} (got {len(data) if data is not None else 0} rows)")
 
-        ret2, chain = ctx.get_option_chain(code=symbol, start=nearest, end=nearest, option_type=ft.OptionType.ALL)
-        ctx.close()
+        closes = [float(r) for r in data['close'].tolist() if r and float(r) > 0]
+        if len(closes) < 32:
+            raise HTTPException(400, f"Not enough valid closes for {symbol}")
 
-        if ret2 != ft.RET_OK or chain is None or len(chain) == 0:
-            raise HTTPException(500, "Cannot get option chain for IV")
+        def hv_at(end_idx: int, period: int = 30) -> float:
+            """Annualised HV over `period` days ending at end_idx."""
+            if end_idx < period:
+                return 0.0
+            window = closes[end_idx - period: end_idx]
+            log_returns = [math.log(window[i] / window[i-1]) for i in range(1, len(window))]
+            if not log_returns:
+                return 0.0
+            mean = sum(log_returns) / len(log_returns)
+            variance = sum((r - mean) ** 2 for r in log_returns) / (len(log_returns) - 1)
+            return math.sqrt(variance) * math.sqrt(252) * 100  # annualised %
 
-        # Get ATM IV (average of call + put ATM IV)
-        ivs = [float(r) * 100 for r in chain['implied_volatility'] if r and float(r) > 0]
-        current_iv = sum(ivs) / len(ivs) if ivs else 0
+        n = len(closes)
 
-        # IV Rank: without historical data, estimate from current IV percentile
-        # A proper implementation would store daily IV snapshots
-        # For now return current IV with note
+        # Current 30-day HV
+        current_hv = hv_at(n, 30)
+
+        # 52-week rolling HV (calculate HV at each day over past 252 days)
+        weekly_hvs = []
+        for i in range(max(31, n - lookback_days), n):
+            h = hv_at(i, 30)
+            if h > 0:
+                weekly_hvs.append(h)
+
+        if not weekly_hvs:
+            return {
+                "symbol":     symbol,
+                "current_hv": round(current_hv, 1),
+                "iv_rank":    None,
+                "note":       "Not enough history for HV Rank",
+            }
+
+        hv_low  = min(weekly_hvs)
+        hv_high = max(weekly_hvs)
+
+        hv_rank = round((current_hv - hv_low) / (hv_high - hv_low) * 100, 1) if hv_high > hv_low else 50.0
+
         return {
-            "symbol":     symbol,
-            "current_iv": round(current_iv, 1),
-            "iv_rank":    None,  # requires historical IV storage
-            "note":       "IV Rank requires historical data. Current IV shown.",
-            "expiry_used": nearest,
+            "symbol":      symbol,
+            "current_hv":  round(current_hv, 1),
+            "hv_52w_low":  round(hv_low, 1),
+            "hv_52w_high": round(hv_high, 1),
+            "iv_rank":     hv_rank,   # HV-based rank, proxy for IV rank
+            "iv":          round(current_hv, 1),  # also expose as iv for compatibility
+            "note":        "HV-based rank (proxy for IV Rank) — higher = more volatile vs history",
+            "data_points": len(closes),
         }
 
     except HTTPException:

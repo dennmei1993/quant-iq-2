@@ -1,24 +1,24 @@
-2026-05-19 10:20:47 | ERROR: The remote server returned an error: (401) Unauthorized.
-2026-05-19 10:25:47 | ERROR: The remote server returned an error: (401) Unauthorized.
-2026-05-19 10:30:47 | ERROR: The remote server returned an error: (401) Unauthorized.
-2026-05-19 10:35:47 | ERROR: The remote server returned an error: (401) Unauthorized.
-2026-05-19 10:40:47 | checked=1 executed=0 et=20:40
-  DETAIL: {"checked":1,"executed":0,"et_time":"20:40","prices":{"TQQQ":"$74.32"},"results":[{"id":"b7335ba8-342b-44a4-b4ea-1316d29b8fc2","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
-2026-05-19 10:45:47 | checked=1 executed=0 et=20:45
-  DETAIL: {"checked":1,"executed":0,"et_time":"20:45","prices":{"TQQQ":"$74.32"},"results":[{"id":"0d3ede82-049d-45da-96e7-e3957f16da88","ticker":"TQQQ","skip":"price 74.32 not below 73"}]}
-2026-05-19 10:48:38 | checked=1 executed=0 et=20:48
-  DETAIL: {"checked":1,"executed":0,"et_time":"20:48","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
-2026-05-19 10:50:47 | checked=1 executed=0 et=20:50
-  DETAIL: {"checked":1,"executed":0,"et_time":"20:50","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
-2026-05-19 10:52:47 | checked=1 executed=0 et=20:52
-  DETAIL: {"checked":1,"executed":0,"et_time":"20:52","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
-2026-05-19 10:54:47 | checked=1 executed=0 et=20:54
-  DETAIL: {"checked":1,"executed":0,"et_time":"20:54","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
-2026-05-19 10:56:47 | checked=1 executed=1 et=20:56
-  DETAIL: {"checked":1,"executed":1,"et_time":"20:56","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","macd_trigger":"MACD bullish cross on 1d â?? MACD 6.2289 crossed above Signal 5.9905","status":"EXECUTED","order_id":"2146166","account":"327518","trd_env":"SIMULATE","price":74.89},{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","conditions":"ALL MET","price":74.32,"side":"BUY","qty":44,"order_type":"MARKET","account":"327518","trading_mode":"paper","status":"EXECUTING..."}]}
-2026-05-19 10:58:47 | skipped - Outside market hours â?? no 24H orders active
-2026-05-19 11:00:47 | skipped - Outside market hours â?? no 24H orders active
-2026-05-19 11:02:47 | skipped - Outside market hours â?? no 24H orders active
-2026-05-19 11:03:16 | skipped - Outside market hours â?? no 24H orders active
-2026-05-19 17:50:47 | skipped - Outside market hours â?? no 24H orders active
-2026-05-19 21:50:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 00:14:22 | checked=6 executed=0 et=10:14
+  DETAIL: {"checked":6,"executed":0,"et_time":"10:14","prices":{"QQQM":"$287.15","QQQ":"$697.33"},"results":[{"id":"b1a6a99a-277e-4aed-b8f3-568dc8ec25da","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"1c8bbb6c-df3d-44f8-8b19-898df16c360e","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"8e3f3de0-d0d6-4abc-a8ba-0b46434f7d43","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"0f042d55-c4e2-4501-8770-432df5abeefe","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"f87780a4-7b9d-4fed-aa6a-04baea0af209","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"0aa932ff-1ae1-4e68-80ce-415f70b1f89a","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"}]}
+2026-05-20 00:20:47 | ERROR: The operation has timed out.
+2026-05-20 00:50:47 | ERROR: The operation has timed out.
+2026-05-20 01:20:47 | ERROR: The operation has timed out.
+2026-05-20 01:50:47 | checked=6 executed=0 et=11:50
+  DETAIL: {"checked":6,"executed":0,"et_time":"11:50","prices":{"QQQM":"$288.005","QQQ":"$699.66"},"results":[{"id":"0aa932ff-1ae1-4e68-80ce-415f70b1f89a","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"b1a6a99a-277e-4aed-b8f3-568dc8ec25da","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"1c8bbb6c-df3d-44f8-8b19-898df16c360e","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"8e3f3de0-d0d6-4abc-a8ba-0b46434f7d43","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"0f042d55-c4e2-4501-8770-432df5abeefe","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"f87780a4-7b9d-4fed-aa6a-04baea0af209","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"}]}
+2026-05-20 02:20:47 | ERROR: The operation has timed out.
+2026-05-20 02:50:47 | checked=6 executed=0 et=12:50
+  DETAIL: {"checked":6,"executed":0,"et_time":"12:50","prices":{"QQQM":"$289.38","QQQ":"$702.84"},"results":[{"id":"0aa932ff-1ae1-4e68-80ce-415f70b1f89a","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"f87780a4-7b9d-4fed-aa6a-04baea0af209","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"b1a6a99a-277e-4aed-b8f3-568dc8ec25da","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"1c8bbb6c-df3d-44f8-8b19-898df16c360e","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"8e3f3de0-d0d6-4abc-a8ba-0b46434f7d43","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"0f042d55-c4e2-4501-8770-432df5abeefe","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"}]}
+2026-05-20 03:20:47 | ERROR: The operation has timed out.
+2026-05-20 03:50:47 | ERROR: The operation has timed out.
+2026-05-20 04:20:47 | ERROR: The operation has timed out.
+2026-05-20 04:50:47 | checked=6 executed=0 et=14:50
+  DETAIL: {"checked":6,"executed":0,"et_time":"14:50","prices":{"QQQM":"$289.73","QQQ":"$703.65"},"results":[{"id":"8e3f3de0-d0d6-4abc-a8ba-0b46434f7d43","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"0f042d55-c4e2-4501-8770-432df5abeefe","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"f87780a4-7b9d-4fed-aa6a-04baea0af209","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"b1a6a99a-277e-4aed-b8f3-568dc8ec25da","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"1c8bbb6c-df3d-44f8-8b19-898df16c360e","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"0aa932ff-1ae1-4e68-80ce-415f70b1f89a","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"}]}
+2026-05-20 05:20:47 | ERROR: The operation has timed out.
+2026-05-20 05:50:47 | checked=6 executed=0 et=15:50
+  DETAIL: {"checked":6,"executed":0,"et_time":"15:50","prices":{"QQQM":"$288.91","QQQ":"$701.725"},"results":[{"id":"1c8bbb6c-df3d-44f8-8b19-898df16c360e","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"0aa932ff-1ae1-4e68-80ce-415f70b1f89a","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"0f042d55-c4e2-4501-8770-432df5abeefe","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"f87780a4-7b9d-4fed-aa6a-04baea0af209","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"b1a6a99a-277e-4aed-b8f3-568dc8ec25da","ticker":"QQQM","skip":"IV Rank unavailable â?? bridge offline?"},{"id":"8e3f3de0-d0d6-4abc-a8ba-0b46434f7d43","ticker":"QQQ","skip":"IV Rank unavailable â?? bridge offline?"}]}
+2026-05-20 06:20:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 06:50:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 07:20:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 07:50:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 09:20:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 09:24:48 | skipped - Outside market hours â?? no 24H orders active
