@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser()
     const body = await req.json()
+    console.log('[conditional-orders POST] allow_24h:', body.allow_24h, 'keys:', Object.keys(body))
 
     const { data, error } = await (supabase as any)
       .from('conditional_orders')
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
         not_before_time: body.not_before_time || '10:00',
         not_before_date: body.not_before_date || null,
         expires_at:      body.expires_at      || null,
+        allow_24h:       body.allow_24h       ?? false,
         notes:           body.notes           || null,
       })
       .select()
@@ -65,6 +67,25 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const { body, status } = errorResponse(e)
     return NextResponse.json(body, { status })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { supabase, user } = await requireUser()
+    const id = req.nextUrl.searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+    const { error } = await (supabase as any)
+      .from('conditional_orders')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
+    return NextResponse.json({ ok: true, deleted: id })
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? 'Failed' }, { status: 500 })
   }
 }
 
