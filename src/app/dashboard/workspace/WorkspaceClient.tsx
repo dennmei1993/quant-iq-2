@@ -434,8 +434,8 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
                 <div>
                   <label style={lbSt}>Signal type</label>
                   <select value={macdType} onChange={e => setMacdType(e.target.value as any)} style={inSt}>
-                    <option value="bullish">Bullish cross (MACD → Signal)</option>
-                    <option value="bearish">Bearish cross (sell signal)</option>
+                    <option value="bullish">Bullish — MACD above signal line</option>
+                    <option value="bearish">Bearish — MACD below signal line</option>
                   </select>
                 </div>
               </div>

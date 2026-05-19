@@ -1471,6 +1471,8 @@ def get_macd(symbol: str = "US.AAPL", kl_type: str = "60M"):
                 "prev": { "macd": round(macd_line[n-2], 4), "signal": round(signal_line[n-2], 4), "hist": round(macd_line[n-2] - signal_line[n-2], 4) },
                 "bullish_cross": macd_line[n-2] < signal_line[n-2] and macd_line[n-1] > signal_line[n-1],
                 "bearish_cross": macd_line[n-2] > signal_line[n-2] and macd_line[n-1] < signal_line[n-1],
+                "bullish_state": macd_line[n-1] > signal_line[n-1],  # MACD above signal (ongoing bullish)
+                "bearish_state": macd_line[n-1] < signal_line[n-1],  # MACD below signal (ongoing bearish)
             }
     except HTTPException:
         raise

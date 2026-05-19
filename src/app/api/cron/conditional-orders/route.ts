@@ -47,6 +47,8 @@ async function fetchMACD(ticker: string, period: '1h' | '4h' | '1d', bridgeUrl: 
   prev: { macd: number; signal: number; hist: number }
   bullish_cross: boolean
   bearish_cross: boolean
+  bullish_state: boolean
+  bearish_state: boolean
   candles: number
 }> {
   const klType = period === '1h' ? '1H' : period === '4h' ? '4H' : 'DAY'
@@ -215,7 +217,9 @@ export async function GET(req: NextRequest) {
         const macd = await fetchMACD(order.ticker, macdParams.period, BRIDGE_URL)
         console.log(`[MACD] ${order.ticker} ${macdParams.period}: ${JSON.stringify(macd.curr)} | prev: ${JSON.stringify(macd.prev)} | candles: ${macd.candles}`)
 
-        const triggered = macdParams.type === 'bullish' ? macd.bullish_cross : macd.bearish_cross
+        const triggered = macdParams.type === 'bullish'
+          ? (macd.bullish_cross || macd.bullish_state)   // cross OR already above signal
+          : (macd.bearish_cross || macd.bearish_state)   // cross OR already below signal
 
         if (!triggered) {
           results.push({

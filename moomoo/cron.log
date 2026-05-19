@@ -2,3 +2,15 @@
 2026-05-19 10:25:47 | ERROR: The remote server returned an error: (401) Unauthorized.
 2026-05-19 10:30:47 | ERROR: The remote server returned an error: (401) Unauthorized.
 2026-05-19 10:35:47 | ERROR: The remote server returned an error: (401) Unauthorized.
+2026-05-19 10:40:47 | checked=1 executed=0 et=20:40
+  DETAIL: {"checked":1,"executed":0,"et_time":"20:40","prices":{"TQQQ":"$74.32"},"results":[{"id":"b7335ba8-342b-44a4-b4ea-1316d29b8fc2","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 0.9493 vs Signal 0.9126 â?? curr MACD 0.9079 vs Signal 0.9116"}]}
+2026-05-19 10:45:47 | checked=1 executed=0 et=20:45
+  DETAIL: {"checked":1,"executed":0,"et_time":"20:45","prices":{"TQQQ":"$74.32"},"results":[{"id":"0d3ede82-049d-45da-96e7-e3957f16da88","ticker":"TQQQ","skip":"price 74.32 not below 73"}]}
+2026-05-19 10:48:38 | checked=1 executed=0 et=20:48
+  DETAIL: {"checked":1,"executed":0,"et_time":"20:48","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
+2026-05-19 10:50:47 | checked=1 executed=0 et=20:50
+  DETAIL: {"checked":1,"executed":0,"et_time":"20:50","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
+2026-05-19 10:52:47 | checked=1 executed=0 et=20:52
+  DETAIL: {"checked":1,"executed":0,"et_time":"20:52","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
+2026-05-19 10:54:47 | checked=1 executed=0 et=20:54
+  DETAIL: {"checked":1,"executed":0,"et_time":"20:54","prices":{"TQQQ":"$74.32"},"results":[{"id":"e021e20b-fc0b-45d3-8afc-72e11ce95fb7","ticker":"TQQQ","skip":"MACD bullish cross not detected","detail":"prev MACD 6.546 vs Signal 5.9309 â?? curr MACD 6.2289 vs Signal 5.9905"}]}
