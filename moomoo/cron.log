@@ -56,3 +56,21 @@
   DETAIL: {"checked":2,"executed":0,"et_time":"02:42","prices":{"QQQ":"$701.53"},"results":[{"id":"8093751e-974b-4695-97c0-04c3b3ede2f8","ticker":"QQQ","skip":"waiting for 10:00 ET (now 02:42)"},{"id":"ce56a552-82eb-43d1-b8db-38fe1c27ebb9","ticker":"QQQ","skip":"waiting for 10:00 ET (now 02:42)"}]}
 2026-05-20 16:44:47 | checked=2 executed=0 et=02:44
   DETAIL: {"checked":2,"executed":0,"et_time":"02:44","prices":{"QQQ":"$701.53"},"results":[{"id":"8093751e-974b-4695-97c0-04c3b3ede2f8","ticker":"QQQ","skip":"waiting for 10:00 ET (now 02:44)"},{"id":"ce56a552-82eb-43d1-b8db-38fe1c27ebb9","ticker":"QQQ","skip":"waiting for 10:00 ET (now 02:44)"}]}
+2026-05-20 16:46:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 16:48:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 16:50:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 16:52:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 16:54:47 | checked=2 executed=0 et=02:54
+  DETAIL: {"checked":2,"executed":0,"et_time":"02:54","prices":{"QQQ":"$701.53"},"results":[{"id":"d08cc181-8e2c-4180-91f0-4e864f002170","ticker":"QQQ","skip":"waiting for 10:00 ET (now 02:54)"},{"id":"e7ec6dba-1d99-471c-b17f-472d42bfda5f","ticker":"QQQ","skip":"waiting for 10:00 ET (now 02:54)"}]}
+2026-05-20 16:56:47 | checked=2 executed=0 et=02:56
+  DETAIL: {"checked":2,"executed":0,"et_time":"02:56","prices":{"QQQ":"$701.53"},"results":[{"id":"d08cc181-8e2c-4180-91f0-4e864f002170","ticker":"QQQ","skip":"waiting for 10:00 ET (now 02:56)"},{"id":"e7ec6dba-1d99-471c-b17f-472d42bfda5f","ticker":"QQQ","skip":"waiting for 10:00 ET (now 02:56)"}]}
+2026-05-20 16:58:47 | checked=2 executed=1 et=02:58
+  DETAIL: {"checked":2,"executed":1,"et_time":"02:58","prices":{"QQQ":"$701.53"},"results":[{"id":"d08cc181-8e2c-4180-91f0-4e864f002170","ticker":"QQQ","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146369","account":"327518","trd_env":"SIMULATE","price":134.98},{"id":"d08cc181-8e2c-4180-91f0-4e864f002170","ticker":"QQQ","conditions":"ALL MET","price":701.53,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."},{"id":"e7ec6dba-1d99-471c-b17f-472d42bfda5f","ticker":"QQQ","skip":"Premium unavailable"}]}
+2026-05-20 17:00:47 | checked=1 executed=0 et=03:00
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:00","prices":{"QQQ":"$701.53"},"results":[{"id":"e7ec6dba-1d99-471c-b17f-472d42bfda5f","ticker":"QQQ","skip":"Premium unavailable"}]}
+2026-05-20 17:02:47 | checked=1 executed=0 et=03:02
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:02","prices":{"QQQ":"$701.53"},"results":[{"id":"e7ec6dba-1d99-471c-b17f-472d42bfda5f","ticker":"QQQ","skip":"Premium unavailable"}]}
+2026-05-20 17:04:47 | checked=1 executed=0 et=03:04
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:04","prices":{"QQQ":"$701.53"},"results":[{"id":"e7ec6dba-1d99-471c-b17f-472d42bfda5f","ticker":"QQQ","skip":"Premium unavailable"}]}
+2026-05-20 17:06:47 | checked=1 executed=0 et=03:06
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:06","prices":{"QQQ":"$701.53"},"results":[{"id":"e7ec6dba-1d99-471c-b17f-472d42bfda5f","ticker":"QQQ","skip":"Premium unavailable"}]}

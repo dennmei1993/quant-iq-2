@@ -350,9 +350,10 @@ export async function GET(req: NextRequest) {
         }
 
         // Override option_code and limit_price on the order for execution
+        const mid = (bestContract.bid + bestContract.ask) / 2
         const limitPrice = isSell
-          ? bestContract.bid - 0.01                                           // sell at bid
-          : bestContract.ask * (1 + (criteria.limit_pct ?? 2) / 100)         // buy at ask + buffer
+          ? parseFloat((bestContract.bid - 0.01).toFixed(2))   // sell at bid
+          : parseFloat(mid.toFixed(2))                          // buy at mid (bid/ask midpoint)
 
         // Update order with the selected contract
         await supabase.from('conditional_orders').update({

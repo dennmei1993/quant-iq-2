@@ -657,7 +657,6 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
   const [leg1DeltaMin,   setLeg1DeltaMin]   = useState('0.75')
   const [leg1DeltaMax,   setLeg1DeltaMax]   = useState('0.90')
   const [leg1IvMax,      setLeg1IvMax]      = useState('20')     // max IVR to enter
-  const [leg1LimitPct,   setLeg1LimitPct]   = useState('2')      // % above ask as limit buffer
   const [leg1ExpireDate, setLeg1ExpireDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().slice(0, 10) })
 
   // Leg 2 — Short call sell criteria
@@ -695,8 +694,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
         dte_max:   parseInt(leg1DteMax),
         delta_min: parseFloat(leg1DeltaMin),
         delta_max: parseFloat(leg1DeltaMax),
-        limit_pct: parseFloat(leg1LimitPct),
-        select:    'best_delta',  // selection strategy: closest delta to midpoint
+        select:    'best_delta',  // closest delta to midpoint of range
       }
 
       const leg1Res = await fetch('/api/orders/conditional', {
@@ -827,9 +825,9 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
                 <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Buy when IVR ≤ this</div>
               </div>
               <div>
-                <label style={lbSt}>Limit buffer (%)</label>
-                <input value={leg1LimitPct} onChange={e => setLeg1LimitPct(e.target.value)} type="number" step="0.5" min="0" max="10" style={inSt} />
-                <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Set limit at ask + this %</div>
+                <label style={lbSt}>Limit price</label>
+                <div style={{ padding: '4px 7px', background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 'var(--r-md)', fontSize: 10, color: 'var(--color-info)' }}>Mid (bid+ask)/2</div>
+                <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Cron sets limit at midpoint</div>
               </div>
               <div>
                 <label style={lbSt}>Order expires</label>
