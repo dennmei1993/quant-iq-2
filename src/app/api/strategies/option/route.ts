@@ -32,18 +32,17 @@ export async function DELETE(req: NextRequest) {
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-    // Cancel linked conditional orders first
+    // Clear strategy_id FK on linked conditional orders first
     await (supabase as any)
       .from('conditional_orders')
-      .update({ status: 'cancelled' })
+      .update({ strategy_id: null, status: 'cancelled' })
       .eq('strategy_id', id)
       .eq('user_id', user.id)
-      .neq('status', 'triggered')
 
-    // Mark strategy as closed
+    // Now safe to delete the strategy
     const { error } = await (supabase as any)
       .from('option_strategies')
-      .update({ status: 'closed', closed_at: new Date().toISOString() })
+      .delete()
       .eq('id', id)
       .eq('user_id', user.id)
 

@@ -79,6 +79,13 @@ export async function DELETE(req: NextRequest) {
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
+    // Null out strategy_id FK before deleting
+    await (supabase as any)
+      .from('conditional_orders')
+      .update({ strategy_id: null })
+      .eq('id', id)
+      .eq('user_id', user.id)
+
     const { error } = await (supabase as any)
       .from('conditional_orders')
       .delete()

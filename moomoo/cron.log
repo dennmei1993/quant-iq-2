@@ -20,3 +20,25 @@
   DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
 2026-05-20 22:24:47 | checked=0 executed=0 et=
   DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-20 22:26:47 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-20 22:28:47 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-20 22:30:48 | checked=1 executed=1 et=08:30
+  DETAIL: {"checked":1,"executed":1,"et_time":"08:30","prices":{"QQQ":"$701.53"},"results":[{"id":"7dd8cf8f-5167-41e4-9d25-5a274e4e236a","ticker":"QQQ","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146410","account":"327518","trd_env":"SIMULATE","price":172.44},{"id":"7dd8cf8f-5167-41e4-9d25-5a274e4e236a","ticker":"QQQ","conditions":"ALL MET","price":701.53,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."}]}
+2026-05-20 22:32:47 | checked=1 executed=1 et=08:32
+  DETAIL: {"checked":1,"executed":1,"et_time":"08:32","prices":{"PLTR":"$135.26"},"results":[{"id":"60881fb5-b369-4bdd-bd89-3aed04a45a27","ticker":"PLTR","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146412","account":"327518","trd_env":"SIMULATE","price":54.73},{"id":"60881fb5-b369-4bdd-bd89-3aed04a45a27","ticker":"PLTR","conditions":"ALL MET","price":135.26,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."}]}
+2026-05-20 22:34:47 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-20 22:36:47 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-20 22:38:47 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-20 22:40:47 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-20 22:42:47 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-20 22:44:47 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-20 22:46:47 | checked=0 executed=0 et=
+  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
