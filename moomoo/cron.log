@@ -94,3 +94,9 @@
 2026-05-20 17:36:47 | ERROR: The remote server returned an error: (401) Unauthorized.
 2026-05-20 17:38:47 | ERROR: The remote server returned an error: (401) Unauthorized.
 2026-05-20 17:40:47 | ERROR: The remote server returned an error: (401) Unauthorized.
+2026-05-20 17:42:47 | checked=6 executed=0 et=03:42
+  DETAIL: {"checked":6,"executed":0,"et_time":"03:42","prices":{"QQQ":"$701.53"},"results":[{"id":"964f85d1-fb2e-4812-a6ba-4a9e345c5385","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:42)"},{"id":"eadd3e84-641d-4554-94e6-3f3ed73ea8c9","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:42)"},{"id":"167ba891-1345-4405-8d96-ea8e967f8712","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:42)"},{"id":"4ed02cd3-7c53-4cb3-ac17-26adae7e3314","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:42)"},{"id":"e6415b92-0c6d-40ff-aa0d-74bf62a5e85b","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:42)"},{"id":"9314de5c-583b-467e-8e03-841ad0d4bff9","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:42)"}]}
+2026-05-20 17:44:47 | checked=2 executed=1 et=03:44
+  DETAIL: {"checked":2,"executed":1,"et_time":"03:44","prices":{"QQQ":"$701.53"},"results":[{"id":"f9c317e1-91d8-46c9-84aa-ba55730565a6","ticker":"QQQ","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146371","account":"327518","trd_env":"SIMULATE","price":130.79},{"id":"f9c317e1-91d8-46c9-84aa-ba55730565a6","ticker":"QQQ","conditions":"ALL MET","price":701.53,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."},{"id":"ca39b38f-c0b1-46ed-8c9a-1d1ced0713dc","ticker":"QQQ","skip":"Premium unavailable"}]}
+2026-05-20 17:46:47 | checked=1 executed=0 et=03:46
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:46","prices":{"QQQ":"$701.53"},"results":[{"id":"ca39b38f-c0b1-46ed-8c9a-1d1ced0713dc","ticker":"QQQ","skip":"Premium unavailable"}]}

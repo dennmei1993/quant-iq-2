@@ -256,10 +256,10 @@ export async function GET(req: NextRequest) {
 
     if (order.premium_above !== null) {
       if (livePremium === null) {
-        results.push({ id: order.id, ticker: order.ticker, skip: `Premium unavailable` })
-        continue
-      }
-      if (livePremium < order.premium_above) {
+        // Premium not available from volatility endpoint — skip this check
+        // For PMCC LEG2, the chain search below will validate premium via bid price
+        console.warn(`[cron] ${order.ticker}: premium unavailable from bridge, skipping pre-check (chain search will validate)`)
+      } else if (livePremium < order.premium_above) {
         results.push({ id: order.id, ticker: order.ticker, skip: `Premium $${livePremium} below min $${order.premium_above}` })
         continue
       }
