@@ -496,12 +496,12 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
             <div>
               <label style={lbSt}>Not before (ET)</label>
               <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
-                <option value="">N/A — any time (testing)</option>
                 <option value="09:30">09:30 market open</option>
                 <option value="10:00">10:00</option>
                 <option value="10:30">10:30</option>
                 <option value="11:00">11:00</option>
                 <option value="14:00">14:00</option>
+                <option value="">N/A — any time (testing)</option>
               </select>
             </div>
             <div>
@@ -896,12 +896,12 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
             <div>
               <label style={lbSt}>Not before (ET) — both legs</label>
               <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
-                <option value="">N/A — any time (testing)</option>
                 <option value="09:30">09:30 market open</option>
                 <option value="10:00">10:00 (30 min in)</option>
                 <option value="10:30">10:30 (1 hr in)</option>
                 <option value="11:00">11:00</option>
                 <option value="14:00">14:00</option>
+                <option value="">N/A — any time (testing)</option>
               </select>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: allow24h ? 'rgba(37,99,235,0.04)' : 'var(--bg-subtle)', border: `1px solid ${allow24h ? 'rgba(37,99,235,0.2)' : 'var(--border)'}`, borderRadius: 'var(--r-md)' }}>
@@ -1336,7 +1336,6 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
             <div>
               <label style={lbSt}>Not before (ET time)</label>
               <select value={notBeforeTime} onChange={e => setNotBeforeTime(e.target.value)} style={inSt}>
-                <option value="">N/A — any time (testing)</option>
                 <option value="09:30">09:30 (market open)</option>
                 <option value="10:00">10:00 (30 min after open)</option>
                 <option value="10:30">10:30 (1 hr after open)</option>
@@ -1345,6 +1344,7 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
                 <option value="14:00">14:00</option>
                 <option value="15:00">15:00 (1 hr before close)</option>
                 <option value="15:30">15:30 (30 min before close)</option>
+                <option value="">N/A — any time (testing)</option>
               </select>
             </div>
             <div>
