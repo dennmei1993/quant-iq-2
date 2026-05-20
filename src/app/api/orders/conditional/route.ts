@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
         not_before_date: body.not_before_date || null,
         expires_at:      body.expires_at      || null,
         allow_24h:       body.allow_24h       ?? false,
+        is_active:       body.is_active       ?? true,
+        leg_num:         body.leg_num         ?? null,
+        strategy_id:     body.strategy_id     ?? null,
         notes:           body.notes           || null,
       })
       .select()
@@ -99,7 +102,12 @@ export async function PATCH(req: NextRequest) {
 
     const { error } = await (supabase as any)
       .from('conditional_orders')
-      .update({ status: body.status, updated_at: new Date().toISOString() })
+      .update({
+        ...(body.status      !== undefined && { status:      body.status }),
+        ...(body.strategy_id !== undefined && { strategy_id: body.strategy_id }),
+        ...(body.is_active   !== undefined && { is_active:   body.is_active }),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', id)
       .eq('user_id', user.id)
 

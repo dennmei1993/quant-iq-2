@@ -100,3 +100,11 @@
   DETAIL: {"checked":2,"executed":1,"et_time":"03:44","prices":{"QQQ":"$701.53"},"results":[{"id":"f9c317e1-91d8-46c9-84aa-ba55730565a6","ticker":"QQQ","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146371","account":"327518","trd_env":"SIMULATE","price":130.79},{"id":"f9c317e1-91d8-46c9-84aa-ba55730565a6","ticker":"QQQ","conditions":"ALL MET","price":701.53,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."},{"id":"ca39b38f-c0b1-46ed-8c9a-1d1ced0713dc","ticker":"QQQ","skip":"Premium unavailable"}]}
 2026-05-20 17:46:47 | checked=1 executed=0 et=03:46
   DETAIL: {"checked":1,"executed":0,"et_time":"03:46","prices":{"QQQ":"$701.53"},"results":[{"id":"ca39b38f-c0b1-46ed-8c9a-1d1ced0713dc","ticker":"QQQ","skip":"Premium unavailable"}]}
+2026-05-20 17:48:47 | checked=1 executed=0 et=03:48
+  DETAIL: {"checked":1,"executed":0,"et_time":"03:48","prices":{"QQQ":"$701.53"},"results":[{"id":"ca39b38f-c0b1-46ed-8c9a-1d1ced0713dc","ticker":"QQQ","skip":"Premium unavailable"}]}
+2026-05-20 17:50:47 | checked=2 executed=2 et=03:50
+  DETAIL: {"checked":2,"executed":2,"et_time":"03:50","prices":{"QQQ":"$701.53"},"results":[{"id":"629bb760-2037-4f5a-8193-7935330ed989","ticker":"QQQ","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146372","account":"327518","trd_env":"SIMULATE","price":130.79},{"id":"629bb760-2037-4f5a-8193-7935330ed989","ticker":"QQQ","conditions":"ALL MET","price":701.53,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."},{"id":"3539d804-a127-449d-8e5c-3f132c715ff9","ticker":"QQQ","conditions":"ALL MET","price":9.48,"side":"SELL","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTED","order_id":"2146373","trd_env":"SIMULATE"}]}
+2026-05-20 17:52:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 17:54:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 21:06:59 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 21:07:24 | skipped - Outside market hours â?? no 24H orders active

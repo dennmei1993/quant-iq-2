@@ -103,11 +103,12 @@ export async function GET(req: NextRequest) {
   const now = new Date().toISOString()
   const etTime = getETTime()
 
-  // Fetch all active non-expired orders
+  // Fetch all active non-expired orders — skip is_active=false (LEG2 waiting for LEG1 fill)
   const { data: orders, error } = await (supabase as any)
     .from('conditional_orders')
     .select('*')
     .eq('status', 'active')
+    .or('is_active.is.null,is_active.eq.true')
     .or(`expires_at.is.null,expires_at.gt.${now}`)
 
   if (error) return NextResponse.json({ error: error.message, stage: 'fetch_orders' }, { status: 500 })
@@ -480,6 +481,20 @@ export async function GET(req: NextRequest) {
         const idx = results.findIndex(r => r.id === order.id)
         if (idx >= 0) results[idx] = { ...results[idx], status: 'EXECUTED', order_id: execData.order_id, account: execData.account, trd_env: execData.trd_env, price: execData.price }
         executed++
+
+        // Update option_strategies if this is a PMCC leg
+        if (order.strategy_id && order.leg_num) {
+          const legField = order.leg_num === 1 ? 'leg1_order_ref' : 'leg2_order_ref'
+          const statusUpdate = order.leg_num === 1 ? 'leg1_placed' : 'leg2_placed'
+          await (supabase as any)
+            .from('option_strategies')
+            .update({
+              [legField]:   execData.order_id,
+              status:       statusUpdate,
+              updated_at:   now,
+            })
+            .eq('id', order.strategy_id)
+        }
       } else {
         await (supabase as any)
           .from('conditional_orders')

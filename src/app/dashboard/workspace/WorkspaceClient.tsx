@@ -700,15 +700,14 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
       const leg1Res = await fetch('/api/orders/conditional', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ticker,
-          asset_type:      'option',
-          side:            'BUY',
-          qty:             1,
-          order_type:      'LIMIT',         // cron sets limit at ask + buffer
+          ticker, asset_type: 'option', side: 'BUY', qty: 1,
+          order_type:      'LIMIT',
           iv_rank_below:   parseFloat(leg1IvMax),
-          not_before_time: notBefore,
+          not_before_time: notBefore || null,
           expires_at:      new Date(leg1ExpireDate).toISOString(),
           allow_24h:       allow24h,
+          is_active:       true,   // LEG1 is immediately active
+          leg_num:         1,
           notes:           `PMCC LEG1 CRITERIA:${JSON.stringify(leg1Criteria)} | ${ticker} LEAP δ${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE | Enter IVR≤${leg1IvMax}`,
         }),
       })
@@ -728,16 +727,15 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
       const leg2Res = await fetch('/api/orders/conditional', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ticker,
-          asset_type:      'option',
-          side:            'SELL',
-          qty:             1,
-          order_type:      'LIMIT',         // cron sets limit at bid - small buffer
+          ticker, asset_type: 'option', side: 'SELL', qty: 1,
+          order_type:      'LIMIT',
           iv_rank_above:   parseFloat(leg2IvMin),
           premium_above:   parseFloat(leg2PremMin),
-          not_before_time: notBefore,
+          not_before_time: notBefore || null,
           expires_at:      new Date(leg2ExpireDate).toISOString(),
           allow_24h:       allow24h,
+          is_active:       false,  // LEG2 stays inactive until LEG1 is confirmed filled
+          leg_num:         2,
           notes:           `PMCC LEG2 CRITERIA:${JSON.stringify(leg2Criteria)} | ${ticker} ShortCall δ${leg2DeltaMin}-${leg2DeltaMax} ${leg2DteMin}-${leg2DteMax}DTE | Min bid $${leg2PremMin} IVR≥${leg2IvMin}`,
         }),
       })
@@ -745,7 +743,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
       if (!leg2Res.ok) throw new Error(leg2Data.error ?? 'Leg 2 failed')
 
       // Link both legs in option_strategies
-      await fetch('/api/strategies/option', {
+      const stratRes = await fetch('/api/strategies/option', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type:   'pmcc', ticker,
@@ -759,6 +757,21 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
           notes: `LEAP: δ${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE IVR≤${leg1IvMax} | Short: δ${leg2DeltaMin}-${leg2DeltaMax} ${leg2DteMin}-${leg2DteMax}DTE bid≥$${leg2PremMin}`,
         }),
       })
+      const stratData = await stratRes.json()
+
+      // Link strategy_id back to both conditional orders so cron can update strategy lifecycle
+      if (stratData.strategy?.id) {
+        await Promise.all([
+          fetch(`/api/orders/conditional?id=${leg1Data.order?.id}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ strategy_id: stratData.strategy.id }),
+          }),
+          fetch(`/api/orders/conditional?id=${leg2Data.order?.id}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ strategy_id: stratData.strategy.id }),
+          }),
+        ])
+      }
 
       setSuccess(`PMCC staged ✓ — Cron will search live chain and select best contracts when conditions are met.\nLeg 1 fires when IVR ≤ ${leg1IvMax}. Leg 2 fires when IVR ≥ ${leg2IvMin} and bid ≥ $${leg2PremMin}.`)
     } catch (e: any) { setError(e.message) }

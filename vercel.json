@@ -30,7 +30,8 @@
     {
       "path": "/api/cron/conditional-orders",
       "schedule": "0 1 * * *"
-    }
+    },
+    { "path": "/api/cron/strategy-monitor", "schedule": "0 22 * * 1-5" }
   ],
   "functions": {
     "src/app/api/cron/economic-data/route.ts":       { "maxDuration": 60  },
