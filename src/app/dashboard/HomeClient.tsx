@@ -1083,6 +1083,12 @@ export default function HomeClient({
               >
                 <i className="ti ti-bookmark" aria-hidden /> Watchlist
               </button>
+              <button
+                className="btn btn-outline"
+                onClick={() => router.push(`/dashboard/strategies`)}
+              >
+                <i className="ti ti-chart-candle" aria-hidden /> Strategies
+              </button>
               {hasMoomoo && (!linkedPortfolioId || activeId === linkedPortfolioId) && (
                 <button
                   className="btn btn-outline"
