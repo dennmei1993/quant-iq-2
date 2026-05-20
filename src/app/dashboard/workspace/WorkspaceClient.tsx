@@ -496,6 +496,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
             <div>
               <label style={lbSt}>Not before (ET)</label>
               <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
+                <option value="">N/A — any time (testing)</option>
                 <option value="09:30">09:30 market open</option>
                 <option value="10:00">10:00</option>
                 <option value="10:30">10:30</option>
@@ -895,6 +896,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
             <div>
               <label style={lbSt}>Not before (ET) — both legs</label>
               <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
+                <option value="">N/A — any time (testing)</option>
                 <option value="09:30">09:30 market open</option>
                 <option value="10:00">10:00 (30 min in)</option>
                 <option value="10:30">10:30 (1 hr in)</option>
@@ -1334,6 +1336,7 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
             <div>
               <label style={lbSt}>Not before (ET time)</label>
               <select value={notBeforeTime} onChange={e => setNotBeforeTime(e.target.value)} style={inSt}>
+                <option value="">N/A — any time (testing)</option>
                 <option value="09:30">09:30 (market open)</option>
                 <option value="10:00">10:00 (30 min after open)</option>
                 <option value="10:30">10:30 (1 hr after open)</option>

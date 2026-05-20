@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
 
     // ── Evaluate conditions ────────────────────────────────────────────────────
 
-    // 1. Time gate — must be after not_before_time ET
+    // 1. Time gate — must be after not_before_time ET (skipped if null/empty)
     if (order.not_before_time) {
       const orderMins   = timeToMinutes(order.not_before_time)
       const currentMins = timeToMinutes(etTime)
