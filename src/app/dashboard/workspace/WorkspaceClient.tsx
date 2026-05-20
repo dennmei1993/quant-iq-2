@@ -308,7 +308,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
   const [conditionValue, setConditionValue] = useState(Math.round(currentPrice * 0.97).toString())
   const [macdPeriod,     setMacdPeriod]     = useState<'1h' | '4h' | '1d'>('1h')
   const [macdType,       setMacdType]       = useState<'bullish' | 'bearish'>('bullish')
-  const [notBefore,      setNotBefore]      = useState('09:30')
+  const [notBefore,      setNotBefore]      = useState('')  // default N/A
   const [orderType,      setOrderType]      = useState<'MARKET' | 'LIMIT'>('MARKET')
   const [limitPrice,     setLimitPrice]     = useState(Math.round(currentPrice * 0.97).toString())
   const [qty,            setQty]            = useState(String(Math.max(1, Math.floor(row.amount / currentPrice))))
@@ -496,12 +496,12 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
             <div>
               <label style={lbSt}>Not before (ET)</label>
               <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
+                <option value="">N/A — any time (testing)</option>
                 <option value="09:30">09:30 market open</option>
                 <option value="10:00">10:00</option>
                 <option value="10:30">10:30</option>
                 <option value="11:00">11:00</option>
                 <option value="14:00">14:00</option>
-                <option value="">N/A — any time (testing)</option>
               </select>
             </div>
             <div>
@@ -670,7 +670,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
   const [leg2ExpireDate, setLeg2ExpireDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().slice(0, 10) })
 
   // Timing
-  const [notBefore, setNotBefore] = useState('10:00')
+  const [notBefore, setNotBefore] = useState('')  // default N/A — user must explicitly set a time gate
   const [allow24h,  setAllow24h]  = useState(false)
 
   const [saving,  setSaving]  = useState(false)
@@ -894,12 +894,12 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
             <div>
               <label style={lbSt}>Not before (ET) — both legs</label>
               <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
+                <option value="">N/A — any time (testing)</option>
                 <option value="09:30">09:30 market open</option>
                 <option value="10:00">10:00 (30 min in)</option>
                 <option value="10:30">10:30 (1 hr in)</option>
                 <option value="11:00">11:00</option>
                 <option value="14:00">14:00</option>
-                <option value="">N/A — any time (testing)</option>
               </select>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: allow24h ? 'rgba(37,99,235,0.04)' : 'var(--bg-subtle)', border: `1px solid ${allow24h ? 'rgba(37,99,235,0.2)' : 'var(--border)'}`, borderRadius: 'var(--r-md)' }}>
@@ -1341,8 +1341,8 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
                 <option value="12:00">12:00 (noon)</option>
                 <option value="14:00">14:00</option>
                 <option value="15:00">15:00 (1 hr before close)</option>
-                <option value="15:30">15:30 (30 min before close)</option>
                 <option value="">N/A — any time (testing)</option>
+                <option value="15:30">15:30 (30 min before close)</option>
               </select>
             </div>
             <div>
