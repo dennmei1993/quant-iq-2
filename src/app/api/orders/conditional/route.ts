@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await requireUser()
     const body = await req.json()
-    console.log('[conditional-orders POST] allow_24h:', body.allow_24h, 'keys:', Object.keys(body))
+    console.log('[conditional-orders POST] not_before_time:', JSON.stringify(body.not_before_time), 'allow_24h:', body.allow_24h)
 
     const { data, error } = await (supabase as any)
       .from('conditional_orders')
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         iv_rank_below:   body.iv_rank_below   || null,
         premium_above:   body.premium_above   || null,
         premium_below:   body.premium_below   || null,
-        not_before_time: body.not_before_time || '10:00',
+        not_before_time: body.not_before_time || null,
         not_before_date: body.not_before_date || null,
         expires_at:      body.expires_at      || null,
         allow_24h:       body.allow_24h       ?? false,
