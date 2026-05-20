@@ -81,3 +81,6 @@
   DETAIL: {"checked":2,"executed":0,"et_time":"03:12","prices":{"QQQ":"$701.53"},"results":[{"id":"5a8d92f1-21c2-42a3-802f-0181f6ee62c0","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:12)"},{"id":"65986e11-d04a-4369-b846-738bb0d82b00","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:12)"}]}
 2026-05-20 17:14:47 | checked=2 executed=0 et=03:14
   DETAIL: {"checked":2,"executed":0,"et_time":"03:14","prices":{"QQQ":"$701.53"},"results":[{"id":"5a8d92f1-21c2-42a3-802f-0181f6ee62c0","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:14)"},{"id":"65986e11-d04a-4369-b846-738bb0d82b00","ticker":"QQQ","skip":"waiting for 10:00 ET (now 03:14)"}]}
+2026-05-20 17:16:47 | ERROR: The remote server returned an error: (401) Unauthorized.
+2026-05-20 17:18:47 | ERROR: The remote server returned an error: (401) Unauthorized.
+2026-05-20 17:20:47 | ERROR: The remote server returned an error: (401) Unauthorized.
