@@ -703,7 +703,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
           allow_24h:       allow24h,
           is_active:       true,
           leg_num:         1,
-          notes:           `PMCC LEG1 CRITERIA:${JSON.stringify(leg1Criteria)} | ${ticker} LEAP \u03b4${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE | Enter IVR\u2264${leg1IvMax}`,
+          notes:           `PMCC LEG1 CRITERIA:${JSON.stringify(leg1Criteria)} | ${ticker} LEAP δ${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE | Enter IVR≤${leg1IvMax}`,
         }),
       })
       const leg1Data = await leg1Res.json()
@@ -727,7 +727,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
             allow_24h:       allow24h,
             is_active:       false,
             leg_num:         2,
-            notes:           `PMCC LEG2 CRITERIA:${JSON.stringify(leg2Criteria)} | ${ticker} ShortCall \u03b4${leg2DeltaMin}-${leg2DeltaMax} ${leg2DteMin}-${leg2DteMax}DTE | Min bid $${leg2PremMin} IVR\u2265${leg2IvMin}`,
+            notes:           `PMCC LEG2 CRITERIA:${JSON.stringify(leg2Criteria)} | ${ticker} ShortCall δ${leg2DeltaMin}-${leg2DeltaMax} ${leg2DteMin}-${leg2DteMax}DTE | Min bid $${leg2PremMin} IVR≥${leg2IvMin}`,
           }),
         })
         leg2Data = await leg2Res.json()
@@ -748,8 +748,8 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
             leg2_premium_min:  parseFloat(leg2PremMin),
           }),
           notes: sellCall
-            ? `LEAP: \u03b4${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE IVR\u2264${leg1IvMax} | Short: \u03b4${leg2DeltaMin}-${leg2DeltaMax} ${leg2DteMin}-${leg2DteMax}DTE bid\u2265$${leg2PremMin}`
-            : `LEAPS: \u03b4${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE IVR\u2264${leg1IvMax}`,
+            ? `LEAP: δ${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE IVR≤${leg1IvMax} | Short: δ${leg2DeltaMin}-${leg2DeltaMax} ${leg2DteMin}-${leg2DteMax}DTE bid≥$${leg2PremMin}`
+            : `LEAPS: δ${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE IVR≤${leg1IvMax}`,
         }),
       })
       const stratData = await stratRes.json()
@@ -765,8 +765,8 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
       }
 
       setSuccess(sellCall
-        ? `PMCC staged \u2713 \u2014 Leg 1 fires when IVR \u2264 ${leg1IvMax}. Leg 2 activates after LEAP fills when IVR \u2265 ${leg2IvMin} and bid \u2265 $${leg2PremMin}.`
-        : `LEAPS staged \u2713 \u2014 LEAP buy fires when IVR \u2264 ${leg1IvMax}. Add a short call later to convert to PMCC.`
+        ? `PMCC staged ✓ — Leg 1 fires when IVR ≤ ${leg1IvMax}. Leg 2 activates after LEAP fills when IVR ≥ ${leg2IvMin} and bid ≥ $${leg2PremMin}.`
+        : `LEAPS staged ✓ — LEAP buy fires when IVR ≤ ${leg1IvMax}. Add a short call later to convert to PMCC.`
       )
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
@@ -780,20 +780,20 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Stage Strategy \u2014 Criteria Only</div>
+            <div style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Stage Strategy — Criteria Only</div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600 }}>
-              {sellCall ? 'PMCC' : 'LEAPS'} \u00b7 {ticker}
+              {sellCall ? 'PMCC' : 'LEAPS'} · {ticker}
             </div>
             <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 2 }}>
-              ${price.toFixed(2)} \u00b7 IV {iv.toFixed(1)}%{ivRank !== null ? ` \u00b7 IVR ${ivRank}` : ''}
+              ${price.toFixed(2)} · IV {iv.toFixed(1)}%{ivRank !== null ? ` · IVR ${ivRank}` : ''}
               {ivRank !== null && ivRank <= 20
-                ? <span style={{ marginLeft: 6, color: 'var(--signal-bull)', fontWeight: 600 }}>\u2713 Good time to buy LEAP</span>
+                ? <span style={{ marginLeft: 6, color: 'var(--signal-bull)', fontWeight: 600 }}>✓ Good time to buy LEAP</span>
                 : ivRank !== null
-                ? <span style={{ marginLeft: 6, color: 'var(--signal-neut)' }}>Waiting for IVR \u2264 {leg1IvMax}</span>
+                ? <span style={{ marginLeft: 6, color: 'var(--signal-neut)' }}>Waiting for IVR ≤ {leg1IvMax}</span>
                 : null}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>\u00d7</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
         </div>
 
         {/* How it works */}
@@ -819,7 +819,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
               <div>
                 <label style={lbSt}>Max IV Rank to enter</label>
                 <input value={leg1IvMax} onChange={e => setLeg1IvMax(e.target.value)} type="number" step="1" min="5" max="50" style={inSt} />
-                <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Buy when IVR \u2264 this</div>
+                <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Buy when IVR ≤ this</div>
               </div>
               <div>
                 <label style={lbSt}>Limit price</label>
@@ -839,7 +839,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: sellCall ? 'rgba(185,28,28,0.04)' : 'var(--bg-subtle)', border: `1px solid ${sellCall ? 'rgba(185,28,28,0.25)' : 'var(--border)'}`, borderRadius: 'var(--r-lg)', cursor: 'pointer', userSelect: 'none' as const }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: sellCall ? 'var(--signal-bear)' : 'var(--text)' }}>
-                {sellCall ? '\u2713' : '\u25cb'} Add short call — convert to PMCC
+                {sellCall ? '✓' : '○'} Add short call — convert to PMCC
               </div>
               <div style={{ fontSize: 9, color: 'var(--text-4)', marginTop: 1 }}>
                 {sellCall ? 'Sell OTM call monthly for income. LEG 2 activates only after LEAP fills.' : 'Leave unchecked for a standalone LEAPS position.'}
@@ -867,7 +867,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
                 <div>
                   <label style={lbSt}>Min IV Rank</label>
                   <input value={leg2IvMin} onChange={e => setLeg2IvMin(e.target.value)} type="number" step="1" min="5" max="80" style={inSt} />
-                  <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Sell when IVR \u2265 this</div>
+                  <div style={{ fontSize: 8, color: 'var(--text-4)', marginTop: 2 }}>Sell when IVR ≥ this</div>
                 </div>
                 <div>
                   <label style={lbSt}>Min bid ($/share)</label>
@@ -890,9 +890,9 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
           {/* Timing */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
-              <label style={lbSt}>Not before (ET) \u2014 {sellCall ? 'both legs' : 'LEAP'}</label>
+              <label style={lbSt}>Not before (ET) — {sellCall ? 'both legs' : 'LEAP'}</label>
               <select value={notBefore} onChange={e => setNotBefore(e.target.value)} style={inSt}>
-                <option value="">N/A \u2014 any time (testing)</option>
+                <option value="">N/A — any time (testing)</option>
                 <option value="09:30">09:30 market open</option>
                 <option value="10:00">10:00 (30 min in)</option>
                 <option value="10:30">10:30 (1 hr in)</option>
@@ -902,8 +902,8 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: allow24h ? 'rgba(37,99,235,0.04)' : 'var(--bg-subtle)', border: `1px solid ${allow24h ? 'rgba(37,99,235,0.2)' : 'var(--border)'}`, borderRadius: 'var(--r-md)' }}>
               <div>
-                <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--text)' }}>\ud83d\udd50 24H trading</div>
-                <div style={{ fontSize: 8, color: 'var(--text-4)' }}>Allow pre/after market \u00b7 time gate still applies</div>
+                <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--text)' }}>🕐 24H trading</div>
+                <div style={{ fontSize: 8, color: 'var(--text-4)' }}>Allow pre/after market · time gate still applies</div>
               </div>
               <button onClick={() => setAllow24h((v: boolean) => !v)}
                 style={{ width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', background: allow24h ? 'var(--color-info)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
@@ -915,18 +915,18 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
           {/* Summary */}
           <div style={{ padding: '8px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 9, lineHeight: 1.8, color: 'var(--text-3)' }}>
             <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Execution summary</div>
-            <div><span style={{ color: 'var(--signal-bull)' }}>\u25b6 LEAP</span> \u2014 cron buys best call (\u03b4 {leg1DeltaMin}\u2013{leg1DeltaMax}, {leg1DteMin}\u2013{leg1DteMax} DTE) when <strong style={{ fontFamily: 'var(--font-mono)' }}>IVR \u2264 {leg1IvMax}</strong>{notBefore ? ` after ${notBefore} ET` : ''}</div>
-            {sellCall && <div style={{ marginTop: 2 }}><span style={{ color: 'var(--signal-bear)' }}>\u25b6 Short call</span> \u2014 activates only after LEAP fills. Sells best call (\u03b4 {leg2DeltaMin}\u2013{leg2DeltaMax}, {leg2DteMin}\u2013{leg2DteMax} DTE) when <strong style={{ fontFamily: 'var(--font-mono)' }}>IVR \u2265 {leg2IvMin}</strong> and <strong style={{ fontFamily: 'var(--font-mono)' }}>bid \u2265 ${leg2PremMin}</strong></div>}
+            <div><span style={{ color: 'var(--signal-bull)' }}>▶ LEAP</span> — cron buys best call (δ {leg1DeltaMin}–{leg1DeltaMax}, {leg1DteMin}–{leg1DteMax} DTE) when <strong style={{ fontFamily: 'var(--font-mono)' }}>IVR ≤ {leg1IvMax}</strong>{notBefore ? ` after ${notBefore} ET` : ''}</div>
+            {sellCall && <div style={{ marginTop: 2 }}><span style={{ color: 'var(--signal-bear)' }}>▶ Short call</span> — activates only after LEAP fills. Sells best call (δ {leg2DeltaMin}–{leg2DeltaMax}, {leg2DteMin}–{leg2DteMax} DTE) when <strong style={{ fontFamily: 'var(--font-mono)' }}>IVR ≥ {leg2IvMin}</strong> and <strong style={{ fontFamily: 'var(--font-mono)' }}>bid ≥ ${leg2PremMin}</strong></div>}
           </div>
 
           {error   && <div style={{ fontSize: 10, color: 'var(--signal-bear)', padding: '6px 8px', background: 'rgba(185,28,28,0.05)', border: '1px solid rgba(185,28,28,0.15)', borderRadius: 'var(--r-md)' }}>{error}</div>}
           {success && <div style={{ fontSize: 10, color: 'var(--signal-bull)', padding: '6px 8px', background: 'rgba(21,128,61,0.05)', border: '1px solid rgba(21,128,61,0.15)', borderRadius: 'var(--r-md)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>{success}</div>}
 
           {success
-            ? <button onClick={onStaged} style={{ padding: '7px', fontWeight: 600, fontFamily: 'inherit', fontSize: 11, borderRadius: 'var(--r-md)', cursor: 'pointer', background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.35)', color: 'var(--signal-bull)' }}>Done \u2713</button>
+            ? <button onClick={onStaged} style={{ padding: '7px', fontWeight: 600, fontFamily: 'inherit', fontSize: 11, borderRadius: 'var(--r-md)', cursor: 'pointer', background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.35)', color: 'var(--signal-bull)' }}>Done ✓</button>
             : <button onClick={stage} disabled={saving}
                 style={{ padding: '7px', fontWeight: 600, fontFamily: 'inherit', fontSize: 11, borderRadius: 'var(--r-md)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.5 : 1, background: sellCall ? 'rgba(139,92,246,0.1)' : 'rgba(21,128,61,0.08)', border: `1px solid ${sellCall ? 'rgba(139,92,246,0.35)' : 'rgba(21,128,61,0.3)'}`, color: sellCall ? '#8b5cf6' : 'var(--signal-bull)' }}>
-                {saving ? 'Staging\u2026' : sellCall ? 'Stage PMCC \u2014 2 conditional orders \u2192' : 'Stage LEAPS \u2014 1 conditional order \u2192'}
+                {saving ? 'Staging…' : sellCall ? 'Stage PMCC — 2 conditional orders →' : 'Stage LEAPS — 1 conditional order →'}
               </button>
           }
         </div>
