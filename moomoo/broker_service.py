@@ -1879,17 +1879,23 @@ def conditional_order_monitor():
 
 
 if __name__ == "__main__":
+    import sys
+    # Ensure UTF-8 output on Windows
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     print(f"""
-╔══════════════════════════════════════════════════════════╗
-║         Quant IQ — Broker Bridge v2                      ║
-║                                                          ║
-║  OpenD:    {OPEND_HOST}:{OPEND_PORT:<44}║
-║  Service:  http://localhost:{SERVICE_PORT:<31}║
-║  Docs:     http://localhost:{SERVICE_PORT}/docs                   ║
-║                                                          ║
-║  READ  → real account positions (via TradeContext)       ║
-║  WRITE → simulate account orders (via SimulatedBroker)   ║
-╚══════════════════════════════════════════════════════════╝
++----------------------------------------------------------+
+|         Quant IQ -- Broker Bridge v2                     |
+|                                                          |
+|  OpenD:    {OPEND_HOST}:{OPEND_PORT:<44}|
+|  Service:  http://localhost:{SERVICE_PORT:<31}|
+|  Docs:     http://localhost:{SERVICE_PORT}/docs                   |
+|                                                          |
+|  READ  -> real account positions (via TradeContext)      |
+|  WRITE -> simulate account orders (via SimulatedBroker)  |
++----------------------------------------------------------+
 """)
     # Start conditional order monitor in background thread
     if SUPABASE_URL and SUPABASE_KEY:

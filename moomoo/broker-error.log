@@ -1,0 +1,26 @@
+2026-05-23 09:25:27,262 | INFO | Conditional order monitor started
+2026-05-23 09:25:27,262 | INFO | ✓ Conditional order monitor started (polls every 60s during market hours)
+[32mINFO[0m:     Started server process [[36m14652[0m]
+[32mINFO[0m:     Waiting for application startup.
+2026-05-23 09:25:27,309 | INFO | SimulatedBroker connected to OpenD at 127.0.0.1:11111
+2026-05-23 09:25:27,309 | INFO | Starting cash: $100,000.00
+2026-05-23 09:25:27,310 | INFO | SimulatedBroker ready — cash: $100,000.00
+2026-05-23 09:25:27,315 | INFO | TradeContext opened with firm=FUTUAU, accounts=2
+2026-05-23 09:25:27,319 | INFO | Account list:
+               acc_id   trd_env acc_type      uni_card_num          card_num security_firm sim_acc_type trdmarket_auth acc_status acc_role jp_acc_type
+0  284008278648769324      REAL     CASH  1009265313252165  1009363671938757        FUTUAU          N/A   [HK, US, AU]     ACTIVE   NORMAL          []
+1              203343  SIMULATE     CASH               N/A               N/A           N/A        STOCK           [HK]     ACTIVE      N/A          []
+2026-05-23 09:25:27,333 | INFO | resolve_account: [('284008278648769324', 'REAL'), ('203343', 'SIMULATE')]
+2026-05-23 09:25:27,335 | INFO | Using REAL account: 284008278648769324
+2026-05-23 09:25:27,336 | INFO | TradeContext ready — acc=284008278648769324 env=REAL
+2026-05-23 09:25:27,337 | INFO | Trade PIN: injected per-request from user profile
+2026-05-23 09:25:27,337 | INFO | READ_ACCOUNT=auto | WRITE_ACCOUNT=auto | IS_PROD=False
+[32mINFO[0m:     Application startup complete.
+[31mERROR[0m:    [Errno 10048] error INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-05-23 09:26:16,553 | INFO | SimulatedBroker disconnected.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [12300]
+
+2026-05-23 09:25:27,341 | INFO | SimulatedBroker disconnected.
+[32mINFO[0m:     Application shutdown complete.

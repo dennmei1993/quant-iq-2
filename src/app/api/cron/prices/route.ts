@@ -96,7 +96,11 @@ export async function GET(req: NextRequest) {
       const { results, errors } = await fetchPricesFromBridge(batch, count)
 
       // Handle errors from bridge
-      for (const [ticker, errMsg] of Object.entries(errors)) {
+      const errorEntries = Object.entries(errors)
+      if (errorEntries.length > 0) {
+        console.error(`[cron:prices] Sample errors from bridge:`, JSON.stringify(Object.fromEntries(errorEntries.slice(0, 3))))
+      }
+      for (const [ticker, errMsg] of errorEntries) {
         console.error(`[cron:prices] ${ticker} bridge error: ${errMsg}`)
         failed.push(ticker)
 
