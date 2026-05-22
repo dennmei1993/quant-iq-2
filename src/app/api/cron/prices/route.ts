@@ -53,12 +53,30 @@ export async function GET(req: NextRequest) {
   const targetDate = lastTradingDay()
   const count     = 5  // fetch last 5 days — handles any missed days gracefully
 
-  // Fetch all active bootstrapped tickers
+  // Only fetch prices for tickers in holdings or watchlist
+  const [holdingsRes, userWatchRes, portfolioWatchRes] = await Promise.all([
+    (supabase as any).from('portfolio_holdings').select('ticker').gt('quantity', 0),
+    (supabase as any).from('user_watchlist').select('ticker'),
+    (supabase as any).from('portfolio_watchlist').select('ticker'),
+  ])
+
+  const relevantTickers = [
+    ...new Set([
+      ...(holdingsRes.data       ?? []).map((r: any) => r.ticker),
+      ...(userWatchRes.data      ?? []).map((r: any) => r.ticker),
+      ...(portfolioWatchRes.data ?? []).map((r: any) => r.ticker),
+    ])
+  ] as string[]
+
+  if (!relevantTickers.length) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'No holdings or watchlist tickers found' })
+  }
+
   const { data: assets, error: assetsError } = await (supabase as any)
     .from('assets')
     .select('ticker, asset_type, failure_count')
     .eq('is_active', true)
-    .eq('bootstrapped', true)
+    .in('ticker', relevantTickers)
     .order('ticker')
 
   if (assetsError || !assets?.length) {

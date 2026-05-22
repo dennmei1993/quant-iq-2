@@ -1383,6 +1383,7 @@ def health():
 
 
 
+@app.get("/prices/daily")
 def get_daily_prices(tickers: str, count: int = 5):
     """
     GET /prices/daily?tickers=AAPL,QQQM,TQQQ&count=5
