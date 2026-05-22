@@ -1,44 +1,105 @@
-2026-05-20 22:04:47 | checked=0 executed=0 et=
+2026-05-20 23:05:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 23:20:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-20 23:35:47 | checked=2 executed=0 et=09:35
+  DETAIL: {"checked":2,"executed":0,"et_time":"09:35","prices":{"PLTR":"$132.5","QQQ":"$705.63"},"results":[{"id":"d020cab1-0975-4537-9203-1413baa5533e","ticker":"QQQ","skip":"waiting for 10:00 ET (now 09:35)"},{"id":"dc52a8cb-43a8-471d-a9c6-8dee8d128321","ticker":"PLTR","skip":"waiting for 10:00 ET (now 09:35)"}]}
+2026-05-20 23:50:47 | checked=2 executed=0 et=09:50
+  DETAIL: {"checked":2,"executed":0,"et_time":"09:50","prices":{"PLTR":"$134.56","QQQ":"$707.11"},"results":[{"id":"d020cab1-0975-4537-9203-1413baa5533e","ticker":"QQQ","skip":"waiting for 10:00 ET (now 09:50)"},{"id":"dc52a8cb-43a8-471d-a9c6-8dee8d128321","ticker":"PLTR","skip":"waiting for 10:00 ET (now 09:50)"}]}
+2026-05-21 00:00:44 | checked=2 executed=2 et=10:00
+  DETAIL: {"checked":2,"executed":2,"et_time":"10:00","prices":{"PLTR":"$134.83","QQQ":"$705.71"},"results":[{"id":"d020cab1-0975-4537-9203-1413baa5533e","ticker":"QQQ","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146436","account":"327518","trd_env":"SIMULATE","price":172.27},{"id":"d020cab1-0975-4537-9203-1413baa5533e","ticker":"QQQ","conditions":"ALL MET","price":705.71,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."},{"id":"dc52a8cb-43a8-471d-a9c6-8dee8d128321","ticker":"PLTR","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146437","account":"327518","trd_env":"SIMULATE","price":54},{"id":"dc52a8cb-43a8-471d-a9c6-8dee8d128321","ticker":"PLTR","conditions":"ALL MET","price":134.83,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."}]}
+2026-05-21 00:01:47 | checked=0 executed=0 et=
   DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:06:47 | checked=0 executed=0 et=
+2026-05-21 00:02:47 | checked=0 executed=0 et=
   DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:08:47 | checked=0 executed=0 et=
+2026-05-21 00:03:47 | checked=0 executed=0 et=
   DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:10:47 | checked=0 executed=0 et=
+2026-05-21 00:04:47 | checked=0 executed=0 et=
   DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:12:47 | checked=0 executed=0 et=
+2026-05-21 00:05:47 | checked=0 executed=0 et=
   DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:14:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:16:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:18:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:20:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:22:48 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:24:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:26:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:28:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:30:48 | checked=1 executed=1 et=08:30
-  DETAIL: {"checked":1,"executed":1,"et_time":"08:30","prices":{"QQQ":"$701.53"},"results":[{"id":"7dd8cf8f-5167-41e4-9d25-5a274e4e236a","ticker":"QQQ","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146410","account":"327518","trd_env":"SIMULATE","price":172.44},{"id":"7dd8cf8f-5167-41e4-9d25-5a274e4e236a","ticker":"QQQ","conditions":"ALL MET","price":701.53,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."}]}
-2026-05-20 22:32:47 | checked=1 executed=1 et=08:32
-  DETAIL: {"checked":1,"executed":1,"et_time":"08:32","prices":{"PLTR":"$135.26"},"results":[{"id":"60881fb5-b369-4bdd-bd89-3aed04a45a27","ticker":"PLTR","warn":"IV Rank unavailable â?? proceeding without IV rank check. Deploy 20+ trading days to enable.","status":"EXECUTED","order_id":"2146412","account":"327518","trd_env":"SIMULATE","price":54.73},{"id":"60881fb5-b369-4bdd-bd89-3aed04a45a27","ticker":"PLTR","conditions":"ALL MET","price":135.26,"side":"BUY","qty":1,"order_type":"LIMIT","account":"327518","trading_mode":"paper","status":"EXECUTING..."}]}
-2026-05-20 22:34:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:36:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:38:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:40:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:42:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:44:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
-2026-05-20 22:46:47 | checked=0 executed=0 et=
-  DETAIL: {"checked":0,"executed":0,"debug":"No active orders found"}
+2026-05-21 09:43:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:44:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:45:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:46:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:47:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:48:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:49:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:50:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:51:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:52:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:53:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:54:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:55:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:56:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:57:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:58:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 09:59:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:00:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:01:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:02:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:03:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:04:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:05:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:06:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:07:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:08:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:09:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:10:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:11:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:12:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:13:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:14:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:15:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:16:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:17:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:18:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:19:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:20:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:21:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:22:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:23:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:24:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:25:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:26:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:27:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:28:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:29:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:30:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:31:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:32:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:33:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:34:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:35:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:36:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:37:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:38:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:39:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:40:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:41:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:42:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:43:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:44:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:45:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:46:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:47:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:48:26 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:48:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:50:50 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:51:50 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:52:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:53:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:54:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:55:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:56:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:57:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:58:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 10:59:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:00:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:01:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:02:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:03:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:04:37 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:04:47 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:05:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:06:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:07:48 | skipped - Outside market hours â?? no 24H orders active
+2026-05-21 11:08:48 | skipped - Outside market hours â?? no 24H orders active

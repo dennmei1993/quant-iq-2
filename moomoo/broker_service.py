@@ -1377,7 +1377,93 @@ def get_kline(symbol: str = "US.AAPL", kl_type: str = "60M", count: int = 50):
         raise HTTPException(500, str(e))
 
 
-@app.get("/kline/macd")
+@app.get("/prices/daily")
+def get_daily_prices(tickers: str, count: int = 5):
+    """
+    GET /prices/daily?tickers=AAPL,QQQM,TQQQ&count=5
+    Fetch daily OHLCV for multiple tickers from Moomoo OpenD.
+    Returns a dict keyed by ticker with list of {date, open, high, low, close, volume}.
+    count=5  → last 5 trading days (daily incremental)
+    count=752 → full 3-year history (bootstrap)
+    """
+    import math
+    from datetime import datetime, timedelta
+
+    ticker_list = [t.strip().upper() for t in tickers.split(',') if t.strip()]
+    if not ticker_list:
+        raise HTTPException(400, "No tickers provided")
+
+    # Calculate date range based on count
+    # Add buffer days to account for weekends/holidays
+    buffer_days = max(count * 2, 30)
+    start_date  = (datetime.now() - timedelta(days=buffer_days)).strftime('%Y-%m-%d')
+    end_date    = datetime.now().strftime('%Y-%m-%d')
+
+    def sf(v):
+        try:
+            f = float(v)
+            return None if math.isnan(f) or math.isinf(f) else round(f, 4)
+        except Exception:
+            return None
+
+    results = {}
+    errors  = {}
+
+    for ticker in ticker_list:
+        symbol = f"US.{ticker}" if not ticker.startswith("US.") else ticker
+        try:
+            ctx = ft.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
+            try:
+                ret, data, _ = ctx.request_history_kline(
+                    symbol,
+                    start=start_date,
+                    end=end_date,
+                    ktype=ft.KLType.K_DAY,
+                    autype=ft.AuType.NONE,
+                )
+            finally:
+                ctx.close()
+
+            if ret != ft.RET_OK:
+                errors[ticker] = str(data)
+                continue
+
+            rows = []
+            for _, row in data.iterrows():
+                rows.append({
+                    "date":   str(row.get("time_key", ""))[:10],
+                    "open":   sf(row.get("open",   0)),
+                    "high":   sf(row.get("high",   0)),
+                    "low":    sf(row.get("low",    0)),
+                    "close":  sf(row.get("close",  0)),
+                    "volume": sf(row.get("volume", row.get("turnover", 0))),
+                })
+
+            # Trim to requested count (most recent N days)
+            rows = rows[-count:] if len(rows) > count else rows
+            results[ticker] = rows
+
+        except Exception as e:
+            errors[ticker] = str(e)
+
+    return {
+        "count":   count,
+        "tickers": len(ticker_list),
+        "results": results,
+        "errors":  errors,
+    }
+
+
+@app.get("/prices/bootstrap")
+def bootstrap_prices(ticker: str, count: int = 752):
+    """
+    GET /prices/bootstrap?ticker=AAPL&count=752
+    Fetch full price history for a single ticker (bootstrap).
+    Alias for /prices/daily with count=752.
+    """
+    return get_daily_prices(ticker, count)
+
+
 def get_macd(symbol: str = "US.AAPL", kl_type: str = "60M"):
     """
     Fetch MACD values directly from Moomoo's built-in technical indicator engine.

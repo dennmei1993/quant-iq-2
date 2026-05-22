@@ -102,41 +102,27 @@ export async function POST(req: NextRequest) {
           bootstrapped: false,
         }, { onConflict: 'ticker', ignoreDuplicates: false })
 
-      // Call quant-iq-engine bootstrap endpoint — it fetches FMP history and marks bootstrapped
-      const engineUrl    = process.env.ENGINE_BOOTSTRAP_URL
-      const engineSecret = process.env.ENGINE_CRON_SECRET  // separate from main app CRON_SECRET
+      // Call local bootstrap cron — fetches Moomoo price history via bridge
+      const baseUrl    = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://www.betteroption.com.au'
+      const cronSecret = process.env.CRON_SECRET
 
-      if (engineUrl && engineSecret) {
+      if (cronSecret) {
         try {
-          // Determine asset type and call the right bootstrap endpoint with specific ticker
-          // ETF endpoint: supports ?ticker= param, processes only that ticker
-          // Stock endpoint: supports ?ticker= param, processes only that ticker
-          const isEtf    = name?.toLowerCase().match(/etf|fund|trust|index|shares/) ?? false
-          const endpoint = isEtf
-            ? engineUrl.replace('/stocks', '/etf')
-            : engineUrl  // engineUrl already points to /stocks
+          console.log(`[watchlist] Bootstrapping ${cleanTicker} via local bridge`)
 
-          const targetUrl = `${endpoint}?ticker=${encodeURIComponent(cleanTicker)}`
-          console.log(`[watchlist] Bootstrapping ${cleanTicker} via ${targetUrl}`)
+          const bootstrapRes = await fetch(
+            `${baseUrl}/api/cron/bootstrap?ticker=${encodeURIComponent(cleanTicker)}`,
+            {
+              method:  'GET',
+              headers: { Authorization: `Bearer ${cronSecret}` },
+              signal:  AbortSignal.timeout(60_000),
+            }
+          )
+          const bootstrapData = await bootstrapRes.json().catch(() => ({}))
+          console.log(`[watchlist] Bootstrap result for ${cleanTicker}:`, bootstrapData)
 
-          const engineRes = await fetch(targetUrl, {
-            method:  'GET',
-            headers: { Authorization: `Bearer ${engineSecret}` },
-            signal:  AbortSignal.timeout(60_000), // single ticker should finish in < 60s
-          })
-          const engineData = await engineRes.json().catch(() => ({}))
-          console.log(`[watchlist] Bootstrap result for ${cleanTicker}:`, engineData)
+          const bootstrapped = bootstrapData.bootstrapped > 0
 
-          // Check if our ticker got bootstrapped
-          const { data: afterBootstrap } = await serviceClient
-            .from('assets')
-            .select('bootstrapped')
-            .eq('ticker', cleanTicker)
-            .maybeSingle()
-
-          const bootstrapped = afterBootstrap?.bootstrapped ?? (engineData.rowsWritten > 0)
-
-          // Count rows inserted
           const { count } = await serviceClient
             .from('daily_prices')
             .select('*', { count: 'exact', head: true })
@@ -148,13 +134,13 @@ export async function POST(req: NextRequest) {
             price_rows:  count ?? 0,
             message:     bootstrapped
               ? `Added ${cleanTicker} with ${count ?? 0} days of price history`
-              : `Added ${cleanTicker} — bootstrap queued, check back shortly`,
+              : `Added ${cleanTicker} — bootstrap failed: ${bootstrapData.failures?.[0]?.error ?? 'unknown'}`,
           }, { status: 201 })
         } catch (e: any) {
-          console.warn(`[watchlist] Engine bootstrap failed: ${e.message}`)
+          console.warn(`[watchlist] Bootstrap failed: ${e.message}`)
         }
       } else {
-        console.warn('[watchlist] ENGINE_BOOTSTRAP_URL or CRON_SECRET not set — bootstrap skipped')
+        console.warn('[watchlist] CRON_SECRET not set — bootstrap skipped')
       }
     }
 

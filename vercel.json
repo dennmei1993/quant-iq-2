@@ -1,45 +1,20 @@
 {
   "crons": [
-    { "path": "/api/cron/economic-data",      "schedule": "0 6 * * *" },
-    { "path": "/api/cron/ingest",             "schedule": "0 8 * * *" },
-    { "path": "/api/cron/macro",              "schedule": "0 9 * * *" },
-    { "path": "/api/cron/themes",             "schedule": "0 10 * * *" },
-    { "path": "/api/cron/regime",             "schedule": "0 11 * * *" },
-    { "path": "/api/cron/market-intelligence","schedule": "0 12 * * *" },
-    { "path": "/api/cron/fmp",                "schedule": "0 6 * * 1" },
-     {
-      "path": "/api/cron/validate-universe",
-      "schedule": "0 6 * * 1-5"
-    },
-    {
-      "path": "/api/cron/ingest-politician-trades",
-      "schedule": "0 8 * * 1-5"
-    },
-    {
-      "path": "/api/cron/ingest-berkshire",
-      "schedule": "0 8 1 3,6,9,12 *"
-    },
-    {
-      "path": "/api/cron/ingest-13f",
-      "schedule": "0 9 1 3,6,9,12 *"
-    },
-    {
-      "path": "/api/cron/resolve-cusips",
-      "schedule": "0 10 * * 1-5"
-    },
     {
       "path": "/api/cron/conditional-orders",
-      "schedule": "0 1 * * *"
+      "schedule": "* * * * *"
     },
-    { "path": "/api/cron/strategy-monitor", "schedule": "0 22 * * 1-5" }
-  ],
-  "functions": {
-    "src/app/api/cron/economic-data/route.ts":       { "maxDuration": 60  },
-    "src/app/api/cron/ingest/route.ts":              { "maxDuration": 300 },
-    "src/app/api/cron/macro/route.ts":               { "maxDuration": 300 },
-    "src/app/api/cron/themes/route.ts":              { "maxDuration": 300 },
-    "src/app/api/cron/regime/route.ts":              { "maxDuration": 60  },
-    "src/app/api/cron/market-intelligence/route.ts": { "maxDuration": 300 },
-    "src/app/api/cron/fmp/route.ts":          { "maxDuration": 300 }
-  }
+    {
+      "path": "/api/cron/prices",
+      "schedule": "0 22 * * 1-5"
+    },
+    {
+      "path": "/api/cron/bootstrap",
+      "schedule": "0 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/strategy-monitor",
+      "schedule": "0 22 * * 1-5"
+    }
+  ]
 }
