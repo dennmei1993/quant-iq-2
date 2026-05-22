@@ -69,7 +69,20 @@ export async function GET(req: NextRequest) {
   const failureMap = Object.fromEntries(assets.map((a: any) => [a.ticker, a.failure_count ?? 0]))
   const totalCount = tickers.length
 
-  console.log(`[cron:prices] Fetching ${totalCount} tickers via Moomoo bridge · target date: ${targetDate}`)
+  // Quick connectivity check before processing all tickers
+  try {
+    const pingRes = await fetch(`${BRIDGE_URL}/health`, { signal: AbortSignal.timeout(5000) })
+    if (!pingRes.ok) throw new Error(`Bridge health check failed: ${pingRes.status}`)
+  } catch (e: any) {
+    console.error(`[cron:prices] Bridge unreachable at ${BRIDGE_URL}: ${e.message}`)
+    return NextResponse.json({
+      ok:    false,
+      error: `Bridge unreachable at ${BRIDGE_URL} — ensure Moomoo bridge is running and BRIDGE_URL env var points to the tunnel URL`,
+      hint:  'Set BRIDGE_URL in Vercel env vars to your Cloudflare tunnel URL (e.g. https://xxx.trycloudflare.com)',
+    }, { status: 503 })
+  }
+
+  console.log(`[cron:prices] Bridge reachable at ${BRIDGE_URL}`)
 
   let totalRows    = 0
   const failed:      string[] = []

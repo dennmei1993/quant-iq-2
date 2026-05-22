@@ -1377,7 +1377,12 @@ def get_kline(symbol: str = "US.AAPL", kl_type: str = "60M", count: int = 50):
         raise HTTPException(500, str(e))
 
 
-@app.get("/prices/daily")
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "quant-iq-bridge"}
+
+
+
 def get_daily_prices(tickers: str, count: int = 5):
     """
     GET /prices/daily?tickers=AAPL,QQQM,TQQQ&count=5
