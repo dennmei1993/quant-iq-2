@@ -102,35 +102,46 @@ export async function POST(req: NextRequest) {
           bootstrapped: false,
         }, { onConflict: 'ticker', ignoreDuplicates: false })
 
-      // Call local bootstrap cron — fire and forget, don't block the response
+      // Call local bootstrap cron — fetches Moomoo price history via bridge
       const baseUrl    = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://www.betteroption.com.au'
       const cronSecret = process.env.CRON_SECRET
 
       if (cronSecret) {
-        // Don't await — bootstrap in background
-        fetch(
-          `${baseUrl}/api/cron/bootstrap?ticker=${encodeURIComponent(cleanTicker)}`,
-          {
-            method:  'GET',
-            headers: { Authorization: `Bearer ${cronSecret}` },
-            signal:  AbortSignal.timeout(120_000),
-          }
-        ).then(r => r.json()).then(d => {
-          console.log(`[watchlist] Bootstrap result for ${cleanTicker}:`, d)
-        }).catch(e => {
-          console.warn(`[watchlist] Bootstrap failed for ${cleanTicker}: ${e.message}`)
-        })
+        try {
+          console.log(`[watchlist] Bootstrapping ${cleanTicker} via local bridge`)
+
+          const bootstrapRes = await fetch(
+            `${baseUrl}/api/cron/bootstrap?ticker=${encodeURIComponent(cleanTicker)}`,
+            {
+              method:  'GET',
+              headers: { Authorization: `Bearer ${cronSecret}` },
+              signal:  AbortSignal.timeout(60_000),
+            }
+          )
+          const bootstrapData = await bootstrapRes.json().catch(() => ({}))
+          console.log(`[watchlist] Bootstrap result for ${cleanTicker}:`, bootstrapData)
+
+          const bootstrapped = bootstrapData.bootstrapped > 0
+
+          const { count } = await serviceClient
+            .from('daily_prices')
+            .select('*', { count: 'exact', head: true })
+            .eq('ticker', cleanTicker)
+
+          return NextResponse.json({
+            entry:       data,
+            bootstrapped,
+            price_rows:  count ?? 0,
+            message:     bootstrapped
+              ? `Added ${cleanTicker} with ${count ?? 0} days of price history`
+              : `Added ${cleanTicker} — bootstrap failed: ${bootstrapData.failures?.[0]?.error ?? 'unknown'}`,
+          }, { status: 201 })
+        } catch (e: any) {
+          console.warn(`[watchlist] Bootstrap failed: ${e.message}`)
+        }
       } else {
         console.warn('[watchlist] CRON_SECRET not set — bootstrap skipped')
       }
-
-      // Return immediately — don't wait for bootstrap
-      return NextResponse.json({
-        entry:       data,
-        bootstrapped: false,
-        price_rows:  0,
-        message:     `Added ${cleanTicker} — price history loading in background`,
-      }, { status: 201 })
     }
 
     return NextResponse.json({ entry: data, bootstrapped: !!existing?.bootstrapped }, { status: 201 })
