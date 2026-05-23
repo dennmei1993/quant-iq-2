@@ -20,17 +20,28 @@ function isCronAuthorised(req: NextRequest): boolean {
   return auth === expected || auth === fallback
 }
 
-async function bootstrapTicker(ticker: string, supabase: any): Promise<{ rows: number; error?: string }> {
+async function bootstrapTicker(ticker: string, supabase: any, count: number = 752): Promise<{ rows: number; error?: string }> {
   try {
-    // Fetch full 3-year history from bridge
+    const { data: asset } = await supabase
+      .from('assets')
+      .select('exchange, country')
+      .eq('ticker', ticker)
+      .single()
+
+    let moomooTicker = ticker
+    const exchange = asset?.exchange?.toUpperCase() ?? ''
+    const country  = asset?.country?.toUpperCase()  ?? ''
+    if (exchange === 'ASX' || country === 'AU') moomooTicker = `AU.${ticker}`
+    else if (exchange === 'HKEX' || country === 'HK') moomooTicker = `HK.${ticker}`
+
     const res = await fetch(
-      `${BRIDGE_URL}/prices/bootstrap?ticker=${ticker}&count=752`,
+      `${BRIDGE_URL}/prices/bootstrap?ticker=${encodeURIComponent(moomooTicker)}&count=${count}`,
       { signal: AbortSignal.timeout(30000) }
     )
     if (!res.ok) throw new Error(`Bridge ${res.status}`)
     const d = await res.json()
 
-    const rows = (d.results?.[ticker] ?? [])
+    const rows = (d.results?.[moomooTicker] ?? d.results?.[ticker] ?? [])
       .filter((r: any) => r.close !== null && r.date)
       .map((r: any) => ({
         ticker,
@@ -80,6 +91,7 @@ export async function GET(req: NextRequest) {
 
   const supabase     = createServiceClient()
   const singleTicker = req.nextUrl.searchParams.get('ticker')?.toUpperCase()
+  const countParam   = parseInt(req.nextUrl.searchParams.get('count') ?? '752')
   const start        = Date.now()
 
   let tickers: string[] = []
@@ -112,7 +124,7 @@ export async function GET(req: NextRequest) {
 
   // Sequential — bridge has fixed overhead, parallelism doesn't help much
   for (const ticker of tickers) {
-    const result = await bootstrapTicker(ticker, supabase)
+    const result = await bootstrapTicker(ticker, supabase, countParam)
     results.push({ ticker, ...result })
     console.log(`[cron:bootstrap] ${ticker}: ${result.error ? `ERROR — ${result.error}` : `${result.rows} rows`}`)
   }

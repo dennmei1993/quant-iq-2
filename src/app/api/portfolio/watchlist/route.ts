@@ -102,24 +102,25 @@ export async function POST(req: NextRequest) {
           bootstrapped: false,
         }, { onConflict: 'ticker', ignoreDuplicates: false })
 
-      // Call local bootstrap cron — fire and forget, don't block the response
+      // Fire-and-forget bootstrap — fetch recent 10 days first (fast), full history separately
       const baseUrl    = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://www.betteroption.com.au'
       const cronSecret = process.env.CRON_SECRET
 
       if (cronSecret) {
-        // Don't await — bootstrap in background
+        // Quick recent prices first (count=10, fast)
         fetch(
-          `${baseUrl}/api/cron/bootstrap?ticker=${encodeURIComponent(cleanTicker)}`,
-          {
-            method:  'GET',
-            headers: { Authorization: `Bearer ${cronSecret}` },
-            signal:  AbortSignal.timeout(120_000),
-          }
+          `${baseUrl}/api/cron/bootstrap?ticker=${encodeURIComponent(cleanTicker)}&count=10`,
+          { method: 'GET', headers: { Authorization: `Bearer ${cronSecret}` }, signal: AbortSignal.timeout(30_000) }
         ).then(r => r.json()).then(d => {
-          console.log(`[watchlist] Bootstrap result for ${cleanTicker}:`, d)
-        }).catch(e => {
-          console.warn(`[watchlist] Bootstrap failed for ${cleanTicker}: ${e.message}`)
-        })
+          console.log(`[watchlist] Quick bootstrap for ${cleanTicker}:`, d)
+          // Then kick off full history in background
+          fetch(
+            `${baseUrl}/api/cron/bootstrap?ticker=${encodeURIComponent(cleanTicker)}`,
+            { method: 'GET', headers: { Authorization: `Bearer ${cronSecret}` }, signal: AbortSignal.timeout(120_000) }
+          ).then(r2 => r2.json()).then(d2 => {
+            console.log(`[watchlist] Full bootstrap for ${cleanTicker}:`, d2)
+          }).catch(e => console.warn(`[watchlist] Full bootstrap failed: ${e.message}`))
+        }).catch(e => console.warn(`[watchlist] Quick bootstrap failed for ${cleanTicker}: ${e.message}`))
       } else {
         console.warn('[watchlist] CRON_SECRET not set — bootstrap skipped')
       }
