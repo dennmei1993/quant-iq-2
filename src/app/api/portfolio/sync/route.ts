@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, errorResponse } from '@/lib/supabase'
 
-const BRIDGE_URL = process.env.BROKER_BRIDGE_URL ?? 'http://127.0.0.1:8765'
+const BRIDGE_URL = process.env.BRIDGE_URL ?? process.env.BROKER_BRIDGE_URL ?? 'http://127.0.0.1:8765'
 
 export async function POST(req: NextRequest) {
   try {
@@ -118,45 +118,33 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Bootstrap any holdings not yet in daily_prices ────────────────────────
-    const engineUrl    = process.env.ENGINE_BOOTSTRAP_URL
-    const engineSecret = process.env.ENGINE_CRON_SECRET
-    if (engineUrl && engineSecret && liveTickers.length > 0) {
+    const cronSecret = process.env.CRON_SECRET
+    const baseUrl    = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://www.betteroption.com.au'
+
+    if (cronSecret && liveTickers.length > 0) {
       try {
-        // Find which tickers are missing or not bootstrapped
         const { data: assetRows } = await supabase
           .from('assets')
           .select('ticker, bootstrapped, asset_type')
           .in('ticker', liveTickers)
 
-        const assetMap = Object.fromEntries((assetRows ?? []).map((a: any) => [a.ticker, a]))
-
+        const assetMap    = Object.fromEntries((assetRows ?? []).map((a: any) => [a.ticker, a]))
         const toBootstrap = liveTickers.filter(t => !assetMap[t] || !assetMap[t].bootstrapped)
 
         if (toBootstrap.length > 0) {
           // Upsert missing tickers into assets first
           const missing = toBootstrap.filter(t => !assetMap[t])
           if (missing.length > 0) {
-            await supabase
-              .from('assets')
-              .upsert(
-                missing.map(t => ({
-                  ticker:       t,
-                  asset_type:   'stock',
-                  is_active:    true,
-                  bootstrapped: false,
-                  name:         t,
-                })),
-                { onConflict: 'ticker', ignoreDuplicates: true }
-              )
+            await supabase.from('assets').upsert(
+              missing.map(t => ({ ticker: t, asset_type: 'stock', is_active: true, bootstrapped: false, name: t })),
+              { onConflict: 'ticker', ignoreDuplicates: true }
+            )
           }
 
-          // Bootstrap each unbootstrapped ticker via engine — fire and forget
-          const baseUrl = engineUrl.replace('/stocks', '')
+          // Bootstrap each ticker via local bootstrap cron — fire and forget
           for (const t of toBootstrap) {
-            const isEtf    = assetMap[t]?.asset_type === 'etf'
-            const endpoint = isEtf ? `${baseUrl}/etf` : `${baseUrl}/stocks`
-            fetch(`${endpoint}?ticker=${encodeURIComponent(t)}`, {
-              headers: { Authorization: `Bearer ${engineSecret}` },
+            fetch(`${baseUrl}/api/cron/bootstrap?ticker=${encodeURIComponent(t)}`, {
+              headers: { Authorization: `Bearer ${cronSecret}` },
               signal:  AbortSignal.timeout(60_000),
             }).catch(() => {})
           }
