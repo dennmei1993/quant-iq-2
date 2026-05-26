@@ -410,7 +410,8 @@ export async function GET(req: NextRequest) {
       const profile = order.profile
       const tradePwd = profile?.moomoo_password ?? ''
       const tradeAccount = profile?.trade_account ?? ''
-      const tradingMode = profile?.trading_mode ?? 'paper'
+      // Per-order trading_mode overrides profile default
+      const tradingMode = order.trading_mode ?? profile?.trading_mode ?? 'paper'
 
       // Log what we're about to execute
       results.push({

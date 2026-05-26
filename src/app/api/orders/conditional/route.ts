@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
         not_before_date: body.not_before_date || null,
         expires_at:      body.expires_at      || null,
         allow_24h:       body.allow_24h       ?? false,
+        trading_mode:    body.trading_mode    ?? 'paper',
         is_active:       body.is_active       ?? true,
         leg_num:         body.leg_num         ?? null,
         strategy_id:     body.strategy_id     ?? null,

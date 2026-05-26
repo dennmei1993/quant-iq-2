@@ -296,6 +296,49 @@ function BuilderSearchPanel({ ticker, spot, expiries, onResults, searching, setS
 
 // ── DCA Stage Modal ──────────────────────────────────────────────────────────
 
+// ── Account Toggle — Paper vs Live ───────────────────────────────────────────
+
+function AccountToggle({ value, onChange }: {
+  value:    'paper' | 'live'
+  onChange: (v: 'paper' | 'live') => void
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {(['paper', 'live'] as const).map(m => (
+        <button key={m} onClick={() => onChange(m)} style={{
+          flex: 1, padding: '4px 0', borderRadius: 'var(--r-md)', cursor: 'pointer',
+          fontFamily: 'inherit', fontSize: 10, fontWeight: value === m ? 700 : 400,
+          background: value === m
+            ? m === 'live' ? 'rgba(185,28,28,0.1)' : 'rgba(37,99,235,0.08)'
+            : 'none',
+          border: `1px solid ${value === m
+            ? m === 'live' ? 'rgba(185,28,28,0.4)' : 'rgba(37,99,235,0.3)'
+            : 'var(--border)'}`,
+          color: value === m
+            ? m === 'live' ? 'var(--signal-bear)' : 'var(--color-info)'
+            : 'var(--text-4)',
+          transition: 'all 0.15s',
+        }}>
+          {m === 'paper' ? '📄 Paper' : '⚡ Live'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function AccountToggleRow({ value, onChange }: { value: 'paper' | 'live'; onChange: (v: 'paper' | 'live') => void }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <AccountToggle value={value} onChange={onChange} />
+      {value === 'live' && (
+        <div style={{ fontSize: 8, color: 'var(--signal-bear)', padding: '4px 7px', background: 'rgba(185,28,28,0.05)', border: '1px solid rgba(185,28,28,0.15)', borderRadius: 'var(--r-md)', lineHeight: 1.5 }}>
+          ⚠ Live order — real money. Executes in your real Moomoo account.
+        </div>
+      )}
+    </div>
+  )
+}
+
 function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
   row:          any
   idx:          number
@@ -317,6 +360,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
     return d.toISOString().slice(0, 10)
   })
   const [allow24h,       setAllow24h]       = useState(false)
+  const [tradingMode,    setTradingMode]    = useState<'paper' | 'live'>('paper')
   const [saving,         setSaving]         = useState(false)
   const [error,          setError]          = useState('')
 
@@ -348,6 +392,7 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
         not_before_time: notBefore,
         expires_at:      expireDate ? new Date(expireDate).toISOString() : new Date(Date.now() + 30 * 86400000).toISOString(),
         allow_24h:       allow24h,
+        trading_mode:    tradingMode,
         notes:           `DCA #${row.num} — ${conditionLabels[condition]}`,
       }
 
@@ -525,6 +570,12 @@ function DCAStageModal({ row, idx, ticker, currentPrice, onClose, onStaged }: {
             </button>
           </div>
 
+          {/* Account toggle */}
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 500, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Account</div>
+            <AccountToggleRow value={tradingMode} onChange={setTradingMode} />
+          </div>
+
           {/* Summary */}
           <div style={{ padding: '8px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-xs)', color: 'var(--text-3)', lineHeight: 1.7 }}>
             <strong style={{ color: 'var(--text)' }}>Summary: </strong>
@@ -673,6 +724,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
   // ── Timing ─────────────────────────────────────────────────────────────────
   const [notBefore, setNotBefore] = useState('')
   const [allow24h,  setAllow24h]  = useState(false)
+  const [tradingMode, setTradingMode] = useState<'paper' | 'live'>('paper')
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState('')
   const [success,   setSuccess]   = useState('')
@@ -701,6 +753,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
           not_before_time: notBefore || null,
           expires_at:      new Date(leg1ExpireDate).toISOString(),
           allow_24h:       allow24h,
+          trading_mode:    tradingMode,
           is_active:       true,
           leg_num:         1,
           notes:           `PMCC LEG1 CRITERIA:${JSON.stringify(leg1Criteria)} | ${ticker} LEAP δ${leg1DeltaMin}-${leg1DeltaMax} ${leg1DteMin}-${leg1DteMax}DTE | Enter IVR≤${leg1IvMax}`,
@@ -725,6 +778,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
             not_before_time: notBefore || null,
             expires_at:      new Date(leg2ExpireDate).toISOString(),
             allow_24h:       allow24h,
+            trading_mode:    tradingMode,
             is_active:       false,
             leg_num:         2,
             notes:           `PMCC LEG2 CRITERIA:${JSON.stringify(leg2Criteria)} | ${ticker} ShortCall δ${leg2DeltaMin}-${leg2DeltaMax} ${leg2DteMin}-${leg2DteMax}DTE | Min bid $${leg2PremMin} IVR≥${leg2IvMin}`,
@@ -887,7 +941,7 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
             </div>
           )}
 
-          {/* Timing */}
+          {/* Timing + Account */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
               <label style={lbSt}>Not before (ET) — {sellCall ? 'both legs' : 'LEAP'}</label>
@@ -910,6 +964,12 @@ function PMCCStageModal({ ticker, price, iv, ivRank, expiries, onClose, onStaged
                 <span style={{ position: 'absolute', top: 1, left: allow24h ? 17 : 1, width: 18, height: 18, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
               </button>
             </div>
+          </div>
+
+          {/* Account selection */}
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 500, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Account</div>
+            <AccountToggleRow value={tradingMode} onChange={setTradingMode} />
           </div>
 
           {/* Summary */}
@@ -1178,6 +1238,7 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
   const [expiresIn,     setExpiresIn]     = useState('1d')
   const [notes,         setNotes]         = useState(suggestion?.rationale ?? '')
   const [allow24h,      setAllow24h]      = useState(suggestion?.allow_24h ?? false)
+  const [tradingMode,   setTradingMode]   = useState<'paper' | 'live'>(suggestion?.trading_mode ?? 'paper')
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState('')
 
@@ -1211,6 +1272,7 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
           not_before_time: notBeforeTime,
           expires_at:      expiresAt,
           allow_24h:       allow24h,
+          trading_mode:    tradingMode,
           notes:           notes || (mode === 'immediate' ? 'Immediate — execute at market open' : null),
         }),
       })
@@ -1367,6 +1429,12 @@ function ConditionalOrderModal({ ticker, currentPrice, suggestion, onClose, onCr
               style={{ flexShrink: 0, marginLeft: 12, width: 40, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer', background: allow24h ? 'var(--color-info)' : 'var(--border)', position: 'relative', transition: 'background 0.2s' }}>
               <span style={{ position: 'absolute', top: 1, left: allow24h ? 19 : 1, width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
             </button>
+          </div>
+
+          {/* Account selection */}
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 500, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Account</div>
+            <AccountToggleRow value={tradingMode} onChange={setTradingMode} />
           </div>
           </div>
 
